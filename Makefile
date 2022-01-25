@@ -12,3 +12,6 @@ check-style:
 
 test:
 	poetry run pytest --random-order tests/
+
+test-coverage:
+	poetry run pytest --random-order --cov=tfrlrl --cov-config=setup.cfg tests/
