@@ -9,3 +9,6 @@ install-dev:
 
 check-style:
 	poetry run flake8 src/tfrlrl tests
+
+test:
+	poetry run pytest --random-order tests/
