@@ -12,6 +12,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Build docker image
+      run: |
+        make docker-build
     - name: Set up Python 3.10
       uses: actions/setup-python@v2
       with:
