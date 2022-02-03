@@ -12,19 +12,23 @@ class Sampler:
     class provides iterable support, see https://docs.python.org/3/library/stdtypes.html#typeiter.
     """
 
-    def __init__(self, env_id: str):
+    def __init__(self, env_id: str, n_steps: int = None):
         """
         Initialise the instance of the Sampler. This entails initialising the environment and setting member variables.
 
         :param env_id: The Gym environment ID to be used in the sampling.
+        :param n_steps: If given, the number of steps to sample from the environment. If not given, then there is no
+        limit on the number of sampled steps.
         """
-        self.env = gym.make(env_id)
-        self.observation = None
-        self.next_observation = None
-        self.action = None
-        self.reward = None
-        self.done = True
-        self.info = None
+        self._env = gym.make(env_id)
+        self._n_steps = n_steps
+        self._n_steps_taken = 0
+        self._observation = None
+        self._next_observation = None
+        self._action = None
+        self._reward = None
+        self._done = True
+        self._info = None
 
     def __iter__(self):
         """Ensure that the Sampler class supports the iterable protocol."""
@@ -32,11 +36,15 @@ class Sampler:
 
     def __next__(self) -> (NDArray, Union[int, float, NDArray], NDArray, float, bool, Dict):
         """Return the next item in the sampler iterator. If this is not possible, raise a StopIteration exception."""
-        if self.done:
-            self.observation = self.env.reset()
-        else:
-            self.observation = self.next_observation
+        if self._n_steps is not None and self._n_steps_taken >= self._n_steps:
+            raise StopIteration
 
-        action = self.env.action_space.sample()
-        self.next_observation, self.reward, self.done, self.info = self.env.step(action)
-        return self.observation, self.action, self.next_observation, self.reward, self.done, self.info
+        if self._done:
+            self._observation = self._env.reset()
+        else:
+            self._observation = self._next_observation
+
+        self._action = self._env.action_space.sample()
+        self._next_observation, self._reward, self._done, self._info = self._env.step(self._action)
+        self._n_steps_taken += 1
+        return self._observation, self._action, self._next_observation, self._reward, self._done, self._info
