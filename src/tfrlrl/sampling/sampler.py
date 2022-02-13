@@ -1,9 +1,11 @@
 from typing import Dict, Union
 
 import gym
+import ray
 from numpy.typing import NDArray
 
 
+@ray.remote
 class Sampler:
     """
     This class provides functionality to sample from a given Gym environment.
@@ -48,3 +50,16 @@ class Sampler:
         self._next_observation, self._reward, self._done, self._info = self._env.step(self._action)
         self._n_steps_taken += 1
         return self._observation, self._action, self._next_observation, self._reward, self._done, self._info
+
+
+class RaySampler:
+
+    def __init__(self, env_id: str, n_envs: int, n_steps: int = None):
+        self._envs = [Sampler.remote(env_id=env_id, n_steps=n_steps) for _ in range(n_envs)]
+
+    def __iter__(self):
+        return self
+
+    def __next__(self) -> (NDArray, Union[int, float, NDArray], NDArray, float, bool, Dict):
+        results = ray.get([env.__next__.remote() for env in self._envs])
+        return results
