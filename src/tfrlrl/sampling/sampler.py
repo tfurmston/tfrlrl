@@ -53,13 +53,27 @@ class Sampler:
 
 
 class RaySampler:
+    """
+    This class provides functionality to sample from multiple instances of a given Gym environment through Ray.
+
+    The class uses Ray to distribute the samplimng across the different environments.
+    """
 
     def __init__(self, env_id: str, n_envs: int, n_steps: int = None):
+        """
+        Initialise instance of the RaySampler. This entails initialising the environment and setting member variables.
+
+        :param env_id: The Gym environment ID to be used in the sampling.
+        :param n_envs: The number of environments from which to sample.
+        :param n_steps: If given, the number of steps to sample from the environment. If not given, then there is no
+        limit on the number of sampled steps.
+        """
         self._envs = [Sampler.remote(env_id=env_id, n_steps=n_steps) for _ in range(n_envs)]
 
     def __iter__(self):
+        """Ensure that the RaySampler class supports the iterable protocol."""
         return self
 
     def __next__(self) -> (NDArray, Union[int, float, NDArray], NDArray, float, bool, Dict):
-        results = ray.get([env.__next__.remote() for env in self._envs])
-        return results
+        """Return the next item in the sampler iterator. If this is not possible, raise a StopIteration exception."""
+        return ray.get([env.__next__.remote() for env in self._envs])
