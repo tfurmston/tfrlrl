@@ -3,11 +3,11 @@ DOCKER_DEVELOPMENT_NAME ?= tfrlrl_dev
 DOCKER_TAG ?= latest
 
 install:
-	python -m pip install --upgrade pip poetry
+	python -m pip install --upgrade pip
 	poetry install --without dev
 
 install-dev:
-	python -m pip install --upgrade pip poetry
+	python -m pip install --upgrade pip
 	poetry install
 
 check-style:
