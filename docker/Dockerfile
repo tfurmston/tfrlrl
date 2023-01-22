@@ -24,12 +24,12 @@ RUN apt-get update \
     build-essential
 
 # Install Poetry - Respects $POETRY_VERSION & $POERTRY_POETRY_HOME
-ENV POETRY_VERSION=1.1.12
-RUN curl -sSL https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py | python
+ENV POETRY_VERSION=1.3.2
+RUN curl -sSL https://install.python-poetry.org | python
 
 WORKDIR /app
 COPY ./poetry.lock ./pyproject.toml ./
-RUN poetry install --no-dev
+RUN poetry install --without dev
 
 FROM builder-base as development
 
