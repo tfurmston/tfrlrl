@@ -22,7 +22,9 @@ class TestSampler:
         """
         sampler = Sampler.remote(env_id)
         for n in range(n_steps):
-            observation, action, next_observation, reward, done, info = ray.get(sampler.__next__.remote())
+            id, tindex, observation, action, next_observation, reward, done, info = ray.get(sampler.__next__.remote())
+            assert isinstance(id, str)
+            assert isinstance(tindex, int)
             assert isinstance(observation, np.ndarray)
             assert isinstance(next_observation, np.ndarray)
             assert isinstance(reward, float)
@@ -50,7 +52,8 @@ class TestRaySampler:
             samples = next(ray_sampler)
             assert len(samples) == n_envs
             assert isinstance(samples, list)
-            for observation, action, next_observation, reward, done, info in samples:
+            for id, tindex, observation, action, next_observation, reward, done, info in samples:
+                assert isinstance(id, str)
                 assert isinstance(observation, np.ndarray)
                 assert isinstance(next_observation, np.ndarray)
                 assert isinstance(reward, float)
@@ -74,7 +77,9 @@ class TestRaySampler:
         assert len(samples) == n_steps
         for sample in samples:
             assert len(sample) == n_envs
-            for observation, action, next_observation, reward, done, info in sample:
+            for id, tindex, observation, action, next_observation, reward, done, info in sample:
+                assert isinstance(id, str)
+                assert isinstance(tindex, int)
                 assert isinstance(observation, np.ndarray)
                 assert isinstance(next_observation, np.ndarray)
                 assert isinstance(reward, float)
