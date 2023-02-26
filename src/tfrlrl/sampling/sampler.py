@@ -5,7 +5,7 @@ import gym
 import ray
 from numpy.typing import NDArray
 
-from tfrlrl.data_models.step_samples import StepSample, StepSamples
+from tfrlrl.data_models.step import Step, Steps
 
 
 @ray.remote
@@ -57,7 +57,7 @@ class Sampler:
         self._next_observation, self._reward, self._done, self._info = self._env.step(self._action)
         self._n_steps_taken += 1
         self._n_env_steps_taken += 1
-        return StepSample(
+        return Step(
             env_id=self._env_id,
             time_step=self._n_env_steps_taken,
             observation=self._observation,
@@ -93,4 +93,4 @@ class RaySampler:
 
     def __next__(self) -> (str, int, NDArray, Union[int, float, NDArray], NDArray, float, bool, Dict):
         """Return the next item in the sampler iterator. If this is not possible, raise a StopIteration exception."""
-        return StepSamples(sample_steps=ray.get([env.__next__.remote() for env in self._envs]))
+        return Steps(sample_steps=ray.get([env.__next__.remote() for env in self._envs]))

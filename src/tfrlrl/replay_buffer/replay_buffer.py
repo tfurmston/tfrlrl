@@ -3,13 +3,16 @@ from typing import List
 
 import numpy as np
 
+from tfrlrl.data_models.step import Step, Steps
+
 logger = logging.getLogger(__name__)
 
 
 class ReplayBuffer:
+    """Experience replay buffer class."""
 
-    def __init__(self, d_obs: int, d_action: int, buffer_size : int = 100):
-
+    def __init__(self, d_obs: int, d_action: int, buffer_size: int = 100):
+        """Initialise experience replay buffer."""
         self._observations = np.ndarray(
             (d_obs, buffer_size),
         )
@@ -42,31 +45,32 @@ class ReplayBuffer:
         self._rewards[0, inds] = rewards
         self._dones[0, inds] = dones
 
-    def add_sample(self, observation: np.ndarray, next_observation: np.ndarray, action: int, reward: float, done: bool):
+    def add_step(self, step: Step):
+        """Add step to the replay buffer."""
         inds = self._calculate_sample_indices(1)
         self._update_buffer(
             inds,
-            observation,
-            next_observation,
-            action,
-            reward,
-            done,
+            step.observation,
+            step.next_observation,
+            step.action,
+            step.reward,
+            step.done,
         )
         self._increment_index(1)
 
-    def add_samples(self, observations: np.ndarray, next_observations: np.ndarray, actions: int, rewards: float,
-                    dones: bool):
-        sample_size = 2
-        inds = self._calculate_sample_indices(sample_size)
+    def add_steps(self, steps: Steps):
+        """Add steps to the replay buffer."""
+        inds = self._calculate_sample_indices(steps.n_steps)
         self._update_buffer(
             inds,
-            observations,
-            next_observations,
-            actions,
-            rewards,
-            dones,
+            steps.observations,
+            steps.next_observations,
+            steps.actions,
+            steps.rewards,
+            steps.dones,
         )
-        self._increment_index(sample_size)
+        self._increment_index(steps.n_steps)
 
-    def sample(self):
+    def sample(self, n_steps: int):
+        """Sample the given number of steps from the replay buffer."""
         raise NotImplementedError()

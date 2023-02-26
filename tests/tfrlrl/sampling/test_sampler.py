@@ -4,7 +4,7 @@ import ray
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from tfrlrl.data_models.step_samples import StepSample, StepSamples
+from tfrlrl.data_models.step import Step, Steps
 from tfrlrl.sampling.sampler import RaySampler, Sampler
 
 
@@ -24,7 +24,7 @@ class TestSampler:
         sampler = Sampler.remote(env_id)
         for n in range(n_steps):
             sample = ray.get(sampler.__next__.remote())
-
+            assert isinstance(sample, Step)
             assert isinstance(sample.env_id, str)
             assert isinstance(sample.time_step, int)
             assert isinstance(sample.observation, np.ndarray)
@@ -52,7 +52,7 @@ class TestRaySampler:
         ray_sampler = RaySampler(env_id, n_envs)
         for n in range(n_steps):
             samples = next(ray_sampler)
-            assert isinstance(samples, StepSamples)
+            assert isinstance(samples, Steps)
             assert isinstance(samples.env_ids, list)
             assert isinstance(samples.time_steps, np.ndarray)
             assert isinstance(samples.observations, np.ndarray)
@@ -85,7 +85,7 @@ class TestRaySampler:
         samples = list(sampler)
         assert len(samples) == n_steps
         for sample in samples:
-            assert isinstance(sample, StepSamples)
+            assert isinstance(sample, Steps)
             assert isinstance(sample.env_ids, list)
             assert isinstance(sample.time_steps, np.ndarray)
             assert isinstance(sample.observations, np.ndarray)
