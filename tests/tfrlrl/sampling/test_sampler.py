@@ -4,6 +4,7 @@ import ray
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from tfrlrl.data_models.step import Step, Steps
 from tfrlrl.sampling.sampler import RaySampler, Sampler
 
 
@@ -22,14 +23,15 @@ class TestSampler:
         """
         sampler = Sampler.remote(env_id)
         for n in range(n_steps):
-            id, tindex, observation, action, next_observation, reward, done, info = ray.get(sampler.__next__.remote())
-            assert isinstance(id, str)
-            assert isinstance(tindex, int)
-            assert isinstance(observation, np.ndarray)
-            assert isinstance(next_observation, np.ndarray)
-            assert isinstance(reward, float)
-            assert isinstance(done, bool)
-            assert isinstance(info, dict)
+            sample = ray.get(sampler.__next__.remote())
+            assert isinstance(sample, Step)
+            assert isinstance(sample.env_id, str)
+            assert isinstance(sample.time_step, int)
+            assert isinstance(sample.observation, np.ndarray)
+            assert isinstance(sample.next_observation, np.ndarray)
+            assert isinstance(sample.reward, float)
+            assert isinstance(sample.done, bool)
+            assert isinstance(sample.info, dict)
 
 
 class TestRaySampler:
@@ -50,15 +52,22 @@ class TestRaySampler:
         ray_sampler = RaySampler(env_id, n_envs)
         for n in range(n_steps):
             samples = next(ray_sampler)
-            assert len(samples) == n_envs
-            assert isinstance(samples, list)
-            for id, tindex, observation, action, next_observation, reward, done, info in samples:
-                assert isinstance(id, str)
-                assert isinstance(observation, np.ndarray)
-                assert isinstance(next_observation, np.ndarray)
-                assert isinstance(reward, float)
-                assert isinstance(done, bool)
-                assert isinstance(info, dict)
+            assert isinstance(samples, Steps)
+            assert isinstance(samples.env_ids, list)
+            assert isinstance(samples.time_steps, np.ndarray)
+            assert isinstance(samples.observations, np.ndarray)
+            assert isinstance(samples.actions, np.ndarray)
+            assert isinstance(samples.next_observations, np.ndarray)
+            assert isinstance(samples.rewards, np.ndarray)
+            assert isinstance(samples.dones, np.ndarray)
+
+            assert len(samples.env_ids) == n_envs
+            assert samples.time_steps.shape == (n_envs,)
+            assert samples.observations.shape == (4, n_envs)
+            assert samples.actions.shape == (n_envs,)
+            assert samples.next_observations.shape == (4, n_envs)
+            assert samples.rewards.shape == (n_envs,)
+            assert samples.dones.shape == (n_envs,)
 
     @pytest.mark.parametrize('env_id', ['CartPole-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100))
@@ -76,12 +85,19 @@ class TestRaySampler:
         samples = list(sampler)
         assert len(samples) == n_steps
         for sample in samples:
-            assert len(sample) == n_envs
-            for id, tindex, observation, action, next_observation, reward, done, info in sample:
-                assert isinstance(id, str)
-                assert isinstance(tindex, int)
-                assert isinstance(observation, np.ndarray)
-                assert isinstance(next_observation, np.ndarray)
-                assert isinstance(reward, float)
-                assert isinstance(done, bool)
-                assert isinstance(info, dict)
+            assert isinstance(sample, Steps)
+            assert isinstance(sample.env_ids, list)
+            assert isinstance(sample.time_steps, np.ndarray)
+            assert isinstance(sample.observations, np.ndarray)
+            assert isinstance(sample.actions, np.ndarray)
+            assert isinstance(sample.next_observations, np.ndarray)
+            assert isinstance(sample.rewards, np.ndarray)
+            assert isinstance(sample.dones, np.ndarray)
+
+            assert len(sample.env_ids) == n_envs
+            assert sample.time_steps.shape == (n_envs,)
+            assert sample.observations.shape == (4, n_envs)
+            assert sample.actions.shape == (n_envs,)
+            assert sample.next_observations.shape == (4, n_envs)
+            assert sample.rewards.shape == (n_envs,)
+            assert sample.dones.shape == (n_envs,)
