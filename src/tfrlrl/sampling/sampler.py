@@ -1,7 +1,7 @@
 import uuid
 from typing import Dict, Union
 
-import gym
+import gymnasium as gym
 import ray
 from numpy.typing import NDArray
 
@@ -34,7 +34,8 @@ class Sampler:
         self._next_observation = None
         self._action = None
         self._reward = None
-        self._done = True
+        self._terminated = True
+        self._truncated = True
         self._info = None
 
     def __iter__(self):
@@ -46,15 +47,17 @@ class Sampler:
         if self._n_steps is not None and self._n_steps_taken >= self._n_steps:
             raise StopIteration
 
-        if self._done:
-            self._observation = self._env.reset()
+        if self._terminated or self._truncated:
+            self._observation, self._info = self._env.reset()
             self._env_id = str(uuid.uuid4())
             self._n_env_steps_taken = 0
         else:
             self._observation = self._next_observation
 
         self._action = self._env.action_space.sample()
-        self._next_observation, self._reward, self._done, self._info = self._env.step(self._action)
+        self._next_observation, self._reward, self._terminated, self._truncated, self._info = self._env.step(
+            self._action,
+        )
         self._n_steps_taken += 1
         self._n_env_steps_taken += 1
         return Step(
@@ -64,7 +67,7 @@ class Sampler:
             action=self._action,
             next_observation=self._next_observation,
             reward=self._reward,
-            done=self._done,
+            done=self._terminated or self._truncated,
             info=self._info,
         )
 

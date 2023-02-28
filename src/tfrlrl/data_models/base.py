@@ -43,7 +43,7 @@ class IntDescriptor(Validator):
 
     def validate(self, value):
         """Validate that value is an integer."""
-        if not isinstance(value, int):
+        if not isinstance(value, (int, np.integer)):
             raise TypeError(f'Expected {value!r} to be a integer')
 
 

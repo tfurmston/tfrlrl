@@ -29,7 +29,7 @@ RUN curl -sSL https://install.python-poetry.org | python
 
 WORKDIR /app
 COPY ./poetry.lock ./pyproject.toml ./
-RUN python -m pip install --upgrade pip && poetry install --without dev
+RUN poetry run pip install 'setuptools==65.5.1' && poetry install --without dev
 
 FROM builder-base as development
 
