@@ -12,10 +12,8 @@ generate-setup-file = false
 
 [tool.poetry.dependencies]
 python = "~3.10"
-# gym = "^0.21.0"
 ray = "^1.10.0"
 numpy = "^1.24.2"
-# setuptools = "65.5.0"
 gymnasium = "^0.27.1"
 
 [tool.poetry.dev-dependencies]
