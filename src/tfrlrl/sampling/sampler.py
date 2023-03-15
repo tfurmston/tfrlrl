@@ -5,7 +5,7 @@ import gymnasium as gym
 import ray
 from numpy.typing import NDArray
 
-from tfrlrl.data_models.step import Step, Steps
+from tfrlrl.data_models.step import construct_step_dataclasses
 
 
 @ray.remote
@@ -25,6 +25,7 @@ class Sampler:
         :param n_steps: If given, the number of steps to sample from the environment. If not given, then there is no
         limit on the number of sampled steps.
         """
+        self.step_cls, self.steps_cls = construct_step_dataclasses(env_id)
         self._env = gym.make(env_id)
         self._env_id = str(uuid.uuid4())
         self._n_steps = n_steps
@@ -60,7 +61,7 @@ class Sampler:
         )
         self._n_steps_taken += 1
         self._n_env_steps_taken += 1
-        return Step(
+        return self.step_cls(
             env_id=self._env_id,
             time_step=self._n_env_steps_taken,
             observation=self._observation,
@@ -88,6 +89,7 @@ class RaySampler:
         :param n_steps: If given, the number of steps to sample from the environment. If not given, then there is no
         limit on the number of sampled steps.
         """
+        self.step_cls, self.steps_cls = construct_step_dataclasses(env_id)
         self._envs = [Sampler.remote(env_id=env_id, n_steps=n_steps) for _ in range(n_envs)]
 
     def __iter__(self):
@@ -96,4 +98,4 @@ class RaySampler:
 
     def __next__(self) -> (str, int, NDArray, Union[int, float, NDArray], NDArray, float, bool, Dict):
         """Return the next item in the sampler iterator. If this is not possible, raise a StopIteration exception."""
-        return Steps(sample_steps=ray.get([env.__next__.remote() for env in self._envs]))
+        return self.steps_cls(sample_steps=ray.get([env.__next__.remote() for env in self._envs]))
