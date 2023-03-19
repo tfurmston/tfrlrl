@@ -6,7 +6,7 @@ import numpy as np
 
 from tfrlrl.data_models.base import (BooleanDescriptor, DictDescriptor,
                                      FloatDescriptor, IntDescriptor,
-                                     ObservationVectorDescriptor,
+                                     NumpyArrayExpandedDescriptor,
                                      StringDescriptor, Validator)
 
 
@@ -27,7 +27,7 @@ def construct_action_space_definition(env_id: str) -> Tuple[str, Type[Validator]
     if isinstance(env.action_space, gym.spaces.Discrete):
         return 'action', IntDescriptor, IntDescriptor()
     elif isinstance(env.action_space, gym.spaces.Box):
-        return 'action', ObservationVectorDescriptor, ObservationVectorDescriptor()
+        return 'action', NumpyArrayExpandedDescriptor, NumpyArrayExpandedDescriptor()
     raise StepDataclassException('Action space must be Discrete or Box.')
 
 
@@ -79,9 +79,9 @@ def construct_step_dataclass(env_id: str):
         [
             ('env_id', StringDescriptor, StringDescriptor()),
             ('time_step', IntDescriptor, IntDescriptor()),
-            ('observation', ObservationVectorDescriptor, ObservationVectorDescriptor()),
+            ('observation', NumpyArrayExpandedDescriptor, NumpyArrayExpandedDescriptor()),
             construct_action_space_definition(env_id),
-            ('next_observation', ObservationVectorDescriptor, ObservationVectorDescriptor()),
+            ('next_observation', NumpyArrayExpandedDescriptor, NumpyArrayExpandedDescriptor()),
             ('reward', FloatDescriptor, FloatDescriptor()),
             ('info', DictDescriptor, DictDescriptor()),
             ('done', BooleanDescriptor, BooleanDescriptor()),
