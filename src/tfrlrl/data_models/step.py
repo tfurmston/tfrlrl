@@ -66,7 +66,6 @@ def construct_steps_postinitialisation_fn(env_id: str) -> Callable:
     raise StepDataclassException('Action space must be Discrete or Box.')
 
 
-# TODO: Improve naming of base classes
 def construct_step_dataclass(env_id: str):
     """
     Construct a dataclass to represent a step in the given environment.
