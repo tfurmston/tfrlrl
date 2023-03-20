@@ -21,7 +21,9 @@ FROM python-base as builder-base
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
     curl \
-    build-essential
+    build-essential \
+    libglfw3 \
+    libglfw3-dev
 
 # Install Poetry - Respects $POETRY_VERSION & $POERTRY_POETRY_HOME
 ENV POETRY_VERSION=1.3.2

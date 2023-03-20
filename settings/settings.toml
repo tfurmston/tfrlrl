@@ -1,0 +1,9 @@
+[default]
+LOG_LEVEL = 'INFO'
+ENV = 'CartPole-v1'
+[development]
+LOG_LEVEL = 'INFO'
+ENV = 'CartPole-v1'
+[production]
+LOG_LEVEL = 'INFO'
+ENV = 'CartPole-v1'

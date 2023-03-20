@@ -1,10 +1,10 @@
 import logging
 from typing import List
 
+import gymnasium as gym
 import numpy as np
 
 from tfrlrl.data_models.replay_buffer import ReplayBufferSample
-from tfrlrl.data_models.step import Step, Steps
 
 logger = logging.getLogger(__name__)
 
@@ -18,17 +18,25 @@ class ReplayBufferException(Exception):
 class ReplayBuffer:
     """Experience replay buffer class."""
 
-    def __init__(self, d_obs: int, d_action: int, buffer_size: int = 100):
+    def __init__(self, env_id: str, buffer_size: int = 100):
         """Initialise experience replay buffer."""
+        env = gym.make(env_id)
         self._observations = np.ndarray(
-            (d_obs, buffer_size),
+            env.observation_space.shape + (buffer_size, ),
         )
         self._next_observations = np.ndarray(
-            (d_obs, buffer_size),
+            env.observation_space.shape + (buffer_size, ),
         )
-        self._actions = np.ndarray(
-            (d_action, buffer_size),
-        )
+        if isinstance(env.action_space, gym.spaces.Discrete):
+            self._actions = np.ndarray(
+                (1, buffer_size),
+            )
+        elif isinstance(env.action_space, gym.spaces.Box):
+            self._actions = np.ndarray(
+                env.action_space.shape + (buffer_size, ),
+            )
+        else:
+            raise ReplayBufferException('Action space must be Discrete or Box.')
         self._rewards = np.ndarray(
             (1, buffer_size),
         )
@@ -66,7 +74,7 @@ class ReplayBuffer:
         self._rewards[0, inds] = rewards
         self._dones[0, inds] = dones
 
-    def add_step(self, step: Step):
+    def add_step(self, step):
         """Add step to the replay buffer."""
         inds = self._calculate_sample_indices(1)
         self._update_buffer(
@@ -79,7 +87,7 @@ class ReplayBuffer:
         )
         self._increment_index(1)
 
-    def add_steps(self, steps: Steps):
+    def add_steps(self, steps):
         """Add steps to the replay buffer."""
         inds = self._calculate_sample_indices(steps.n_steps)
         self._update_buffer(

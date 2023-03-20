@@ -1,3 +1,4 @@
+import gymnasium as gym
 import pytest
 import ray
 from hypothesis import given, settings
@@ -7,7 +8,7 @@ from tfrlrl.replay_buffer.replay_buffer import ReplayBuffer
 from tfrlrl.sampling.sampler import RaySampler, Sampler
 
 
-@pytest.mark.parametrize('env_id', ['CartPole-v1'])
+@pytest.mark.parametrize('env_id', ['CartPole-v1', 'Ant-v4'])
 @given(n_steps=st.integers(min_value=10, max_value=100))
 @settings(deadline=None)
 def test_add_step(env_id: str, n_steps: int, test_ray_cluster):
@@ -19,8 +20,7 @@ def test_add_step(env_id: str, n_steps: int, test_ray_cluster):
     :param test_ray_cluster: PyTest fixture to start Ray cluster.
     """
     buffer = ReplayBuffer(
-        d_obs=4,
-        d_action=1,
+        env_id=env_id,
         buffer_size=100,
     )
 
@@ -30,7 +30,7 @@ def test_add_step(env_id: str, n_steps: int, test_ray_cluster):
         buffer.add_step(sample)
 
 
-@pytest.mark.parametrize('env_id', ['CartPole-v1'])
+@pytest.mark.parametrize('env_id', ['CartPole-v1', 'Ant-v4'])
 @given(n_steps=st.integers(min_value=10, max_value=1000))
 @settings(deadline=None)
 def test_add_steps(env_id: str, n_steps: int, test_ray_cluster):
@@ -45,8 +45,7 @@ def test_add_steps(env_id: str, n_steps: int, test_ray_cluster):
     buffer_size = 1000
 
     buffer = ReplayBuffer(
-        d_obs=4,
-        d_action=1,
+        env_id=env_id,
         buffer_size=buffer_size,
     )
 
@@ -56,7 +55,7 @@ def test_add_steps(env_id: str, n_steps: int, test_ray_cluster):
     assert buffer._indx == n_envs * n_steps % buffer_size
 
 
-@pytest.mark.parametrize('env_id', ['CartPole-v1'])
+@pytest.mark.parametrize('env_id', ['CartPole-v1', 'Ant-v4'])
 @given(
     n_steps=st.integers(min_value=100, max_value=1000),
     n_samples=st.integers(min_value=10, max_value=50))
@@ -74,8 +73,7 @@ def test_sample(env_id: str, n_steps: int, n_samples: int, test_ray_cluster):
     buffer_size = 1000
 
     buffer = ReplayBuffer(
-        d_obs=4,
-        d_action=1,
+        env_id=env_id,
         buffer_size=buffer_size,
     )
 
@@ -83,9 +81,13 @@ def test_sample(env_id: str, n_steps: int, n_samples: int, test_ray_cluster):
     for sample in sampler:
         buffer.add_steps(sample)
 
+    env = gym.make(env_id)
     samples = buffer.sample(n_samples)
-    assert samples.observations.shape == (4, n_samples)
-    assert samples.next_observations.shape == (4, n_samples)
-    assert samples.actions.shape == (1, n_samples)
+    assert samples.observations.shape == env.observation_space.shape + (n_samples, )
+    assert samples.next_observations.shape == env.observation_space.shape + (n_samples, )
+    if isinstance(env.action_space, gym.spaces.Discrete):
+        assert samples.actions.shape == (1, n_samples)
+    else:
+        assert samples.actions.shape == env.action_space.shape + (n_samples, )
     assert samples.rewards.shape == (1, n_samples)
     assert samples.dones.shape == (1, n_samples)

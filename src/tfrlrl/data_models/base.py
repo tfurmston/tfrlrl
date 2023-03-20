@@ -83,14 +83,9 @@ class NumpyArrayDescriptor(Validator):
             raise TypeError(f'Expected {value!r} to be an NumPy ndarray')
 
 
-class ObservationVectorDescriptor(Validator):
-    """A Descriptor validator class for observations."""
+class NumpyArrayExpandedDescriptor(NumpyArrayDescriptor):
+    """A Descriptor validator class for Numpy NdArrays that require an expanded final dimension."""
 
     def _preprocess_value(self, x):
         """Add a new axis to the end of the raw observation vector."""
         return x[:, np.newaxis]
-
-    def validate(self, value):
-        """Validate that value is an NumPy ndarray."""
-        if not isinstance(value, np.ndarray):
-            raise TypeError(f'Expected {value!r} to be an NumPy ndarray')
