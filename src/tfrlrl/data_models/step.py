@@ -4,10 +4,15 @@ from typing import Callable, List, Tuple, Type
 import gymnasium as gym
 import numpy as np
 
-from tfrlrl.data_models.base import (BooleanDescriptor, DictDescriptor,
-                                     FloatDescriptor, IntDescriptor,
-                                     NumpyArrayExpandedDescriptor,
-                                     StringDescriptor, Validator)
+from tfrlrl.data_models.base import (
+    BooleanDescriptor,
+    DictDescriptor,
+    FloatDescriptor,
+    IntDescriptor,
+    NumpyArrayExpandedDescriptor,
+    StringDescriptor,
+    Validator,
+)
 
 
 class StepDataclassException(Exception):
