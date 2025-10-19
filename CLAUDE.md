@@ -49,6 +49,18 @@ make bump_minor  # 0.0.0 -> 0.1.0
 make bump_patch  # 0.0.0 -> 0.0.1
 ```
 
+### CLI Tools
+```bash
+# Sample steps from a Gymnasium environment (after install-dev)
+poetry run tfrlrl-sample --env-id CartPole-v1 --n-steps 100
+
+# Sample with parallel environments
+poetry run tfrlrl-sample --env-id CartPole-v1 --n-steps 1000 --n-envs 4
+
+# Control log level via environment variable
+TFRLRL_LOG_LEVEL=DEBUG poetry run tfrlrl-sample --env-id CartPole-v1 --n-steps 100
+```
+
 ## Architecture
 
 ### Data Models (src/tfrlrl/data_models/)
@@ -91,6 +103,20 @@ Uses Dynaconf for multi-environment configuration:
 - Environment prefix: `TFRLRL_`
 - Validators ensure required fields and valid Gymnasium environment IDs
 - Supports default/development/production environments
+- Logging configuration: Centralized via `LOG_LEVEL` setting (DEBUG, INFO, WARN, ERROR)
+  - Set via environment variable: `TFRLRL_LOG_LEVEL=DEBUG`
+  - Set via settings files: `LOG_LEVEL = 'DEBUG'`
+  - Applied globally in `src/tfrlrl/__init__.py`
+
+### CLI (src/tfrlrl/cli/)
+
+Command-line interface tools for common tasks:
+- `sample.py`: CLI for sampling steps from Gymnasium environments
+  - Uses argparse for argument parsing (no external dependencies)
+  - Supports single or parallel (Ray) environment sampling
+  - Prints summary statistics (total steps, episodes, mean/std/min/max rewards)
+  - Inherits logging configuration from centralized settings (no --verbose flag)
+- Entry point registered as `tfrlrl-sample` console script in pyproject.toml
 
 ## Code Style Requirements
 

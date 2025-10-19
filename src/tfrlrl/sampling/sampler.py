@@ -1,5 +1,5 @@
 import uuid
-from typing import Dict, Union
+from typing import Dict, Tuple, Union
 
 import gymnasium as gym
 import ray
@@ -43,7 +43,7 @@ class Sampler:
         """Ensure that the Sampler class supports the iterable protocol."""
         return self
 
-    def __next__(self) -> (str, int, NDArray, Union[int, float, NDArray], NDArray, float, bool, Dict):
+    def __next__(self) -> Tuple[str, int, NDArray, Union[int, float, NDArray], NDArray, float, bool, Dict]:
         """Return the next item in the sampler iterator. If this is not possible, raise a StopIteration exception."""
         if self._n_steps is not None and self._n_steps_taken >= self._n_steps:
             raise StopIteration
