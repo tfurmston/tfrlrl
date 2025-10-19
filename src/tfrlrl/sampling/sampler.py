@@ -87,7 +87,8 @@ class RaySampler:
         :param env_id: The Gym environment ID to be used in the sampling.
         :param n_envs: The number of environments from which to sample.
         :param n_steps: If given, the number of steps to sample from the environment. If not given, then there is no
-        limit on the number of sampled steps.
+        limit on the number 
+        of sampled steps.
         """
         self.step_cls, self.steps_cls = construct_step_dataclasses(env_id)
         self._envs = [Sampler.remote(env_id=env_id, n_steps=n_steps) for _ in range(n_envs)]
