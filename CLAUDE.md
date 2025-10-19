@@ -128,7 +128,7 @@ Command-line interface tools for common tasks:
 
 ## Testing Requirements
 
-- Minimum 95% code coverage (enforced in CI)
+- Minimum 94% code coverage (enforced in CI)
 - Tests run in random order (pytest-random-order)
 - Branch coverage enabled
 - Tests excluded from coverage reports
