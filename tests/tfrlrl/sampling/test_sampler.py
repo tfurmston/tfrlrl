@@ -4,6 +4,7 @@ import ray
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from tfrlrl.policies.base import UniformActionSamplingPolicy
 from tfrlrl.sampling.sampler import RaySampler, Sampler
 
 
@@ -30,6 +31,32 @@ class TestSampler:
             assert isinstance(sample.reward, float)
             assert isinstance(sample.done, bool)
             assert isinstance(sample.info, dict)
+
+    @pytest.mark.parametrize('env_id', ['CartPole-v1'])
+    @given(n_steps=st.integers(min_value=10, max_value=100))
+    @settings(deadline=None)
+    def test_sample_n_steps_with_policy(self, env_id: str, n_steps: int, test_ray_cluster):
+        """
+        Test that n-steps can be sampled from the environment with a custom policy.
+
+        :param env_id: The Gym environment ID to be used in the sampling.
+        :param n_steps: The number of steps to sample from the environment.
+        :param test_ray_cluster: PyTest fixture to start Ray cluster.
+        """
+        policy = UniformActionSamplingPolicy(env_id)
+        sampler = Sampler.remote(env_id, policy=policy)
+        for n in range(n_steps):
+            sample = ray.get(sampler.__next__.remote())
+            assert isinstance(sample.env_id, str)
+            assert isinstance(sample.time_step, int)
+            assert isinstance(sample.observation, np.ndarray)
+            assert isinstance(sample.next_observation, np.ndarray)
+            assert isinstance(sample.reward, float)
+            assert isinstance(sample.done, bool)
+            assert isinstance(sample.info, dict)
+            # Verify action is valid for the environment
+            assert isinstance(sample.action, (int, np.integer))
+            assert 0 <= sample.action < 2  # CartPole has 2 actions
 
 
 class TestRaySampler:
