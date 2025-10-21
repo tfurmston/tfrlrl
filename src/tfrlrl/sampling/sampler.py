@@ -1,11 +1,12 @@
 import uuid
-from typing import Dict, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 import gymnasium as gym
 import ray
 from numpy.typing import NDArray
 
 from tfrlrl.data_models.step import construct_step_dataclasses
+from tfrlrl.policies.base import BasePolicy, UniformActionSamplingPolicy
 
 
 @ray.remote
@@ -17,13 +18,15 @@ class Sampler:
     class provides iterable support, see https://docs.python.org/3/library/stdtypes.html#typeiter.
     """
 
-    def __init__(self, env_id: str, n_steps: int = None):
+    def __init__(self, env_id: str, n_steps: int = None, policy: Optional[BasePolicy] = None):
         """
         Initialise the instance of the Sampler. This entails initialising the environment and setting member variables.
 
         :param env_id: The Gym environment ID to be used in the sampling.
         :param n_steps: If given, the number of steps to sample from the environment. If not given, then there is no
         limit on the number of sampled steps.
+        :param policy: Optional policy instance for action selection. If not provided, defaults to
+        UniformActionSamplingPolicy.
         """
         self.step_cls, self.steps_cls = construct_step_dataclasses(env_id)
         self._env = gym.make(env_id)
@@ -38,6 +41,7 @@ class Sampler:
         self._terminated = True
         self._truncated = True
         self._info = None
+        self._policy = policy if policy is not None else UniformActionSamplingPolicy(env_id)
 
     def __iter__(self):
         """Ensure that the Sampler class supports the iterable protocol."""
@@ -55,7 +59,7 @@ class Sampler:
         else:
             self._observation = self._next_observation
 
-        self._action = self._env.action_space.sample()
+        self._action = self._policy.generate_action(self._observation)
         self._next_observation, self._reward, self._terminated, self._truncated, self._info = self._env.step(
             self._action,
         )
