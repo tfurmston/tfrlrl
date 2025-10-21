@@ -96,6 +96,6 @@ class RaySampler:
         """Ensure that the RaySampler class supports the iterable protocol."""
         return self
 
-    def __next__(self) -> (str, int, NDArray, Union[int, float, NDArray], NDArray, float, bool, Dict):
+    def __next__(self) -> Tuple[str, int, NDArray, Union[int, float, NDArray], NDArray, float, bool, Dict]:
         """Return the next item in the sampler iterator. If this is not possible, raise a StopIteration exception."""
         return self.steps_cls(sample_steps=ray.get([env.__next__.remote() for env in self._envs]))
