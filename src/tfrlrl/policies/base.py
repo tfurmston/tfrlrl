@@ -67,3 +67,29 @@ class UniformActionSamplingPolicy(BasePolicy):
             A randomly sampled integer action from the environment's discrete action space.
         """
         return self._env.action_space.sample()
+
+
+class BaseDifferentiablePolicy(BasePolicy):
+    """Abstract base class for differentiable parameterized reinforcement learning policies.
+
+    This class extends BasePolicy to support policies with differentiable parameters,
+    enabling gradient-based policy optimization methods such as policy gradient algorithms.
+    Subclasses must implement both generate_action and calculate_log_derivative methods.
+    """
+
+    @abstractmethod
+    def calculate_log_derivative(self, observation: NDArray, action: Tuple[Union[int, float, NDArray]]) -> NDArray:
+        """Calculate the log derivative of the policy with respect to its parameters.
+
+        This method computes the gradient of the log probability of taking the given action
+        in the given observation state with respect to the policy's parameters. This is used
+        in policy gradient methods like REINFORCE, Actor-Critic, and PPO.
+
+        Args:
+            observation: The state observation from the environment.
+            action: The action taken in the given observation state.
+
+        Returns:
+            The log derivative (gradient) of the policy parameters for the given observation-action pair.
+        """
+        ...
