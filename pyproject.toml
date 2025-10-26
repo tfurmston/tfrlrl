@@ -14,7 +14,7 @@ generate-setup-file = false
 python = "~3.10"
 ray = "^2.0.0"
 numpy = "^2.0.0"
-gymnasium = {version = "^0.27.1", extras = ["atari", "accept-rom-license", "mujoco"] }
+gymnasium = {version = "^1.1.0", extras = ["atari", "accept-rom-license", "mujoco"] }
 dynaconf = "^3.1.12"
 
 [tool.poetry.dev-dependencies]
