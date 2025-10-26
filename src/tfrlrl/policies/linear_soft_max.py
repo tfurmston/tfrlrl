@@ -48,7 +48,7 @@ class LinearSoftMax(BaseDifferentiablePolicy):
         :param observation: The current state observation from the environment.
         :return: A probability distribution over actions.
         """
-        scores = np.sum(np.multiply(self._feature_fn(observation), self._softmax_parameters), axis=1)
+        scores = np.matmul(self._feature_fn(observation), self._softmax_parameters)
         scores -= np.max(scores)
         return np.exp(scores) / np.sum(np.exp(scores))
 
@@ -61,7 +61,7 @@ class LinearSoftMax(BaseDifferentiablePolicy):
         """
         return self._env.action_space.sample(probability=self.calculate_action_probabilities(observation))
 
-    def calculate_log_derivative(self, observation: NDArray, action: Tuple[Union[int, float, NDArray]]) -> NDArray:
+    def calculate_log_derivative(self, observation: NDArray, action: int) -> NDArray:
         """
         Calculate the log derivative of the policy with respect to its parameters.
 
@@ -70,4 +70,6 @@ class LinearSoftMax(BaseDifferentiablePolicy):
         :return: The log derivative (gradient) of the policy parameters.
         :raises NotImplementedError: This method is not yet implemented.
         """
-        raise NotImplementedError
+        a_probs = self.calculate_action_probabilities(observation)
+        f_mat = self._feature_fn(observation)
+        return f_mat[action, :] - np.matmul(a_probs, f_mat)

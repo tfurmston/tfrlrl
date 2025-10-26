@@ -7,7 +7,7 @@ from hypothesis import strategies as st
 from tfrlrl.features.onehot import construct_one_hot_feature_function
 
 
-@pytest.mark.parametrize('env_id', ['CliffWalking-v0'])
+@pytest.mark.parametrize('env_id', ['CliffWalking-v1'])
 def test_returns_callable(env_id: str):
     """
     Test that construct_one_hot_feature_function returns a callable function.
@@ -22,7 +22,7 @@ def test_returns_callable(env_id: str):
     assert callable(feature_fn)
 
 
-@pytest.mark.parametrize('env_id', ['CliffWalking-v0'])
+@pytest.mark.parametrize('env_id', ['CliffWalking-v1'])
 def test_feature_function_returns_numpy_array(env_id: str):
     """
     Test that the feature function returns a numpy array for valid observations.
@@ -42,7 +42,7 @@ def test_feature_function_returns_numpy_array(env_id: str):
     assert isinstance(features, np.ndarray)
 
 
-@pytest.mark.parametrize('env_id', ['CliffWalking-v0'])
+@pytest.mark.parametrize('env_id', ['CliffWalking-v1'])
 @given(observation=st.integers(min_value=0, max_value=47))
 @settings(deadline=None)
 def test_feature_function_output_shape(env_id: str, observation: int):
@@ -64,7 +64,7 @@ def test_feature_function_output_shape(env_id: str, observation: int):
     assert features.shape == expected_shape
 
 
-@pytest.mark.parametrize('env_id', ['CliffWalking-v0'])
+@pytest.mark.parametrize('env_id', ['CliffWalking-v1'])
 def test_feature_function_one_hot_encoding(env_id: str):
     """
     Test that the feature function produces correct one-hot encoded features.
@@ -89,7 +89,7 @@ def test_feature_function_one_hot_encoding(env_id: str):
         assert np.sum(features[i, :] == 1.0) == 1, f'Row {i} should have exactly one 1.0'
 
 
-@pytest.mark.parametrize('env_id', ['CliffWalking-v0'])
+@pytest.mark.parametrize('env_id', ['CliffWalking-v1'])
 @given(observation=st.integers(min_value=0, max_value=47))
 @settings(deadline=None)
 def test_feature_function_consistent_output(env_id: str, observation: int):
