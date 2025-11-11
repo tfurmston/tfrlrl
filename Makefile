@@ -19,6 +19,9 @@ isort:
 test:
 	poetry run pytest --random-order tests/
 
+test-fast:
+	poetry run pytest --random-order -m "not slow" tests/
+
 test-coverage:
 	poetry run pytest --random-order --cov=tfrlrl --cov-config=setup.cfg tests/
 

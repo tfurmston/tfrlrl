@@ -11,6 +11,7 @@ from tfrlrl.sampling.sampler import RaySampler, Sampler
 class TestSampler:
     """This class encapsulates the unit tests for the Sampler class."""
 
+    @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['CartPole-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100))
     @settings(deadline=None)
@@ -32,6 +33,7 @@ class TestSampler:
             assert isinstance(sample.done, bool)
             assert isinstance(sample.info, dict)
 
+    @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['CartPole-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100))
     @settings(deadline=None)
@@ -62,6 +64,7 @@ class TestSampler:
 class TestRaySampler:
     """A test class for testing the RaySampler class."""
 
+    @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['CartPole-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100), n_envs=st.integers(min_value=1, max_value=4))
     @settings(deadline=None)
@@ -94,6 +97,7 @@ class TestRaySampler:
             assert samples.rewards.shape == (n_envs,)
             assert samples.dones.shape == (n_envs,)
 
+    @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['CartPole-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100))
     @settings(deadline=None)
@@ -127,6 +131,7 @@ class TestRaySampler:
             assert sample.rewards.shape == (n_envs,)
             assert sample.dones.shape == (n_envs,)
 
+    @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['CartPole-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100), n_envs=st.integers(min_value=1, max_value=4))
     @settings(deadline=None)
