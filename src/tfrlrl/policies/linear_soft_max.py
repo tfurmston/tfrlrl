@@ -73,3 +73,19 @@ class LinearSoftMax(BaseDifferentiablePolicy):
         a_probs = self.calculate_action_probabilities(observation)
         f_mat = self._feature_fn(observation)
         return f_mat[action, :] - np.matmul(a_probs, f_mat)
+
+    def get_parameters(self) -> NDArray:
+        """
+        Get the current policy parameters.
+
+        :return: The current softmax parameters of the policy.
+        """
+        return self._softmax_parameters
+
+    def set_parameters(self, parameters: NDArray) -> None:
+        """
+        Set new policy parameters.
+
+        :param parameters: The new softmax parameters to set for the policy.
+        """
+        self._softmax_parameters = parameters
