@@ -76,6 +76,14 @@ class Sampler:
             info=self._info,
         )
 
+    def update_policy(self, new_policy: BasePolicy) -> None:
+        """
+        Update the policy used for action selection.
+
+        :param new_policy: New policy instance to use for sampling.
+        """
+        self._policy = new_policy
+
 
 class RaySampler:
     """
@@ -84,7 +92,7 @@ class RaySampler:
     The class uses Ray to distribute the samplimng across the different environments.
     """
 
-    def __init__(self, env_id: str, n_envs: int, n_steps: int = None):
+    def __init__(self, env_id: str, n_envs: int, n_steps: int = None, policy: Optional[BasePolicy] = None):
         """
         Initialise instance of the RaySampler. This entails initialising the environment and setting member variables.
 
@@ -92,9 +100,11 @@ class RaySampler:
         :param n_envs: The number of environments from which to sample.
         :param n_steps: If given, the number of steps to sample from the environment. If not given, then there is no
         limit on the number of sampled steps.
+        :param policy: Optional policy instance for action selection. If not provided, defaults to
+        UniformActionSamplingPolicy in each Sampler.
         """
         self.step_cls, self.steps_cls = construct_step_dataclasses(env_id)
-        self._envs = [Sampler.remote(env_id=env_id, n_steps=n_steps) for _ in range(n_envs)]
+        self._envs = [Sampler.remote(env_id=env_id, n_steps=n_steps, policy=policy) for _ in range(n_envs)]
 
     def __iter__(self):
         """Ensure that the RaySampler class supports the iterable protocol."""
@@ -103,3 +113,11 @@ class RaySampler:
     def __next__(self) -> Tuple[str, int, NDArray, Union[int, float, NDArray], NDArray, float, bool, Dict]:
         """Return the next item in the sampler iterator. If this is not possible, raise a StopIteration exception."""
         return self.steps_cls(sample_steps=ray.get([env.__next__.remote() for env in self._envs]))
+
+    def update_policy(self, new_policy: BasePolicy) -> None:
+        """
+        Update the policy across all sampler actors.
+
+        :param new_policy: New policy instance to use for sampling in all environments.
+        """
+        ray.get([env.update_policy.remote(new_policy) for env in self._envs])

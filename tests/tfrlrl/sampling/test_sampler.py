@@ -11,6 +11,7 @@ from tfrlrl.sampling.sampler import RaySampler, Sampler
 class TestSampler:
     """This class encapsulates the unit tests for the Sampler class."""
 
+    @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['CartPole-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100))
     @settings(deadline=None)
@@ -32,6 +33,7 @@ class TestSampler:
             assert isinstance(sample.done, bool)
             assert isinstance(sample.info, dict)
 
+    @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['CartPole-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100))
     @settings(deadline=None)
@@ -62,6 +64,7 @@ class TestSampler:
 class TestRaySampler:
     """A test class for testing the RaySampler class."""
 
+    @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['CartPole-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100), n_envs=st.integers(min_value=1, max_value=4))
     @settings(deadline=None)
@@ -94,6 +97,7 @@ class TestRaySampler:
             assert samples.rewards.shape == (n_envs,)
             assert samples.dones.shape == (n_envs,)
 
+    @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['CartPole-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100))
     @settings(deadline=None)
@@ -126,3 +130,40 @@ class TestRaySampler:
             assert sample.next_observations.shape == (4, n_envs)
             assert sample.rewards.shape == (n_envs,)
             assert sample.dones.shape == (n_envs,)
+
+    @pytest.mark.slow
+    @pytest.mark.parametrize('env_id', ['CartPole-v1'])
+    @given(n_steps=st.integers(min_value=10, max_value=100), n_envs=st.integers(min_value=1, max_value=4))
+    @settings(deadline=None)
+    def test_ray_sample_with_policy(self, env_id: str, n_steps: int, n_envs: int, test_ray_cluster):
+        """
+        Test that n-steps can be sampled from multiple environments with a custom policy.
+
+        :param env_id: The Gym environment ID to be used in the sampling.
+        :param n_steps: The number of steps to sample from the environment.
+        :param n_envs: The number of environments from which to sample.
+        :param test_ray_cluster: PyTest fixture to start Ray cluster.
+        """
+        policy = UniformActionSamplingPolicy(env_id)
+        ray_sampler = RaySampler(env_id, n_envs, policy=policy)
+        for _ in range(n_steps):
+            samples = next(ray_sampler)
+            assert isinstance(samples, ray_sampler.steps_cls)
+            assert isinstance(samples.env_ids, list)
+            assert isinstance(samples.time_steps, np.ndarray)
+            assert isinstance(samples.observations, np.ndarray)
+            assert isinstance(samples.actions, np.ndarray)
+            assert isinstance(samples.next_observations, np.ndarray)
+            assert isinstance(samples.rewards, np.ndarray)
+            assert isinstance(samples.dones, np.ndarray)
+
+            assert len(samples.env_ids) == n_envs
+            assert samples.time_steps.shape == (n_envs,)
+            assert samples.observations.shape == (4, n_envs)
+            assert samples.actions.shape == (n_envs,)
+            assert samples.next_observations.shape == (4, n_envs)
+            assert samples.rewards.shape == (n_envs,)
+            assert samples.dones.shape == (n_envs,)
+
+            # Verify all actions are valid for CartPole (2 actions: 0 or 1)
+            assert np.all((samples.actions >= 0) & (samples.actions < 2))

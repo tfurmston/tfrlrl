@@ -80,6 +80,10 @@ This project is configured through [Poetry](https://python-poetry.org/). To inst
 # Run all tests
 make test
 
+# Run fast tests, e.g. for local development.
+make test-fast
+
+
 # Run with coverage report (requires 94% coverage)
 make test-coverage
 

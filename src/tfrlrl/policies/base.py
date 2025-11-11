@@ -93,3 +93,21 @@ class BaseDifferentiablePolicy(BasePolicy):
             The log derivative (gradient) of the policy parameters for the given observation-action pair.
         """
         ...
+
+    @abstractmethod
+    def get_parameters(self) -> NDArray:
+        """Get the current policy parameters.
+
+        Returns:
+            The current parameters of the policy as a numpy array.
+        """
+        ...
+
+    @abstractmethod
+    def set_parameters(self, parameters: NDArray) -> None:
+        """Set new policy parameters.
+
+        Args:
+            parameters: The new parameters to set for the policy.
+        """
+        ...
