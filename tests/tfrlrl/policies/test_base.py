@@ -18,7 +18,7 @@ def test_init_with_discrete_action_space(env_id: str):
     assert policy._env.spec.id == env_id
 
 
-@pytest.mark.parametrize('env_id', ['Ant-v4', 'HalfCheetah-v4'])
+@pytest.mark.parametrize('env_id', ['Ant-v5', 'HalfCheetah-v5'])
 def test_init_with_continuous_action_space_raises_exception(env_id: str):
     """
     Test that UniformActionSamplingPolicy raises exception with continuous action space environments.
