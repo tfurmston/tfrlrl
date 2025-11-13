@@ -20,7 +20,7 @@ test:
 	poetry run pytest --random-order tests/
 
 test-local:
-	poetry run pytest --random-order -m "not slow" -m "not flaky" tests/
+	poetry run pytest --random-order -m "not slow and not flaky" tests/
 
 test-coverage:
 	poetry run pytest --random-order --cov=tfrlrl --cov-config=setup.cfg tests/
