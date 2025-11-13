@@ -4,11 +4,11 @@ DOCKER_TAG ?= latest
 
 install:
 	python -m pip install --upgrade pip
-	poetry install --without dev
+	poetry install
 
 install-dev:
 	python -m pip install --upgrade pip
-	poetry install
+	poetry install --with dev
 
 check-style:
 	poetry run flake8 src/tfrlrl tests
