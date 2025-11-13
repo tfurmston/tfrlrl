@@ -27,7 +27,7 @@ from tfrlrl.data_models.step import construct_step_dataclasses
                                  {},
                              ),
                              (
-                                 'Ant-v4',
+                                 'Ant-v5',
                                  2,
                                  np.random.uniform(0.0, 1.0, (27,)),
                                  np.random.uniform(0.0, 1.0, (8,)),
@@ -109,7 +109,7 @@ def test_step_valid_example(env_id, time_step, observation, action, next_observa
                                  {},
                              ),
                              (
-                                 'Ant-v4',
+                                 'Ant-v5',
                                  2,
                                  np.random.uniform(0.0, 1.0, (27,)),
                                  1,
@@ -149,7 +149,7 @@ def test_step_invalid_example(env_id, time_step, observation, action, next_obser
                                  {}
                              ),
                              (
-                                 'Ant-v4',
+                                 'Ant-v5',
                                  2,
                                  np.random.uniform(0.0, 1.0, (27,)),
                                  np.random.uniform(0.0, 1.0, (8,)),
