@@ -118,6 +118,7 @@ def test_main(env_id, n_steps, n_envs, test_ray_cluster, caplog):
     assert exit_code == 0
 
 
+@pytest.mark.flaky
 def test_main_invalid_env(test_ray_cluster):
     """Test main function with invalid environment ID."""
     args = ['--env-id', 'InvalidEnv-v999', '--n-steps', '10']

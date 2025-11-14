@@ -4,11 +4,11 @@ DOCKER_TAG ?= latest
 
 install:
 	python -m pip install --upgrade pip
-	poetry install --without dev
+	poetry install
 
 install-dev:
 	python -m pip install --upgrade pip
-	poetry install
+	poetry install --with dev
 
 check-style:
 	poetry run flake8 src/tfrlrl tests
@@ -19,8 +19,8 @@ isort:
 test:
 	poetry run pytest --random-order tests/
 
-test-fast:
-	poetry run pytest --random-order -m "not slow" tests/
+test-local:
+	poetry run pytest --random-order -m "not slow and not flaky" tests/
 
 test-coverage:
 	poetry run pytest --random-order --cov=tfrlrl --cov-config=setup.cfg tests/
