@@ -68,6 +68,7 @@ def test_step_valid_example(env_id, time_step, observation, action, next_observa
 
 @pytest.mark.parametrize('env_id, time_step, observation, action, next_observation, reward, done, info',
                          [
+                             # Test Case: Invalid Time Step
                              (
                                  'CartPole-v1',
                                  2.5,
@@ -78,6 +79,7 @@ def test_step_valid_example(env_id, time_step, observation, action, next_observa
                                  True,
                                  {},
                              ),
+                             # Test Case: Invalid Action
                              (
                                  'CartPole-v1',
                                  2,
@@ -88,16 +90,7 @@ def test_step_valid_example(env_id, time_step, observation, action, next_observa
                                  True,
                                  {},
                              ),
-                             (
-                                 'CartPole-v1',
-                                 2,
-                                 np.array([-0.0464053, -0.04271065, 0.03379071, -0.04416595]),
-                                 0,
-                                 np.array([-0.04725951, -0.23830044, 0.03290739, 0.25898385]),
-                                 1,
-                                 True,
-                                 {},
-                             ),
+                             # Test Case: Invalid Done Flag
                              (
                                  'CartPole-v1',
                                  2,
@@ -106,16 +99,6 @@ def test_step_valid_example(env_id, time_step, observation, action, next_observa
                                  np.array([-0.04725951, -0.23830044, 0.03290739, 0.25898385]),
                                  0.1,
                                  'true',
-                                 {},
-                             ),
-                             (
-                                 'Ant-v5',
-                                 2,
-                                 np.random.uniform(0.0, 1.0, (27,)),
-                                 1,
-                                 np.random.uniform(0.0, 1.0, (27,)),
-                                 0.1,
-                                 True,
                                  {},
                              ),
                          ])

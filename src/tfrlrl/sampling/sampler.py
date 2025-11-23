@@ -2,6 +2,7 @@ import uuid
 from typing import Dict, Optional, Tuple, Union
 
 import gymnasium as gym
+import numpy as np
 import ray
 from numpy.typing import NDArray
 
@@ -54,6 +55,10 @@ class Sampler:
 
         if self._terminated or self._truncated:
             self._observation, self._info = self._env.reset()
+            if isinstance(self._observation, float):
+                self._observation = self._observation * np.ones(1)
+            elif isinstance(self._observation, int):
+                self._observation = self._observation * np.ones(1, dtype=np.int64)
             self._env_id = str(uuid.uuid4())
             self._n_env_steps_taken = 0
         else:
@@ -63,6 +68,11 @@ class Sampler:
         self._next_observation, self._reward, self._terminated, self._truncated, self._info = self._env.step(
             self._action,
         )
+        if isinstance(self._next_observation, float):
+            self._next_observation = self._next_observation * np.ones(1)
+        elif isinstance(self._next_observation, int):
+            self._next_observation = self._next_observation * np.ones(1, dtype=np.int64)
+
         self._n_steps_taken += 1
         self._n_env_steps_taken += 1
         return self.step_cls(

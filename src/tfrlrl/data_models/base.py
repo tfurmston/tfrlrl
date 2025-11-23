@@ -44,7 +44,7 @@ class IntDescriptor(Validator):
     def validate(self, value):
         """Validate that value is an integer."""
         if not isinstance(value, (int, np.integer)):
-            raise TypeError(f'Expected {value!r} to be a integer')
+            raise TypeError(f'Expected {value!r} to be an integer')
 
 
 class FloatDescriptor(Validator):
@@ -54,6 +54,15 @@ class FloatDescriptor(Validator):
         """Validate that value is a float."""
         if not isinstance(value, float):
             raise TypeError(f'Expected {value!r} to be a float')
+
+
+class IntFloatDescriptor(Validator):
+    """A Descriptor validator class that validates the value is an integer or a float."""
+
+    def validate(self, value):
+        """Validate that value is an integer."""
+        if not isinstance(value, (int, np.integer, float)):
+            raise TypeError(f'Expected {value!r} to be an integer or a float')
 
 
 class BooleanDescriptor(Validator):
