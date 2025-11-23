@@ -23,5 +23,5 @@ settings = Dynaconf(
     validators=[
         Validator('LOG_LEVEL', must_exist=True, is_in=['DEBUG', 'INFO', 'WARN', 'ERROR']),
         Validator('ENV', must_exist=True, condition=is_valid_environment),
-    ]
+    ],
 )
