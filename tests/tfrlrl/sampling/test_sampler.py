@@ -12,9 +12,9 @@ class TestSampler:
     """This class encapsulates the unit tests for the Sampler class."""
 
     @pytest.mark.slow
-    @pytest.mark.parametrize('env_id', ['CartPole-v1'])
+    @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100))
-    @settings(deadline=None)
+    @settings(deadline=2000)
     def test_sample_n_steps_without_limit(self, env_id: str, n_steps: int, test_ray_cluster):
         """
         Test that n-steps can be sampled from the environment and that the outputs follow the expected format.
@@ -29,14 +29,14 @@ class TestSampler:
             assert isinstance(sample.time_step, int)
             assert isinstance(sample.observation, np.ndarray)
             assert isinstance(sample.next_observation, np.ndarray)
-            assert isinstance(sample.reward, float)
+            assert isinstance(sample.reward, float) or isinstance(sample.reward, int)
             assert isinstance(sample.done, bool)
             assert isinstance(sample.info, dict)
 
     @pytest.mark.slow
-    @pytest.mark.parametrize('env_id', ['CartPole-v1'])
+    @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100))
-    @settings(deadline=None)
+    @settings(deadline=2000)
     def test_sample_n_steps_with_policy(self, env_id: str, n_steps: int, test_ray_cluster):
         """
         Test that n-steps can be sampled from the environment with a custom policy.
@@ -53,21 +53,24 @@ class TestSampler:
             assert isinstance(sample.time_step, int)
             assert isinstance(sample.observation, np.ndarray)
             assert isinstance(sample.next_observation, np.ndarray)
-            assert isinstance(sample.reward, float)
+            assert isinstance(sample.reward, float) or isinstance(sample.reward, int)
             assert isinstance(sample.done, bool)
             assert isinstance(sample.info, dict)
             # Verify action is valid for the environment
             assert isinstance(sample.action, (int, np.integer))
-            assert 0 <= sample.action < 2  # CartPole has 2 actions
+            if env_id == 'CartPole-v1':
+                assert 0 <= sample.action < 2  # CartPole has 2 actions
+            elif env_id == 'CliffWalking-v1':
+                assert 0 <= sample.action < 4  # Cliff Walking has 4 actions
 
 
 class TestRaySampler:
     """A test class for testing the RaySampler class."""
 
     @pytest.mark.slow
-    @pytest.mark.parametrize('env_id', ['CartPole-v1'])
+    @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100), n_envs=st.integers(min_value=1, max_value=4))
-    @settings(deadline=None)
+    @settings(deadline=2000)
     def test_ray_sample_n_steps_without_limit(self, env_id: str, n_steps: int, n_envs: int, test_ray_cluster):
         """
         Test that n-steps can be sampled from the environment and that any number of steps can be sampled.
@@ -91,16 +94,23 @@ class TestRaySampler:
 
             assert len(samples.env_ids) == n_envs
             assert samples.time_steps.shape == (n_envs,)
-            assert samples.observations.shape == (4, n_envs)
             assert samples.actions.shape == (n_envs,)
-            assert samples.next_observations.shape == (4, n_envs)
             assert samples.rewards.shape == (n_envs,)
             assert samples.dones.shape == (n_envs,)
 
+            if env_id == 'CartPole-v1':
+                # CartPole has 4-dimensional observation space
+                assert samples.observations.shape == (4, n_envs)
+                assert samples.next_observations.shape == (4, n_envs)
+            elif env_id == 'CliffWalking-v1':
+                # CartPole has 4-dimensional observation space
+                assert samples.observations.shape == (1, n_envs)
+                assert samples.next_observations.shape == (1, n_envs)
+
     @pytest.mark.slow
-    @pytest.mark.parametrize('env_id', ['CartPole-v1'])
+    @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100))
-    @settings(deadline=None)
+    @settings(deadline=2000)
     def test_ray_sample_n_steps_with_limit(self, env_id: str, n_steps: int, test_ray_cluster):
         """
         Test that n-steps can be sampled from the environment and the limit on n_steps is respected.
@@ -125,16 +135,23 @@ class TestRaySampler:
 
             assert len(sample.env_ids) == n_envs
             assert sample.time_steps.shape == (n_envs,)
-            assert sample.observations.shape == (4, n_envs)
             assert sample.actions.shape == (n_envs,)
-            assert sample.next_observations.shape == (4, n_envs)
             assert sample.rewards.shape == (n_envs,)
             assert sample.dones.shape == (n_envs,)
 
+            if env_id == 'CartPole-v1':
+                # CartPole has 4-dimensional observation space
+                assert sample.observations.shape == (4, n_envs)
+                assert sample.next_observations.shape == (4, n_envs)
+            elif env_id == 'CliffWalking-v1':
+                # CartPole has 4-dimensional observation space
+                assert sample.observations.shape == (1, n_envs)
+                assert sample.next_observations.shape == (1, n_envs)
+
     @pytest.mark.slow
-    @pytest.mark.parametrize('env_id', ['CartPole-v1'])
+    @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100), n_envs=st.integers(min_value=1, max_value=4))
-    @settings(deadline=None)
+    @settings(deadline=2000)
     def test_ray_sample_with_policy(self, env_id: str, n_steps: int, n_envs: int, test_ray_cluster):
         """
         Test that n-steps can be sampled from multiple environments with a custom policy.
@@ -159,11 +176,21 @@ class TestRaySampler:
 
             assert len(samples.env_ids) == n_envs
             assert samples.time_steps.shape == (n_envs,)
-            assert samples.observations.shape == (4, n_envs)
             assert samples.actions.shape == (n_envs,)
-            assert samples.next_observations.shape == (4, n_envs)
             assert samples.rewards.shape == (n_envs,)
             assert samples.dones.shape == (n_envs,)
 
-            # Verify all actions are valid for CartPole (2 actions: 0 or 1)
-            assert np.all((samples.actions >= 0) & (samples.actions < 2))
+            if env_id == 'CartPole-v1':
+                # CartPole has 4-dimensional observation space
+                assert samples.observations.shape == (4, n_envs)
+                assert samples.next_observations.shape == (4, n_envs)
+
+                # Verify all actions are valid for CartPole (2 actions: 0 or 1)
+                assert np.all((samples.actions >= 0) & (samples.actions < 2))
+            elif env_id == 'CliffWalking-v1':
+                # CartPole has 4-dimensional observation space
+                assert samples.observations.shape == (1, n_envs)
+                assert samples.next_observations.shape == (1, n_envs)
+
+                # Verify all actions are valid for CliffWalking (4 actions: 0, 1, 2 or 3)
+                assert np.all((samples.actions >= 0) & (samples.actions < 4))

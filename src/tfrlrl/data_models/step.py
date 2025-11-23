@@ -7,8 +7,8 @@ import numpy as np
 from tfrlrl.data_models.base import (
     BooleanDescriptor,
     DictDescriptor,
-    FloatDescriptor,
     IntDescriptor,
+    IntFloatDescriptor,
     NumpyArrayExpandedDescriptor,
     StringDescriptor,
     Validator,
@@ -86,7 +86,7 @@ def construct_step_dataclass(env_id: str):
             ('observation', NumpyArrayExpandedDescriptor, NumpyArrayExpandedDescriptor()),
             construct_action_space_definition(env_id),
             ('next_observation', NumpyArrayExpandedDescriptor, NumpyArrayExpandedDescriptor()),
-            ('reward', FloatDescriptor, FloatDescriptor()),
+            ('reward', IntFloatDescriptor, IntFloatDescriptor()),
             ('info', DictDescriptor, DictDescriptor()),
             ('done', BooleanDescriptor, BooleanDescriptor()),
         ],
