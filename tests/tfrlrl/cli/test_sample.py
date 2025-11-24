@@ -1,4 +1,5 @@
 """Tests for the sampling CLI."""
+
 import pytest
 
 from tfrlrl.cli.sample import collect_samples_parallel, collect_samples_single_env, compute_statistics, main, parse_args

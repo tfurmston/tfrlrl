@@ -19,7 +19,7 @@ def test_init_with_discrete_action_space(env_id: str):
     softmax_parameters = np.random.uniform(
         low=-1.0,
         high=1.0,
-        size=(env.observation_space.n * (env.action_space.n - 1), ),
+        size=(env.observation_space.n * (env.action_space.n - 1),),
     )
     feature_fn = construct_one_hot_feature_function(env.observation_space.n, env.action_space.n)
 
@@ -29,10 +29,7 @@ def test_init_with_discrete_action_space(env_id: str):
 
 
 @pytest.mark.parametrize('env_id', ['CliffWalking-v1'])
-@given(
-    observation=st.integers(min_value=0, max_value=47),
-    seed=st.integers(min_value=0, max_value=10000)
-)
+@given(observation=st.integers(min_value=0, max_value=47), seed=st.integers(min_value=0, max_value=10000))
 @settings(deadline=None)
 def test_action_probabilities_sum_to_one(env_id: str, observation: int, seed: int):
     """
@@ -47,7 +44,7 @@ def test_action_probabilities_sum_to_one(env_id: str, observation: int, seed: in
     softmax_parameters = np.random.uniform(
         low=-10.0,
         high=10.0,
-        size=(env.observation_space.n * (env.action_space.n - 1), ),
+        size=(env.observation_space.n * (env.action_space.n - 1),),
     )
     feature_fn = construct_one_hot_feature_function(env.observation_space.n, env.action_space.n)
 
@@ -65,10 +62,7 @@ def test_action_probabilities_sum_to_one(env_id: str, observation: int, seed: in
 
 
 @pytest.mark.parametrize('env_id', ['CliffWalking-v1'])
-@given(
-    observation=st.integers(min_value=0, max_value=47),
-    seed=st.integers(min_value=0, max_value=10000)
-)
+@given(observation=st.integers(min_value=0, max_value=47), seed=st.integers(min_value=0, max_value=10000))
 @settings(deadline=None)
 def test_generate_action_returns_valid_actions(env_id: str, observation: int, seed: int):
     """
@@ -83,7 +77,7 @@ def test_generate_action_returns_valid_actions(env_id: str, observation: int, se
     softmax_parameters = np.random.uniform(
         low=-10.0,
         high=10.0,
-        size=(env.observation_space.n * (env.action_space.n - 1), ),
+        size=(env.observation_space.n * (env.action_space.n - 1),),
     )
     feature_fn = construct_one_hot_feature_function(env.observation_space.n, env.action_space.n)
 
@@ -104,7 +98,7 @@ def test_generate_action_returns_valid_actions(env_id: str, observation: int, se
 @given(
     observation=st.integers(min_value=0, max_value=47),
     action=st.integers(min_value=0, max_value=3),
-    seed=st.integers(min_value=0, max_value=1000)
+    seed=st.integers(min_value=0, max_value=1000),
 )
 @settings(deadline=None)
 def test_calculate_log_derivative_finite_difference(env_id: str, observation: int, action: int, seed: int):
@@ -121,7 +115,7 @@ def test_calculate_log_derivative_finite_difference(env_id: str, observation: in
     softmax_parameters = np.random.uniform(
         low=-5.0,
         high=5.0,
-        size=(env.observation_space.n * (env.action_space.n - 1), ),
+        size=(env.observation_space.n * (env.action_space.n - 1),),
     )
     feature_fn = construct_one_hot_feature_function(env.observation_space.n, env.action_space.n)
 
@@ -153,5 +147,10 @@ def test_calculate_log_derivative_finite_difference(env_id: str, observation: in
         numerical_grad[i] = (log_prob_plus - log_prob_minus) / (2 * epsilon)
 
     # Compare analytical and numerical gradients
-    np.testing.assert_allclose(analytical_grad, numerical_grad, rtol=1e-3, atol=1e-4,
-                               err_msg='Analytical gradient does not match numerical gradient')
+    np.testing.assert_allclose(
+        analytical_grad,
+        numerical_grad,
+        rtol=1e-3,
+        atol=1e-4,
+        err_msg='Analytical gradient does not match numerical gradient',
+    )

@@ -9,7 +9,7 @@ from tfrlrl.sampling.sampler import RaySampler, Sampler
 
 
 class TestSampler:
-    """This class encapsulates the unit tests for the Sampler class."""
+    """Class that encapsulates the unit tests for the Sampler class."""
 
     @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
@@ -23,7 +23,7 @@ class TestSampler:
         :param n_steps: The number of steps to sample from the environment.
         """
         sampler = Sampler.remote(env_id)
-        for n in range(n_steps):
+        for _ in range(n_steps):
             sample = ray.get(sampler.__next__.remote())
             assert isinstance(sample.env_id, str)
             assert isinstance(sample.time_step, int)
@@ -47,7 +47,7 @@ class TestSampler:
         """
         policy = UniformActionSamplingPolicy(env_id)
         sampler = Sampler.remote(env_id, policy=policy)
-        for n in range(n_steps):
+        for _ in range(n_steps):
             sample = ray.get(sampler.__next__.remote())
             assert isinstance(sample.env_id, str)
             assert isinstance(sample.time_step, int)
@@ -81,7 +81,7 @@ class TestRaySampler:
         :param test_ray_cluster: PyTest fixture to start Ray cluster.
         """
         ray_sampler = RaySampler(env_id, n_envs)
-        for n in range(n_steps):
+        for _ in range(n_steps):
             samples = next(ray_sampler)
             assert isinstance(samples, ray_sampler.steps_cls)
             assert isinstance(samples.env_ids, list)

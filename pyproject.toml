@@ -51,7 +51,8 @@ markers = [
 line-length = 120
 
 [tool.ruff.lint]
-select = ["B", "D", "E", "F", "I", "Q"]
+exclude = [".git", ".venv"]
+select = ["B", "D", "E", "F", "G", "I", "LOG", "Q"]
 ignore = ["D100", "D104", "D203", "D212", "Q000", "Q003"]
 
 [tool.ruff.format]
