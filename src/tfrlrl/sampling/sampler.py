@@ -13,7 +13,7 @@ from tfrlrl.policies.base import BasePolicy, UniformActionSamplingPolicy
 @ray.remote
 class Sampler:
     """
-    This class provides functionality to sample from a given Gym environment.
+    Class that provides functionality to sample from a given Gym environment.
 
     The class is single-threaded, i.e., it samples from a single instance of the environment using a single thread. The
     class provides iterable support, see https://docs.python.org/3/library/stdtypes.html#typeiter.
@@ -21,7 +21,7 @@ class Sampler:
 
     def __init__(self, env_id: str, n_steps: int = None, policy: Optional[BasePolicy] = None):
         """
-        Initialise the instance of the Sampler. This entails initialising the environment and setting member variables.
+        Initialise instance of Sampler, which entails initialising the environment and setting member variables.
 
         :param env_id: The Gym environment ID to be used in the sampling.
         :param n_steps: If given, the number of steps to sample from the environment. If not given, then there is no
@@ -97,14 +97,14 @@ class Sampler:
 
 class RaySampler:
     """
-    This class provides functionality to sample from multiple instances of a given Gym environment through Ray.
+    Class that provides functionality to sample from multiple instances of a given Gym environment through Ray.
 
     The class uses Ray to distribute the samplimng across the different environments.
     """
 
     def __init__(self, env_id: str, n_envs: int, n_steps: int = None, policy: Optional[BasePolicy] = None):
         """
-        Initialise instance of the RaySampler. This entails initialising the environment and setting member variables.
+        Initialise instance RaySampler, which entails initialising the environment and setting member variables.
 
         :param env_id: The Gym environment ID to be used in the sampling.
         :param n_envs: The number of environments from which to sample.

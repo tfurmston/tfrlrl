@@ -1,4 +1,3 @@
-
 from typing import Callable, Tuple, Union
 
 import gymnasium as gym
@@ -9,7 +8,8 @@ from tfrlrl.policies.base import BaseDifferentiablePolicy, PolicyException
 
 
 class LinearSoftMax(BaseDifferentiablePolicy):
-    """Linear softmax policy for discrete action spaces.
+    """
+    Linear softmax policy for discrete action spaces.
 
     This policy computes action probabilities using a linear softmax parameterization with
     feature functions. The policy is differentiable with respect to its parameters, enabling
@@ -22,6 +22,7 @@ class LinearSoftMax(BaseDifferentiablePolicy):
 
     Raises:
         PolicyException: If the environment does not have a discrete action space.
+
     """
 
     def __init__(self, env_id: str, softmax_parameters: NDArray, feature_fn: Callable[[NDArray], NDArray]):

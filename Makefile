@@ -11,10 +11,10 @@ install-dev:
 	poetry install --with dev
 
 check-style:
-	poetry run flake8 src/tfrlrl tests
+	poetry run ruff check
 
-isort:
-	poetry run isort .
+format:
+	poetry run ruff format
 
 test:
 	poetry run pytest --random-order tests/

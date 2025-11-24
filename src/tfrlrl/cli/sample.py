@@ -1,4 +1,5 @@
 """CLI for sampling steps from Gymnasium environments."""
+
 import argparse
 import logging
 
@@ -161,7 +162,7 @@ def main(args=None):
 
         return 0
 
-    except Exception:  # noqa: B902
+    except Exception:
         logger.exception('Error during sampling')
         return 1
 

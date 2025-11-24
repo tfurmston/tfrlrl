@@ -45,6 +45,7 @@ def construct_steps_postinitialisation_fn(env_id: str) -> Callable:
     """
     env = gym.make(env_id)
     if isinstance(env.action_space, gym.spaces.Discrete):
+
         def post_initialise_steps(self, sample_steps):
             """Post-initialisation of steps from a collection of individual steps."""
             self.n_steps = len(sample_steps)
@@ -55,8 +56,10 @@ def construct_steps_postinitialisation_fn(env_id: str) -> Callable:
             self.next_observations = np.concatenate([x.next_observation for x in sample_steps], axis=-1)
             self.rewards = np.array([x.reward for x in sample_steps])
             self.dones = np.array([x.done for x in sample_steps])
+
         return post_initialise_steps
     elif isinstance(env.action_space, gym.spaces.Box):
+
         def post_initialise_steps(self, sample_steps):
             """Post-initialisation of steps from a collection of individual steps."""
             self.n_steps = len(sample_steps)
@@ -67,6 +70,7 @@ def construct_steps_postinitialisation_fn(env_id: str) -> Callable:
             self.next_observations = np.concatenate([x.next_observation for x in sample_steps], axis=-1)
             self.rewards = np.array([x.reward for x in sample_steps])
             self.dones = np.array([x.done for x in sample_steps])
+
         return post_initialise_steps
     raise StepDataclassException('Action space must be Discrete or Box.')
 
@@ -113,7 +117,7 @@ def construct_steps_dataclass(env_id: str):
             ('dones', np.ndarray, None),
             ('sample_steps', InitVar, None),
         ],
-        namespace={'__post_init__': construct_steps_postinitialisation_fn(env_id)}
+        namespace={'__post_init__': construct_steps_postinitialisation_fn(env_id)},
     )
 
 

@@ -20,6 +20,6 @@ def construct_one_hot_feature_function(S: int, A: int) -> Callable[[NDArray], ND
     f[inds, :] = np.eye(S * (A - 1))
 
     def feature_fn(observation: NDArray) -> NDArray:
-        return f[observation:(observation + A), :]
+        return f[observation : (observation + A), :]
 
     return feature_fn

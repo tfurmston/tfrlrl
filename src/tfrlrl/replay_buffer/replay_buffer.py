@@ -22,10 +22,10 @@ class ReplayBuffer:
         """Initialise experience replay buffer."""
         env = gym.make(env_id)
         self._observations = np.ndarray(
-            env.observation_space.shape + (buffer_size, ),
+            env.observation_space.shape + (buffer_size,),
         )
         self._next_observations = np.ndarray(
-            env.observation_space.shape + (buffer_size, ),
+            env.observation_space.shape + (buffer_size,),
         )
         if isinstance(env.action_space, gym.spaces.Discrete):
             self._actions = np.ndarray(
@@ -33,7 +33,7 @@ class ReplayBuffer:
             )
         elif isinstance(env.action_space, gym.spaces.Box):
             self._actions = np.ndarray(
-                env.action_space.shape + (buffer_size, ),
+                env.action_space.shape + (buffer_size,),
             )
         else:
             raise ReplayBufferException('Action space must be Discrete or Box.')
@@ -64,7 +64,8 @@ class ReplayBuffer:
 
         if indx < n_steps:
             raise ReplayBufferException(
-                'There are insufficient samples in the replay buffer to sample %s steps', n_steps)
+                'There are insufficient samples in the replay buffer to sample %s steps', n_steps
+            )
         return indx
 
     def _update_buffer(self, inds, observations, next_observations, actions, rewards, dones):
