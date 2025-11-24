@@ -3,11 +3,11 @@ from typing import Dict, Optional, Tuple, Union
 
 import gymnasium as gym
 import numpy as np
+import ray
 from numpy.typing import NDArray
 
 from tfrlrl.data_models.step import construct_step_dataclasses
 from tfrlrl.policies.base import BasePolicy, UniformActionSamplingPolicy
-import ray
 
 
 @ray.remote
