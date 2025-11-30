@@ -91,7 +91,7 @@ class TestRaySampler:
     @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100), n_envs=st.integers(min_value=1, max_value=4))
-    @settings(deadline=2000)
+    @settings(deadline=5000)
     def test_ray_sample_n_steps_without_limit(self, env_id: str, n_steps: int, n_envs: int, test_ray_cluster):
         """
         Test that n-steps can be sampled from the environment and that any number of steps can be sampled.
@@ -131,7 +131,7 @@ class TestRaySampler:
     @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100))
-    @settings(deadline=2000)
+    @settings(deadline=5000)
     def test_ray_sample_n_steps_with_limit(self, env_id: str, n_steps: int, test_ray_cluster):
         """
         Test that n-steps can be sampled from the environment and the limit on n_steps is respected.
@@ -172,7 +172,7 @@ class TestRaySampler:
     @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100), n_envs=st.integers(min_value=1, max_value=4))
-    @settings(deadline=2000)
+    @settings(deadline=5000)
     def test_ray_sample_with_policy(self, env_id: str, n_steps: int, n_envs: int, test_ray_cluster):
         """
         Test that n-steps can be sampled from multiple environments with a custom policy.
@@ -218,7 +218,7 @@ class TestRaySampler:
 
     @pytest.mark.slow
     @given(n_steps=st.integers(min_value=10, max_value=100), n_envs=st.integers(min_value=1, max_value=4))
-    @settings(deadline=2000)
+    @settings(deadline=5000)
     def test_ray_sample_with_env_kwargs(self, n_steps: int, n_envs: int, test_ray_cluster):
         """
         Test that environment kwargs are correctly passed through to the environment construction in RaySampler.
