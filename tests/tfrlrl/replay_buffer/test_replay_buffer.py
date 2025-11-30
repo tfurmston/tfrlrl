@@ -7,7 +7,6 @@ from tfrlrl.replay_buffer.replay_buffer import ReplayBuffer
 from tfrlrl.sampling.sampler import RaySampler, Sampler
 
 
-@pytest.mark.slow
 @pytest.mark.parametrize('env_id', ['CartPole-v1'])
 @given(n_steps=st.integers(min_value=10, max_value=100))
 @settings(deadline=None)
@@ -55,7 +54,6 @@ def test_add_steps(env_id: str, n_steps: int, test_ray_cluster):
     assert buffer._indx == n_envs * n_steps % buffer_size
 
 
-@pytest.mark.slow
 @pytest.mark.parametrize('env_id', ['CartPole-v1'])
 @given(n_steps=st.integers(min_value=100, max_value=1000), n_samples=st.integers(min_value=10, max_value=50))
 @settings(deadline=None)

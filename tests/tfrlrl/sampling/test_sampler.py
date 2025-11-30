@@ -59,6 +59,31 @@ class TestSampler:
             elif env_id == 'CliffWalking-v1':
                 assert 0 <= sample.action < 4  # Cliff Walking has 4 actions
 
+    @given(n_steps=st.integers(min_value=10, max_value=100))
+    @settings(deadline=2000)
+    def test_sample_with_env_kwargs(self, n_steps: int, test_ray_cluster):
+        """
+        Test that environment kwargs are correctly passed through to the environment construction.
+
+        Uses FrozenLake-v1 with is_slippery parameter to verify kwargs functionality.
+
+        :param n_steps: The number of steps to sample from the environment.
+        :param test_ray_cluster: PyTest fixture to start Ray cluster.
+        """
+        env_id = 'FrozenLake-v1'
+        sampler = Sampler(env_id, n_steps=n_steps, is_slippery=False)
+        for sample in sampler:
+            assert isinstance(sample.env_id, str)
+            assert isinstance(sample.time_step, int)
+            assert isinstance(sample.observation, np.ndarray)
+            assert isinstance(sample.next_observation, np.ndarray)
+            assert isinstance(sample.reward, float) or isinstance(sample.reward, int)
+            assert isinstance(sample.done, bool)
+            assert isinstance(sample.info, dict)
+            # Verify action is valid for FrozenLake (4 actions: 0, 1, 2, 3)
+            assert isinstance(sample.action, (int, np.integer))
+            assert 0 <= sample.action < 4
+
 
 class TestRaySampler:
     """A test class for testing the RaySampler class."""
@@ -190,3 +215,42 @@ class TestRaySampler:
 
                 # Verify all actions are valid for CliffWalking (4 actions: 0, 1, 2 or 3)
                 assert np.all((samples.actions >= 0) & (samples.actions < 4))
+
+    @pytest.mark.slow
+    @given(n_steps=st.integers(min_value=10, max_value=100), n_envs=st.integers(min_value=1, max_value=4))
+    @settings(deadline=2000)
+    def test_ray_sample_with_env_kwargs(self, n_steps: int, n_envs: int, test_ray_cluster):
+        """
+        Test that environment kwargs are correctly passed through to the environment construction in RaySampler.
+
+        Uses FrozenLake-v1 with is_slippery parameter to verify kwargs functionality.
+
+        :param n_steps: The number of steps to sample from the environment.
+        :param n_envs: The number of environments from which to sample.
+        :param test_ray_cluster: PyTest fixture to start Ray cluster.
+        """
+        env_id = 'FrozenLake-v1'
+        ray_sampler = RaySampler(env_id, n_envs, is_slippery=False)
+        for _ in range(n_steps):
+            samples = next(ray_sampler)
+            assert isinstance(samples, ray_sampler.steps_cls)
+            assert isinstance(samples.env_ids, list)
+            assert isinstance(samples.time_steps, np.ndarray)
+            assert isinstance(samples.observations, np.ndarray)
+            assert isinstance(samples.actions, np.ndarray)
+            assert isinstance(samples.next_observations, np.ndarray)
+            assert isinstance(samples.rewards, np.ndarray)
+            assert isinstance(samples.dones, np.ndarray)
+
+            assert len(samples.env_ids) == n_envs
+            assert samples.time_steps.shape == (n_envs,)
+            assert samples.actions.shape == (n_envs,)
+            assert samples.rewards.shape == (n_envs,)
+            assert samples.dones.shape == (n_envs,)
+
+            # FrozenLake has 1-dimensional observation space
+            assert samples.observations.shape == (1, n_envs)
+            assert samples.next_observations.shape == (1, n_envs)
+
+            # Verify all actions are valid for FrozenLake (4 actions: 0, 1, 2, 3)
+            assert np.all((samples.actions >= 0) & (samples.actions < 4))
