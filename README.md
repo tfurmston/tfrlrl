@@ -49,13 +49,22 @@ TFRLRL_LOG_LEVEL=DEBUG poetry run tfrlrl-sample --env-id CartPole-v1 --n-steps 1
 - `--n-steps`: Total number of steps to sample
 - `--n-envs`: Number of parallel environments (default: 1)
 
-**Output:**
+### tfrlrl-sgd
 
-The CLI provides a summary with:
-- Total steps collected
-- Number of completed episodes
-- Mean reward ± standard deviation
-- Reward range (min/max)
+Perform basic stochastic gradient ascent to optimise the policy. This is intended solely for validating the code base on the toy-example. The CLI currently assumes that the environment will have a discrete state and action spaces. The policy is a linear soft-max policy and a one-hot encoding is used for the policy features. 
+
+**Basic Usage:**
+
+```bash
+# Perform stochastic gradient ascent on the given environment
+poetry run tfrlrl-sgd --env-id FrozenLake-v1 --n-iterations 100
+
+**Options:**
+
+- `--env-id`: Gymnasium environment ID (e.g., FrozenLake-v1)
+- `--n-iterations`: Total number of policy updates to perform.
+- `--n-episodes`: Total number of episodes to sample during each policy update.
+- `--alpha`: The initial step size in stochastic gradient ascent. Step sizes are linearly decreased w.r.t. the iteration of stochastic gradients.
 
 ## Configuration
 
@@ -81,7 +90,7 @@ This project is configured through [Poetry](https://python-poetry.org/). To inst
 make test
 
 # Run fast tests, e.g. for local development.
-make test-fast
+make test-local
 
 
 # Run with coverage report (requires 94% coverage)
@@ -97,8 +106,8 @@ poetry run pytest tests/tfrlrl/sampling/test_sampler.py
 # Run linting
 make check-style
 
-# Auto-format imports
-make isort
+# Auto-format codebase
+make format
 ```
 
 ### Version Management
