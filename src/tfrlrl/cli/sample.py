@@ -43,31 +43,6 @@ def parse_args(args=None):
     return parser.parse_args(args)
 
 
-def collect_samples_single_env(env_id: str, n_steps: int):
-    """
-    Collect samples from a single environment without Ray.
-
-    :param env_id: The Gymnasium environment ID.
-    :param n_steps: Number of steps to sample.
-    :return: List of step samples.
-    """
-    sampler = Sampler(env_id=env_id, n_steps=n_steps)
-    return [sample for sample in sampler]
-
-
-def collect_samples_parallel(env_id: str, n_steps: int, n_envs: int):
-    """
-    Collect samples from multiple parallel environments using Ray.
-
-    :param env_id: The Gymnasium environment ID.
-    :param n_steps: Number of steps to sample per environment.
-    :param n_envs: Number of parallel environments.
-    :return: List of batched step samples.
-    """
-    ray_sampler = RaySampler(env_id=env_id, n_envs=n_envs, n_steps=n_steps)
-    return [steps for steps in ray_sampler]
-
-
 def compute_statistics(samples, is_parallel: bool):
     """
     Compute and return statistics about collected samples.

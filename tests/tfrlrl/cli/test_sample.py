@@ -2,7 +2,8 @@
 
 import pytest
 
-from tfrlrl.cli.sample import collect_samples_parallel, collect_samples_single_env, compute_statistics, main, parse_args
+from tfrlrl.cli.sample import compute_statistics, main, parse_args
+from tfrlrl.sampling.sampler import RaySampler, Sampler
 
 
 @pytest.mark.parametrize(
@@ -39,39 +40,6 @@ def test_parse_args_missing_required(args):
         parse_args(args)
 
 
-def test_collect_samples_single_env(test_ray_cluster):
-    """Test collecting samples from a single environment."""
-    env_id = 'CartPole-v1'
-    n_steps = 10
-
-    samples = collect_samples_single_env(env_id, n_steps)
-
-    assert len(samples) == n_steps
-    for sample in samples:
-        assert hasattr(sample, 'env_id')
-        assert hasattr(sample, 'observation')
-        assert hasattr(sample, 'action')
-        assert hasattr(sample, 'reward')
-        assert hasattr(sample, 'done')
-
-
-def test_collect_samples_parallel(test_ray_cluster):
-    """Test collecting samples from parallel environments."""
-    env_id = 'CartPole-v1'
-    n_steps = 5
-    n_envs = 2
-
-    samples = collect_samples_parallel(env_id, n_steps, n_envs)
-
-    assert len(samples) == n_steps
-    for batch in samples:
-        assert hasattr(batch, 'n_steps')
-        assert batch.n_steps == n_envs
-        assert hasattr(batch, 'observations')
-        assert hasattr(batch, 'actions')
-        assert hasattr(batch, 'rewards')
-
-
 @pytest.mark.parametrize(
     'env_id,n_steps,is_parallel',
     [
@@ -83,10 +51,12 @@ def test_compute_statistics(env_id, n_steps, is_parallel, test_ray_cluster):
     """Test computing statistics for both single and parallel environment samples."""
     if is_parallel:
         n_envs = 2
-        samples = collect_samples_parallel(env_id, n_steps, n_envs)
+        sampler = RaySampler(env_id=env_id, n_envs=n_envs, n_steps=n_steps)
+        samples = [sample for sample in sampler]
         expected_total_steps = n_steps * n_envs
     else:
-        samples = collect_samples_single_env(env_id, n_steps)
+        sampler = Sampler(env_id=env_id, n_steps=n_steps)
+        samples = [sample for sample in sampler]
         expected_total_steps = n_steps
 
     stats = compute_statistics(samples, is_parallel=is_parallel)
