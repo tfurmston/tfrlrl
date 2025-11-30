@@ -1,6 +1,5 @@
 import gymnasium as gym
 import pytest
-import ray
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -25,9 +24,8 @@ def test_add_step(env_id: str, n_steps: int, test_ray_cluster):
         buffer_size=100,
     )
 
-    sampler = Sampler.remote(env_id)
-    for _ in range(n_steps):
-        sample = ray.get(sampler.__next__.remote())
+    sampler = Sampler(env_id, n_steps=n_steps)
+    for sample in sampler:
         buffer.add_step(sample)
 
 
@@ -70,7 +68,6 @@ def test_sample(env_id: str, n_steps: int, n_samples: int, test_ray_cluster):
     :param n_samples: The number of steps to sample from the replay buffer
     :param test_ray_cluster: PyTest fixture to start Ray cluster.
     """
-    n_envs = 2
     buffer_size = 1000
 
     buffer = ReplayBuffer(
@@ -78,9 +75,9 @@ def test_sample(env_id: str, n_steps: int, n_samples: int, test_ray_cluster):
         buffer_size=buffer_size,
     )
 
-    sampler = RaySampler(env_id, n_envs, n_steps)
+    sampler = Sampler(env_id, n_steps)
     for sample in sampler:
-        buffer.add_steps(sample)
+        buffer.add_step(sample)
 
     env = gym.make(env_id)
     samples = buffer.sample(n_samples)

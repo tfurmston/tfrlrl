@@ -10,7 +10,6 @@ from tfrlrl.data_models.step import construct_step_dataclasses
 from tfrlrl.policies.base import BasePolicy, UniformActionSamplingPolicy
 
 
-@ray.remote
 class Sampler:
     """
     Class that provides functionality to sample from a given Gym environment.
@@ -95,6 +94,9 @@ class Sampler:
         self._policy = new_policy
 
 
+RemoteSampler = ray.remote(Sampler)
+
+
 class RaySampler:
     """
     Class that provides functionality to sample from multiple instances of a given Gym environment through Ray.
@@ -114,7 +116,7 @@ class RaySampler:
         UniformActionSamplingPolicy in each Sampler.
         """
         self.step_cls, self.steps_cls = construct_step_dataclasses(env_id)
-        self._envs = [Sampler.remote(env_id=env_id, n_steps=n_steps, policy=policy) for _ in range(n_envs)]
+        self._envs = [RemoteSampler.remote(env_id=env_id, n_steps=n_steps, policy=policy) for _ in range(n_envs)]
 
     def __iter__(self):
         """Ensure that the RaySampler class supports the iterable protocol."""

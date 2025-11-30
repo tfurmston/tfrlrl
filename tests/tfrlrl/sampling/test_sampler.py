@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-import ray
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -11,7 +10,6 @@ from tfrlrl.sampling.sampler import RaySampler, Sampler
 class TestSampler:
     """Class that encapsulates the unit tests for the Sampler class."""
 
-    @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100))
     @settings(deadline=2000)
@@ -22,9 +20,9 @@ class TestSampler:
         :param env_id: The Gym environment ID to be used in the sampling.
         :param n_steps: The number of steps to sample from the environment.
         """
-        sampler = Sampler.remote(env_id)
+        sampler = Sampler(env_id)
         for _ in range(n_steps):
-            sample = ray.get(sampler.__next__.remote())
+            sample = sampler.__next__()
             assert isinstance(sample.env_id, str)
             assert isinstance(sample.time_step, int)
             assert isinstance(sample.observation, np.ndarray)
@@ -33,7 +31,6 @@ class TestSampler:
             assert isinstance(sample.done, bool)
             assert isinstance(sample.info, dict)
 
-    @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100))
     @settings(deadline=2000)
@@ -46,9 +43,8 @@ class TestSampler:
         :param test_ray_cluster: PyTest fixture to start Ray cluster.
         """
         policy = UniformActionSamplingPolicy(env_id)
-        sampler = Sampler.remote(env_id, policy=policy)
-        for _ in range(n_steps):
-            sample = ray.get(sampler.__next__.remote())
+        sampler = Sampler(env_id, n_steps=n_steps, policy=policy)
+        for sample in sampler:
             assert isinstance(sample.env_id, str)
             assert isinstance(sample.time_step, int)
             assert isinstance(sample.observation, np.ndarray)
