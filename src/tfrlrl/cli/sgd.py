@@ -71,14 +71,14 @@ def main(args=None):
         feature_fn,
     )
 
-    for n in range(parsed_args.n_iterations):
-        sampler = EpisodicSampler(
-            env_id=parsed_args.env_id,
-            n_episodes=parsed_args.n_episodes,
-            policy=pol,
-            is_slippery=False,
-        )
+    sampler = EpisodicSampler(
+        env_id=parsed_args.env_id,
+        n_episodes=parsed_args.n_episodes,
+        policy=pol,
+        is_slippery=False,
+    )
 
+    for n in range(parsed_args.n_iterations):
         x = [(rewards, episode_pol_gradient) for rewards, episode_pol_gradient in sampler]
 
         policy_gradients = [y[1] for y in x]
@@ -91,3 +91,6 @@ def main(args=None):
             logger.info('Policy update: %s', n)
             logger.info('Average total episodic reward: %s', np.average(np.array(total_rewatds)))
             logger.info('Policy gradient magnitude: %s', np.sum(np.abs(policy_gradient)))
+
+        sampler.reset()
+        sampler.update_policy(pol)
