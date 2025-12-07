@@ -58,6 +58,7 @@ class EpisodicSampler:
 
     def reset(self) -> None:
         """Reset the iterator so that a new iterable can be created."""
+        self._statistics_collector.reset()
         self._n_episodes_taken = 0
 
     def update_policy(self, new_policy: BasePolicy) -> None:
