@@ -1,0 +1,179 @@
+import gymnasium as gym
+import numpy as np
+import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
+
+from tfrlrl.features.onehot import construct_one_hot_feature_function
+from tfrlrl.policies.base import BasePolicy
+from tfrlrl.policies.linear_soft_max import LinearSoftMax
+from tfrlrl.sampling.episodic_sampler import EpisodicSampler
+from tfrlrl.sampling.statistics_collection import BaseStatisticsCollector
+
+
+class TestStatisticsCollector(BaseStatisticsCollector):
+    """Test class for collecting statistics during sampling."""
+
+    def __init__(self):
+        """Initialise statistics collector."""
+        self._samples = []
+
+    def reset(self):
+        """Reset the statistics in the collector."""
+        self._samples = []
+
+    def update_policy(self, new_policy: BasePolicy) -> None:
+        """Update the policy of the statistics collector."""
+        pass
+
+    def collect_step_statistics(self, sample):
+        """Collect statistics from a sample step."""
+        self._samples.append(sample)
+
+    def aggregate_statistics(self):
+        """Aggregate the statistics collected by the collector."""
+        return self._samples
+
+
+class TestEpisodicSampler:
+    """Class that encapsulates the unit tests for the EpisodicSampler class."""
+
+    @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+    @given(n_episodes=st.integers(min_value=2, max_value=10))
+    @settings(deadline=2000)
+    def test_sample_n_episodes_without_limit(self, env_id: str, n_episodes: int):
+        """
+        Test that n-episodes can be sampled from the environment and that the outputs follow the expected format.
+
+        :param env_id: The Gym environment ID to be used in the sampling.
+        :param n_steps: The number of steps to sample from the environment.
+        """
+        env = gym.make(env_id)
+        S = env.observation_space.n
+        A = env.action_space.n
+
+        feature_fn = construct_one_hot_feature_function(S=S, A=A)
+        softmax_parameters = np.random.random(size=S * (A - 1))
+        pol = LinearSoftMax(
+            env_id,
+            softmax_parameters,
+            feature_fn,
+        )
+        stats_collector = TestStatisticsCollector()
+        sampler = EpisodicSampler(env_id, stats_collector, n_episodes=n_episodes, policy=pol)
+        for sample in sampler:
+            assert isinstance(sample, list)
+            for step in sample:
+                assert isinstance(step.env_id, str)
+                assert isinstance(step.time_step, int)
+                assert isinstance(step.observation, np.ndarray)
+                assert isinstance(step.next_observation, np.ndarray)
+                assert isinstance(step.reward, float) or isinstance(step.reward, int)
+                assert isinstance(step.done, bool)
+                assert isinstance(step.info, dict)
+
+    @given(n_episodes=st.integers(min_value=2, max_value=10))
+    @settings(deadline=2000)
+    def test_sample_episode_with_env_kwargs(self, n_episodes: int):
+        """
+        Test that environment kwargs are correctly passed through to the environment construction.
+
+        Uses FrozenLake-v1 with is_slippery parameter to verify kwargs functionality.
+
+        :param n_steps: The number of steps to sample from the environment.
+        """
+        env_id = 'FrozenLake-v1'
+        env = gym.make(env_id)
+        S = env.observation_space.n
+        A = env.action_space.n
+
+        feature_fn = construct_one_hot_feature_function(S=S, A=A)
+        softmax_parameters = np.random.random(size=S * (A - 1))
+        pol = LinearSoftMax(
+            env_id,
+            softmax_parameters,
+            feature_fn,
+        )
+        stats_collector = TestStatisticsCollector()
+        sampler = EpisodicSampler(
+            env_id,
+            stats_collector,
+            n_episodes=n_episodes,
+            policy=pol,
+            is_slippery=False,
+        )
+        for sample in sampler:
+            assert isinstance(sample, list)
+            for step in sample:
+                assert isinstance(step.env_id, str)
+                assert isinstance(step.time_step, int)
+                assert isinstance(step.observation, np.ndarray)
+                assert isinstance(step.next_observation, np.ndarray)
+                assert isinstance(step.reward, float) or isinstance(step.reward, int)
+                assert isinstance(step.done, bool)
+                assert isinstance(step.info, dict)
+
+    @given(n_episodes=st.integers(min_value=2, max_value=10))
+    @settings(deadline=2000)
+    def test_reset_allows_reuse_as_iterator(self, n_episodes: int):
+        """
+        Test that the reset method allows the EpisodicSampler to be used as an iterator multiple times.
+
+        :param n_episodes: The number of episodes to sample from the environment.
+        """
+        env_id = 'FrozenLake-v1'
+        env = gym.make(env_id)
+        S = env.observation_space.n
+        A = env.action_space.n
+
+        feature_fn = construct_one_hot_feature_function(S=S, A=A)
+        softmax_parameters = np.random.random(size=S * (A - 1))
+        pol = LinearSoftMax(
+            env_id,
+            softmax_parameters,
+            feature_fn,
+        )
+        stats_collector = TestStatisticsCollector()
+        sampler = EpisodicSampler(env_id, stats_collector, n_episodes=n_episodes, policy=pol)
+
+        # First iteration: consume all episodes
+        first_iteration_count = 0
+        for sample in sampler:
+            assert isinstance(sample, list)
+            for step in sample:
+                assert isinstance(step.env_id, str)
+                assert isinstance(step.time_step, int)
+                assert isinstance(step.observation, np.ndarray)
+                assert isinstance(step.next_observation, np.ndarray)
+                assert isinstance(step.reward, float) or isinstance(step.reward, int)
+                assert isinstance(step.done, bool)
+                assert isinstance(step.info, dict)
+            first_iteration_count += 1
+
+        assert first_iteration_count == n_episodes
+
+        # Iterator should be exhausted - trying to iterate should yield no results
+        exhausted_count = 0
+        for _, _ in sampler:
+            exhausted_count += 1
+
+        assert exhausted_count == 0
+
+        # Reset the sampler
+        sampler.reset()
+
+        # Second iteration: should work again after reset
+        second_iteration_count = 0
+        for sample in sampler:
+            assert isinstance(sample, list)
+            for step in sample:
+                assert isinstance(step.env_id, str)
+                assert isinstance(step.time_step, int)
+                assert isinstance(step.observation, np.ndarray)
+                assert isinstance(step.next_observation, np.ndarray)
+                assert isinstance(step.reward, float) or isinstance(step.reward, int)
+                assert isinstance(step.done, bool)
+                assert isinstance(step.info, dict)
+            second_iteration_count += 1
+
+        assert second_iteration_count == n_episodes

@@ -10,7 +10,6 @@ from tfrlrl.data_models.step import construct_step_dataclasses
 from tfrlrl.policies.base import BasePolicy, UniformActionSamplingPolicy
 
 
-@ray.remote
 class Sampler:
     """
     Class that provides functionality to sample from a given Gym environment.
@@ -19,7 +18,7 @@ class Sampler:
     class provides iterable support, see https://docs.python.org/3/library/stdtypes.html#typeiter.
     """
 
-    def __init__(self, env_id: str, n_steps: int = None, policy: Optional[BasePolicy] = None):
+    def __init__(self, env_id: str, n_steps: int = None, policy: Optional[BasePolicy] = None, **kwargs):
         """
         Initialise instance of Sampler, which entails initialising the environment and setting member variables.
 
@@ -28,9 +27,10 @@ class Sampler:
         limit on the number of sampled steps.
         :param policy: Optional policy instance for action selection. If not provided, defaults to
         UniformActionSamplingPolicy.
+        :param kwargs: Optional keyword-arguments for the environment.
         """
         self.step_cls, self.steps_cls = construct_step_dataclasses(env_id)
-        self._env = gym.make(env_id)
+        self._env = gym.make(env_id, **kwargs)
         self._env_id = str(uuid.uuid4())
         self._n_steps = n_steps
         self._n_steps_taken = 0
@@ -86,6 +86,11 @@ class Sampler:
             info=self._info,
         )
 
+    def reset(self) -> None:
+        """Reset the iterator so that a new iterable can be created."""
+        if self._n_steps_taken is not None:
+            self._n_steps_taken = 0
+
     def update_policy(self, new_policy: BasePolicy) -> None:
         """
         Update the policy used for action selection.
@@ -95,6 +100,9 @@ class Sampler:
         self._policy = new_policy
 
 
+RemoteSampler = ray.remote(Sampler)
+
+
 class RaySampler:
     """
     Class that provides functionality to sample from multiple instances of a given Gym environment through Ray.
@@ -102,7 +110,7 @@ class RaySampler:
     The class uses Ray to distribute the samplimng across the different environments.
     """
 
-    def __init__(self, env_id: str, n_envs: int, n_steps: int = None, policy: Optional[BasePolicy] = None):
+    def __init__(self, env_id: str, n_envs: int, n_steps: int = None, policy: Optional[BasePolicy] = None, **kwargs):
         """
         Initialise instance RaySampler, which entails initialising the environment and setting member variables.
 
@@ -112,9 +120,12 @@ class RaySampler:
         limit on the number of sampled steps.
         :param policy: Optional policy instance for action selection. If not provided, defaults to
         UniformActionSamplingPolicy in each Sampler.
+        :param kwargs: Optional keyword-arguments for the environment.
         """
         self.step_cls, self.steps_cls = construct_step_dataclasses(env_id)
-        self._envs = [Sampler.remote(env_id=env_id, n_steps=n_steps, policy=policy) for _ in range(n_envs)]
+        self._envs = [
+            RemoteSampler.remote(env_id=env_id, n_steps=n_steps, policy=policy, **kwargs) for _ in range(n_envs)
+        ]
 
     def __iter__(self):
         """Ensure that the RaySampler class supports the iterable protocol."""

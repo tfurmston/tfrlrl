@@ -43,38 +43,6 @@ def parse_args(args=None):
     return parser.parse_args(args)
 
 
-def collect_samples_single_env(env_id: str, n_steps: int):
-    """
-    Collect samples from a single environment without Ray.
-
-    :param env_id: The Gymnasium environment ID.
-    :param n_steps: Number of steps to sample.
-    :return: List of step samples.
-    """
-    sampler = Sampler.remote(env_id=env_id, n_steps=n_steps)
-    samples = []
-    for _ in range(n_steps):
-        sample = ray.get(sampler.__next__.remote())
-        samples.append(sample)
-    return samples
-
-
-def collect_samples_parallel(env_id: str, n_steps: int, n_envs: int):
-    """
-    Collect samples from multiple parallel environments using Ray.
-
-    :param env_id: The Gymnasium environment ID.
-    :param n_steps: Number of steps to sample per environment.
-    :param n_envs: Number of parallel environments.
-    :return: List of batched step samples.
-    """
-    ray_sampler = RaySampler(env_id=env_id, n_envs=n_envs, n_steps=n_steps)
-    samples = []
-    for steps in ray_sampler:
-        samples.append(steps)
-    return samples
-
-
 def compute_statistics(samples, is_parallel: bool):
     """
     Compute and return statistics about collected samples.
@@ -121,30 +89,24 @@ def main(args=None):
     logger.info('Using %s parallel environment(s)', parsed_args.n_envs)
 
     try:
-        # Initialize Ray (required for both single and parallel sampling)
-        if not ray.is_initialized():
-            ray.init(ignore_reinit_error=True)
-        logger.info('Ray initialized')
-
         # Collect samples
         if parsed_args.n_envs > 1:
+            # Initialize Ray (required for both single and parallel sampling)
+            if not ray.is_initialized():
+                ray.init(ignore_reinit_error=True)
+            logger.info('Ray initialized')
+
             # Calculate steps per environment
             steps_per_env = parsed_args.n_steps // parsed_args.n_envs
             logger.info('Sampling %s steps per environment across %s environments', steps_per_env, parsed_args.n_envs)
-
-            samples = collect_samples_parallel(
-                parsed_args.env_id,
-                steps_per_env,
-                parsed_args.n_envs,
-            )
+            sampler = RaySampler(env_id=parsed_args.env_id, n_envs=parsed_args.n_envs, n_steps=steps_per_env)
             is_parallel = True
         else:
             logger.info('Sampling %s steps from single environment', parsed_args.n_steps)
-            samples = collect_samples_single_env(
-                parsed_args.env_id,
-                parsed_args.n_steps,
-            )
+            sampler = Sampler(env_id=parsed_args.env_id, n_steps=parsed_args.n_steps)
             is_parallel = False
+
+        samples = [sample for sample in sampler]
 
         # Compute statistics
         stats = compute_statistics(samples, is_parallel)

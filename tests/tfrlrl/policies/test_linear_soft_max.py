@@ -49,7 +49,7 @@ def test_action_probabilities_sum_to_one(env_id: str, observation: int, seed: in
     feature_fn = construct_one_hot_feature_function(env.observation_space.n, env.action_space.n)
 
     policy = LinearSoftMax(env_id, softmax_parameters, feature_fn)
-    action_probs = policy.calculate_action_probabilities(observation)
+    action_probs = policy.calculate_action_probabilities(np.array([observation]))
 
     # Check that probabilities sum to 1.0 (within numerical tolerance)
     np.testing.assert_allclose(np.sum(action_probs), 1.0, rtol=1e-6, atol=1e-9)
@@ -85,7 +85,7 @@ def test_generate_action_returns_valid_actions(env_id: str, observation: int, se
 
     # Generate multiple actions to test consistency
     for _ in range(10):
-        action = policy.generate_action(observation)
+        action = policy.generate_action(np.array([observation]))
 
         # Check that action is an integer
         assert isinstance(action, (int, np.integer)), f'Action should be an integer, got {type(action)}'
@@ -122,7 +122,7 @@ def test_calculate_log_derivative_finite_difference(env_id: str, observation: in
     policy = LinearSoftMax(env_id, softmax_parameters, feature_fn)
 
     # Calculate analytical gradient
-    analytical_grad = policy.calculate_log_derivative(observation, action)
+    analytical_grad = policy.calculate_log_derivative(np.array([observation]), action)
 
     # Calculate numerical gradient using finite differences
     epsilon = 1e-5
@@ -133,14 +133,14 @@ def test_calculate_log_derivative_finite_difference(env_id: str, observation: in
         params_plus = softmax_parameters.copy()
         params_plus[i] += epsilon
         policy_plus = LinearSoftMax(env_id, params_plus, feature_fn)
-        probs_plus = policy_plus.calculate_action_probabilities(observation)
+        probs_plus = policy_plus.calculate_action_probabilities(np.array([observation]))
         log_prob_plus = np.log(probs_plus[action] + 1e-10)
 
         # Perturb parameter negatively
         params_minus = softmax_parameters.copy()
         params_minus[i] -= epsilon
         policy_minus = LinearSoftMax(env_id, params_minus, feature_fn)
-        probs_minus = policy_minus.calculate_action_probabilities(observation)
+        probs_minus = policy_minus.calculate_action_probabilities(np.array([observation]))
         log_prob_minus = np.log(probs_minus[action] + 1e-10)
 
         # Finite difference approximation

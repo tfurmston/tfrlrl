@@ -37,7 +37,7 @@ def test_feature_function_returns_numpy_array(env_id: str):
 
     # Test with the initial observation
     observation, _ = env.reset()
-    features = feature_fn(observation)
+    features = feature_fn(np.array([observation]))
 
     assert isinstance(features, np.ndarray)
 
@@ -57,7 +57,7 @@ def test_feature_function_output_shape(env_id: str, observation: int):
     A = env.action_space.n
 
     feature_fn = construct_one_hot_feature_function(S, A)
-    features = feature_fn(observation)
+    features = feature_fn(np.array([observation]))
 
     # The feature function should return a matrix of shape (A, S * (A - 1))
     expected_shape = (A, S * (A - 1))
@@ -79,7 +79,7 @@ def test_feature_function_one_hot_encoding(env_id: str):
 
     # Test a specific observation
     observation = 0
-    features = feature_fn(observation)
+    features = feature_fn(np.array([observation]))
 
     # Check that each row (except possibly the first action) has exactly one non-zero element
     # The first action is excluded to avoid linear dependency
@@ -106,8 +106,8 @@ def test_feature_function_consistent_output(env_id: str, observation: int):
     feature_fn = construct_one_hot_feature_function(S, A)
 
     # Call the feature function multiple times with the same observation
-    features1 = feature_fn(observation)
-    features2 = feature_fn(observation)
+    features1 = feature_fn(np.array([observation]))
+    features2 = feature_fn(np.array([observation]))
 
     # Results should be identical
     np.testing.assert_array_equal(features1, features2)
