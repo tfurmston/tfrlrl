@@ -84,6 +84,46 @@ class TestSampler:
             assert isinstance(sample.action, (int, np.integer))
             assert 0 <= sample.action < 4
 
+    @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
+    @given(n_steps=st.integers(min_value=10, max_value=50))
+    @settings(deadline=4000)
+    def test_reset_allows_multiple_iterations(self, env_id: str, n_steps: int):
+        """
+        Test that the reset method allows the sampler to be iterated over multiple times.
+
+        This test verifies that after exhausting the iterator, calling reset() allows
+        the sampler to be used again for a fresh iteration.
+
+        :param env_id: The Gym environment ID to be used in the sampling.
+        :param n_steps: The number of steps to sample from the environment per iteration.
+        """
+        sampler = Sampler(env_id, n_steps=n_steps)
+
+        # First iteration: collect all samples
+        first_iteration_samples = list(sampler)
+        assert len(first_iteration_samples) == n_steps
+
+        # Verify that the iterator is exhausted
+        with pytest.raises(StopIteration):
+            next(sampler)
+
+        # Reset the sampler
+        sampler.reset()
+
+        # Second iteration: should be able to iterate again
+        second_iteration_samples = list(sampler)
+        assert len(second_iteration_samples) == n_steps
+
+        # Verify that both iterations produced valid samples
+        for sample in first_iteration_samples + second_iteration_samples:
+            assert isinstance(sample.env_id, str)
+            assert isinstance(sample.time_step, int)
+            assert isinstance(sample.observation, np.ndarray)
+            assert isinstance(sample.next_observation, np.ndarray)
+            assert isinstance(sample.reward, float) or isinstance(sample.reward, int)
+            assert isinstance(sample.done, bool)
+            assert isinstance(sample.info, dict)
+
 
 class TestRaySampler:
     """A test class for testing the RaySampler class."""

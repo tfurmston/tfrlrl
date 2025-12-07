@@ -86,6 +86,11 @@ class Sampler:
             info=self._info,
         )
 
+    def reset(self) -> None:
+        """Reset the iterator so that a new iterable can be created."""
+        if self._n_steps_taken is not None:
+            self._n_steps_taken = 0
+
     def update_policy(self, new_policy: BasePolicy) -> None:
         """
         Update the policy used for action selection.

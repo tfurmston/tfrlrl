@@ -5,8 +5,34 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from tfrlrl.features.onehot import construct_one_hot_feature_function
+from tfrlrl.policies.base import BasePolicy
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.sampling.episodic_sampler import EpisodicSampler
+from tfrlrl.sampling.statistics_collection import BaseStatisticsCollector
+
+
+class TestStatisticsCollector(BaseStatisticsCollector):
+    """Test class for collecting statistics during sampling."""
+
+    def __init__(self):
+        """Initialise statistics collector."""
+        self._samples = []
+
+    def reset(self):
+        """Reset the statistics in the collector."""
+        self._samples = []
+
+    def update_policy(self, new_policy: BasePolicy) -> None:
+        """Update the policy of the statistics collector."""
+        pass
+
+    def collect_step_statistics(self, sample):
+        """Collect statistics from a sample step."""
+        self._samples.append(sample)
+
+    def aggregate_statistics(self):
+        """Aggregate the statistics collected by the collector."""
+        return self._samples
 
 
 class TestEpisodicSampler:
@@ -33,10 +59,18 @@ class TestEpisodicSampler:
             softmax_parameters,
             feature_fn,
         )
-        sampler = EpisodicSampler(env_id, n_episodes=n_episodes, policy=pol)
-        for rewards, gradients in sampler:
-            assert isinstance(gradients, np.ndarray)
-            assert isinstance(rewards, np.ndarray)
+        stats_collector = TestStatisticsCollector()
+        sampler = EpisodicSampler(env_id, stats_collector, n_episodes=n_episodes, policy=pol)
+        for sample in sampler:
+            assert isinstance(sample, list)
+            for step in sample:
+                assert isinstance(step.env_id, str)
+                assert isinstance(step.time_step, int)
+                assert isinstance(step.observation, np.ndarray)
+                assert isinstance(step.next_observation, np.ndarray)
+                assert isinstance(step.reward, float) or isinstance(step.reward, int)
+                assert isinstance(step.done, bool)
+                assert isinstance(step.info, dict)
 
     @given(n_episodes=st.integers(min_value=2, max_value=10))
     @settings(deadline=2000)
@@ -60,15 +94,24 @@ class TestEpisodicSampler:
             softmax_parameters,
             feature_fn,
         )
+        stats_collector = TestStatisticsCollector()
         sampler = EpisodicSampler(
             env_id,
+            stats_collector,
             n_episodes=n_episodes,
             policy=pol,
             is_slippery=False,
         )
-        for rewards, gradients in sampler:
-            assert isinstance(gradients, np.ndarray)
-            assert isinstance(rewards, np.ndarray)
+        for sample in sampler:
+            assert isinstance(sample, list)
+            for step in sample:
+                assert isinstance(step.env_id, str)
+                assert isinstance(step.time_step, int)
+                assert isinstance(step.observation, np.ndarray)
+                assert isinstance(step.next_observation, np.ndarray)
+                assert isinstance(step.reward, float) or isinstance(step.reward, int)
+                assert isinstance(step.done, bool)
+                assert isinstance(step.info, dict)
 
     @given(n_episodes=st.integers(min_value=2, max_value=10))
     @settings(deadline=2000)
@@ -90,13 +133,21 @@ class TestEpisodicSampler:
             softmax_parameters,
             feature_fn,
         )
-        sampler = EpisodicSampler(env_id, n_episodes=n_episodes, policy=pol)
+        stats_collector = TestStatisticsCollector()
+        sampler = EpisodicSampler(env_id, stats_collector, n_episodes=n_episodes, policy=pol)
 
         # First iteration: consume all episodes
         first_iteration_count = 0
-        for rewards, gradients in sampler:
-            assert isinstance(gradients, np.ndarray)
-            assert isinstance(rewards, np.ndarray)
+        for sample in sampler:
+            assert isinstance(sample, list)
+            for step in sample:
+                assert isinstance(step.env_id, str)
+                assert isinstance(step.time_step, int)
+                assert isinstance(step.observation, np.ndarray)
+                assert isinstance(step.next_observation, np.ndarray)
+                assert isinstance(step.reward, float) or isinstance(step.reward, int)
+                assert isinstance(step.done, bool)
+                assert isinstance(step.info, dict)
             first_iteration_count += 1
 
         assert first_iteration_count == n_episodes
@@ -113,9 +164,16 @@ class TestEpisodicSampler:
 
         # Second iteration: should work again after reset
         second_iteration_count = 0
-        for rewards, gradients in sampler:
-            assert isinstance(gradients, np.ndarray)
-            assert isinstance(rewards, np.ndarray)
+        for sample in sampler:
+            assert isinstance(sample, list)
+            for step in sample:
+                assert isinstance(step.env_id, str)
+                assert isinstance(step.time_step, int)
+                assert isinstance(step.observation, np.ndarray)
+                assert isinstance(step.next_observation, np.ndarray)
+                assert isinstance(step.reward, float) or isinstance(step.reward, int)
+                assert isinstance(step.done, bool)
+                assert isinstance(step.info, dict)
             second_iteration_count += 1
 
         assert second_iteration_count == n_episodes

@@ -1,10 +1,10 @@
 from typing import Optional, Tuple
 
-import numpy as np
 from numpy.typing import NDArray
 
 from tfrlrl.policies.base import BasePolicy
 from tfrlrl.sampling.sampler import Sampler
+from tfrlrl.sampling.statistics_collection import BaseStatisticsCollector
 
 
 class EpisodicSampler:
@@ -15,11 +15,19 @@ class EpisodicSampler:
     class provides iterable support, see https://docs.python.org/3/library/stdtypes.html#typeiter.
     """
 
-    def __init__(self, env_id: str, n_episodes: int = None, policy: Optional[BasePolicy] = None, **kwargs):
+    def __init__(
+        self,
+        env_id: str,
+        statistics_collector: Optional[BaseStatisticsCollector],
+        n_episodes: int = None,
+        policy: Optional[BasePolicy] = None,
+        **kwargs,
+    ):
         """
         Initialise instance of EpisodicSampler, which entails initialising the environment and setting member variables.
 
         :param env_id: The Gym environment ID to be used in the sampling.
+        :param statistics_collector: Optional instance of a statistics collector.
         :param n_episodes: If given, the number of episodes to sample from the environment. If not given, then there is
           no limit on the number of sampled episodes.
         :param policy: Optional policy instance for action selection. If not provided, defaults to
@@ -27,6 +35,7 @@ class EpisodicSampler:
         :param kwargs: Optional keyword-arguments for the environment.
         """
         self._sampler = Sampler(env_id, policy=policy, **kwargs)
+        self._statistics_collector = statistics_collector
         self._n_episodes = n_episodes
         self._n_episodes_taken = 0
 
@@ -39,28 +48,12 @@ class EpisodicSampler:
         if self._n_episodes is not None and self._n_episodes_taken >= self._n_episodes:
             raise StopIteration
 
-        log_pol_grads = []
-        rewards = []
-
         for sample in self._sampler:
-            log_pol_grads.append(
-                self._sampler._policy.calculate_log_derivative(
-                    sample.observation,
-                    sample.action,
-                )
-            )
-            rewards.append(sample.reward)
+            self._statistics_collector.collect_step_statistics(sample)
             if sample.done:
                 self._n_episodes_taken += 1
                 break
-
-        log_pol_grads = np.array(log_pol_grads)
-        rewards = np.array(rewards)
-        T = rewards.size
-
-        episode_gradient = np.matmul(np.matmul(rewards, np.tril(np.ones(T))), log_pol_grads) / T
-
-        return rewards, episode_gradient
+        return self._statistics_collector.aggregate_statistics()
 
     def reset(self) -> None:
         """Reset the iterator so that a new iterable can be created."""
@@ -73,3 +66,4 @@ class EpisodicSampler:
         :param new_policy: New policy instance to use for sampling.
         """
         self._sampler._policy = new_policy
+        self._statistics_collector.update_policy(new_policy)

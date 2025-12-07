@@ -7,6 +7,7 @@ import numpy as np
 from tfrlrl.features.onehot import construct_one_hot_feature_function
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.sampling.episodic_sampler import EpisodicSampler
+from tfrlrl.sampling.statistics_collection import PolicyGradientStatisticsCollector
 
 logging.basicConfig(format='%(asctime)s %(message)s', force=True)
 logger = logging.getLogger(__name__)
@@ -71,25 +72,27 @@ def main(args=None):
         feature_fn,
     )
 
+    statistics_collector = PolicyGradientStatisticsCollector(pol)
+
     sampler = EpisodicSampler(
         env_id=parsed_args.env_id,
         n_episodes=parsed_args.n_episodes,
         policy=pol,
+        statistics_collector=statistics_collector,
         is_slippery=False,
     )
 
     for n in range(parsed_args.n_iterations):
-        x = [(rewards, episode_pol_gradient) for rewards, episode_pol_gradient in sampler]
-
-        policy_gradients = [y[1] for y in x]
-        total_rewatds = [np.sum(y[0]) for y in x]
+        stats = [x for x in sampler]
+        total_rewards = [np.sum(x[0]) for x in stats]
+        policy_gradients = [x[1] for x in stats]
 
         policy_gradient = np.average(np.array(policy_gradients), axis=0)
         pol.set_parameters(pol.get_parameters() + (parsed_args.alpha / (n + 1)) * policy_gradient)
 
         if n % 10 == 0:
             logger.info('Policy update: %s', n)
-            logger.info('Average total episodic reward: %s', np.average(np.array(total_rewatds)))
+            logger.info('Average total episodic reward: %s', np.average(np.array(total_rewards)))
             logger.info('Policy gradient magnitude: %s', np.sum(np.abs(policy_gradient)))
 
         sampler.reset()
