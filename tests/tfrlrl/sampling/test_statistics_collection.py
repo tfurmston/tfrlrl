@@ -106,7 +106,6 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             assert isinstance(rewards, np.ndarray)
             assert isinstance(episode_gradient, np.ndarray)
 
-            print(episode_gradient.shape)
             # Episode gradient should have length equal to number of policy parameters
             assert episode_gradient.shape == (n_params,)
             assert len(episode_gradient) == n_params
