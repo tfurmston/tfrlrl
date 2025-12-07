@@ -48,6 +48,7 @@ class EpisodicSampler:
         if self._n_episodes is not None and self._n_episodes_taken >= self._n_episodes:
             raise StopIteration
 
+        self._statistics_collector.reset()
         for sample in self._sampler:
             self._statistics_collector.collect_step_statistics(sample)
             if sample.done:

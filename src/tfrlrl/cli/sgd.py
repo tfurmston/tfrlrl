@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 
 import gymnasium as gym
@@ -6,8 +7,7 @@ import numpy as np
 
 from tfrlrl.features.onehot import construct_one_hot_feature_function
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
-from tfrlrl.sampling.episodic_sampler import EpisodicSampler
-from tfrlrl.sampling.statistics_collection import PolicyGradientStatisticsCollector
+from tfrlrl.training_algorithms.sgd import train_policy_gradient
 
 logging.basicConfig(format='%(asctime)s %(message)s', force=True)
 logger = logging.getLogger(__name__)
@@ -48,6 +48,12 @@ def parse_args(args=None):
         default=100.0,
         help='The initial step size to take in stochastic gradient ascent.',
     )
+    parser.add_argument(
+        '--env-kwargs',
+        type=str,
+        default='{}',
+        help='Environment-specific keyword arguments as a JSON string (e.g., \'{"is_slippery": false}\').',
+    )
     return parser.parse_args(args)
 
 
@@ -60,6 +66,19 @@ def main(args=None):
     """
     parsed_args = parse_args(args)
 
+    # Parse environment kwargs from JSON string
+    try:
+        env_kwargs = json.loads(parsed_args.env_kwargs)
+    except json.JSONDecodeError as e:
+        logger.error('Failed to parse --env-kwargs as JSON: %s', e)
+        return 1
+
+    if not isinstance(env_kwargs, dict):
+        logger.error('--env-kwargs must be a JSON object (dictionary), got: %s', type(env_kwargs).__name__)
+        return 1
+    if env_kwargs is not None:
+        logger.info('Environment Arguments: %s', env_kwargs)
+
     env = gym.make(parsed_args.env_id)
     S = env.observation_space.n
     A = env.action_space.n
@@ -71,29 +90,11 @@ def main(args=None):
         softmax_parameters,
         feature_fn,
     )
-
-    statistics_collector = PolicyGradientStatisticsCollector(pol)
-
-    sampler = EpisodicSampler(
+    train_policy_gradient(
         env_id=parsed_args.env_id,
-        n_episodes=parsed_args.n_episodes,
         policy=pol,
-        statistics_collector=statistics_collector,
-        is_slippery=False,
+        n_iterations=parsed_args.n_iterations,
+        n_episodes=parsed_args.n_episodes,
+        alpha=parsed_args.alpha,
+        **env_kwargs,
     )
-
-    for n in range(parsed_args.n_iterations):
-        stats = [x for x in sampler]
-        total_rewards = [np.sum(x[0]) for x in stats]
-        policy_gradients = [x[1] for x in stats]
-
-        policy_gradient = np.average(np.array(policy_gradients), axis=0)
-        pol.set_parameters(pol.get_parameters() + (parsed_args.alpha / (n + 1)) * policy_gradient)
-
-        if n % 10 == 0:
-            logger.info('Policy update: %s', n)
-            logger.info('Average total episodic reward: %s', np.average(np.array(total_rewards)))
-            logger.info('Policy gradient magnitude: %s', np.sum(np.abs(policy_gradient)))
-
-        sampler.reset()
-        sampler.update_policy(pol)

@@ -51,7 +51,7 @@ TFRLRL_LOG_LEVEL=DEBUG poetry run tfrlrl-sample --env-id CartPole-v1 --n-steps 1
 
 ### tfrlrl-sgd
 
-Perform basic stochastic gradient ascent to optimise the policy. This is intended solely for validating the code base on the toy-example. The CLI currently assumes that the environment will have a discrete state and action spaces. The policy is a linear soft-max policy and a one-hot encoding is used for the policy features. 
+Perform basic stochastic gradient ascent to optimise the policy. This is intended solely for validating the code base on the toy-example. The CLI currently assumes that the environment will have a discrete state and action spaces. The policy is a linear soft-max policy and a one-hot encoding is used for the policy features.
 
 **Basic Usage:**
 
@@ -59,12 +59,20 @@ Perform basic stochastic gradient ascent to optimise the policy. This is intende
 # Perform stochastic gradient ascent on the given environment
 poetry run tfrlrl-sgd --env-id FrozenLake-v1 --n-iterations 100
 
+# With environment-specific configuration
+poetry run tfrlrl-sgd --env-id FrozenLake-v1 --n-iterations 100 --env-kwargs '{"is_slippery": false}'
+
+# With custom hyperparameters
+poetry run tfrlrl-sgd --env-id FrozenLake-v1 --n-iterations 50 --n-episodes 200 --alpha 10.0
+```
+
 **Options:**
 
 - `--env-id`: Gymnasium environment ID (e.g., FrozenLake-v1)
-- `--n-iterations`: Total number of policy updates to perform.
-- `--n-episodes`: Total number of episodes to sample during each policy update.
-- `--alpha`: The initial step size in stochastic gradient ascent. Step sizes are linearly decreased w.r.t. the iteration of stochastic gradients.
+- `--n-iterations`: Total number of policy updates to perform (default: 100)
+- `--n-episodes`: Total number of episodes to sample during each policy update (default: 100)
+- `--alpha`: The initial step size in stochastic gradient ascent. Step sizes are linearly decreased w.r.t. the iteration of stochastic gradients (default: 100.0)
+- `--env-kwargs`: Environment-specific keyword arguments as a JSON string (default: `{}`). For example, `'{"is_slippery": false}'` for FrozenLake-v1
 
 ## Configuration
 
