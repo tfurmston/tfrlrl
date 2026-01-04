@@ -36,9 +36,6 @@ Sample steps from Gymnasium environments with support for parallel execution.
 # Sample 100 steps from a single environment
 poetry run tfrlrl-sample --env-id CartPole-v1 --n-steps 100
 
-# Sample with parallel environments
-poetry run tfrlrl-sample --env-id CartPole-v1 --n-steps 1000 --n-envs 4
-
 # Control log level via environment variable
 TFRLRL_LOG_LEVEL=DEBUG poetry run tfrlrl-sample --env-id CartPole-v1 --n-steps 100
 ```
@@ -47,7 +44,6 @@ TFRLRL_LOG_LEVEL=DEBUG poetry run tfrlrl-sample --env-id CartPole-v1 --n-steps 1
 
 - `--env-id`: Gymnasium environment ID (e.g., CartPole-v1, MountainCar-v0)
 - `--n-steps`: Total number of steps to sample
-- `--n-envs`: Number of parallel environments (default: 1)
 
 ### tfrlrl-sgd
 

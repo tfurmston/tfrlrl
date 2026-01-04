@@ -4,9 +4,8 @@ import argparse
 import logging
 
 import numpy as np
-import ray
 
-from tfrlrl.sampling.sampler import RaySampler, Sampler
+from tfrlrl.sampling.sampler import Sampler
 
 logger = logging.getLogger(__name__)
 
@@ -34,31 +33,19 @@ def parse_args(args=None):
         required=True,
         help='Total number of steps to sample',
     )
-    parser.add_argument(
-        '--n-envs',
-        type=int,
-        default=1,
-        help='Number of parallel environments to use for sampling',
-    )
     return parser.parse_args(args)
 
 
-def compute_statistics(samples, is_parallel: bool):
+def compute_statistics(samples):
     """
     Compute and return statistics about collected samples.
 
     :param samples: List of step or steps samples.
-    :param is_parallel: Whether samples are from parallel environments (Steps objects).
     :return: Dictionary of statistics.
     """
-    if is_parallel:
-        total_steps = sum(s.n_steps for s in samples)
-        all_rewards = np.concatenate([s.rewards for s in samples])
-        all_dones = np.concatenate([s.dones for s in samples])
-    else:
-        total_steps = len(samples)
-        all_rewards = np.array([s.reward for s in samples])
-        all_dones = np.array([s.done for s in samples])
+    total_steps = len(samples)
+    all_rewards = np.array([s.reward for s in samples])
+    all_dones = np.array([s.done for s in samples])
 
     n_episodes = int(np.sum(all_dones))
     mean_reward = float(np.mean(all_rewards))
@@ -86,50 +73,25 @@ def main(args=None):
     parsed_args = parse_args(args)
 
     logger.info('Sampling %s steps from %s', parsed_args.n_steps, parsed_args.env_id)
-    logger.info('Using %s parallel environment(s)', parsed_args.n_envs)
 
-    try:
-        # Collect samples
-        if parsed_args.n_envs > 1:
-            # Initialize Ray (required for both single and parallel sampling)
-            if not ray.is_initialized():
-                ray.init(ignore_reinit_error=True)
-            logger.info('Ray initialized')
+    # Collect samples
+    logger.info('Sampling %s steps from environment', parsed_args.n_steps)
+    sampler = Sampler(env_id=parsed_args.env_id, n_steps=parsed_args.n_steps)
 
-            # Calculate steps per environment
-            steps_per_env = parsed_args.n_steps // parsed_args.n_envs
-            logger.info('Sampling %s steps per environment across %s environments', steps_per_env, parsed_args.n_envs)
-            sampler = RaySampler(env_id=parsed_args.env_id, n_envs=parsed_args.n_envs, n_steps=steps_per_env)
-            is_parallel = True
-        else:
-            logger.info('Sampling %s steps from single environment', parsed_args.n_steps)
-            sampler = Sampler(env_id=parsed_args.env_id, n_steps=parsed_args.n_steps)
-            is_parallel = False
+    samples = [sample for sample in sampler]
 
-        samples = [sample for sample in sampler]
+    # Compute statistics
+    stats = compute_statistics(samples)
 
-        # Compute statistics
-        stats = compute_statistics(samples, is_parallel)
+    # Log summary
+    logger.info('=' * 60)
+    logger.info('SAMPLING SUMMARY')
+    logger.info('=' * 60)
+    logger.info('Environment:        %s', parsed_args.env_id)
+    logger.info('Total steps:        %d', stats['total_steps'])
+    logger.info('Episodes completed: %d', stats['n_episodes'])
+    logger.info('Mean reward:        %.4f ± %.4f', stats['mean_reward'], stats['std_reward'])
+    logger.info('Reward range:       [%.4f, %.4f]', stats['min_reward'], stats['max_reward'])
+    logger.info('=' * 60)
 
-        # Log summary
-        logger.info('=' * 60)
-        logger.info('SAMPLING SUMMARY')
-        logger.info('=' * 60)
-        logger.info('Environment:        %s', parsed_args.env_id)
-        logger.info('Total steps:        %d', stats['total_steps'])
-        logger.info('Episodes completed: %d', stats['n_episodes'])
-        logger.info('Mean reward:        %.4f ± %.4f', stats['mean_reward'], stats['std_reward'])
-        logger.info('Reward range:       [%.4f, %.4f]', stats['min_reward'], stats['max_reward'])
-        logger.info('=' * 60)
-
-        return 0
-
-    except Exception:
-        logger.exception('Error during sampling')
-        return 1
-
-    finally:
-        # Shutdown Ray if it was initialized
-        if ray.is_initialized():
-            ray.shutdown()
-            logger.info('Ray shutdown')
+    return 0

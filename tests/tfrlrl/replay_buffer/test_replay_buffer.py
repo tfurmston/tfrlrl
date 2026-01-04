@@ -3,8 +3,9 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from tfrlrl.data_models.step import construct_step_dataclasses
 from tfrlrl.replay_buffer.replay_buffer import ReplayBuffer
-from tfrlrl.sampling.sampler import RaySampler, Sampler
+from tfrlrl.sampling.sampler import Sampler
 
 
 @pytest.mark.parametrize('env_id', ['CartPole-v1'])
@@ -28,11 +29,11 @@ def test_add_step(env_id: str, n_steps: int, test_ray_cluster):
         buffer.add_step(sample)
 
 
-@pytest.mark.slow
+# @pytest.mark.slow
 @pytest.mark.parametrize('env_id', ['CartPole-v1'])
 @given(n_steps=st.integers(min_value=10, max_value=1000))
 @settings(deadline=None)
-def test_add_steps(env_id: str, n_steps: int, test_ray_cluster):
+def test_add_steps(env_id: str, n_steps: int):
     """
     Test that n-steps can be sampled from the environment and added to replay buffer.
 
@@ -40,18 +41,18 @@ def test_add_steps(env_id: str, n_steps: int, test_ray_cluster):
     :param n_steps: The number of steps to sample from the environment.
     :param test_ray_cluster: PyTest fixture to start Ray cluster.
     """
-    n_envs = 2
     buffer_size = 1000
+    _, steps_cls = construct_step_dataclasses(env_id)
+    sampler = Sampler(env_id, n_steps)
 
     buffer = ReplayBuffer(
         env_id=env_id,
         buffer_size=buffer_size,
     )
+    samples = steps_cls(sample_steps=[sample for sample in sampler])
+    buffer.add_steps(samples)
 
-    sampler = RaySampler(env_id, n_envs, n_steps)
-    for sample in sampler:
-        buffer.add_steps(sample)
-    assert buffer._indx == n_envs * n_steps % buffer_size
+    assert buffer._indx == n_steps % buffer_size
 
 
 @pytest.mark.parametrize('env_id', ['CartPole-v1'])

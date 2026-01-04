@@ -1,9 +1,10 @@
 """Tests for the sampling CLI."""
 
+import gymnasium as gym
 import pytest
 
 from tfrlrl.cli.sample import compute_statistics, main, parse_args
-from tfrlrl.sampling.sampler import RaySampler, Sampler
+from tfrlrl.sampling.sampler import Sampler
 
 
 @pytest.mark.parametrize(
@@ -11,11 +12,11 @@ from tfrlrl.sampling.sampler import RaySampler, Sampler
     [
         (
             ['--env-id', 'CartPole-v1', '--n-steps', '100'],
-            {'env_id': 'CartPole-v1', 'n_steps': 100, 'n_envs': 1},
+            {'env_id': 'CartPole-v1', 'n_steps': 100},
         ),
         (
-            ['--env-id', 'MountainCar-v0', '--n-steps', '500', '--n-envs', '4'],
-            {'env_id': 'MountainCar-v0', 'n_steps': 500, 'n_envs': 4},
+            ['--env-id', 'MountainCar-v0', '--n-steps', '500'],
+            {'env_id': 'MountainCar-v0', 'n_steps': 500},
         ),
     ],
 )
@@ -24,7 +25,6 @@ def test_parse_args(args, expected):
     parsed = parse_args(args)
     assert parsed.env_id == expected['env_id']
     assert parsed.n_steps == expected['n_steps']
-    assert parsed.n_envs == expected['n_envs']
 
 
 @pytest.mark.parametrize(
@@ -41,25 +41,19 @@ def test_parse_args_missing_required(args):
 
 
 @pytest.mark.parametrize(
-    'env_id,n_steps,is_parallel',
+    'env_id,n_steps',
     [
-        ('CartPole-v1', 20, False),
-        ('CartPole-v1', 10, True),
+        ('CartPole-v1', 20),
+        ('CartPole-v1', 10),
     ],
 )
-def test_compute_statistics(env_id, n_steps, is_parallel, test_ray_cluster):
-    """Test computing statistics for both single and parallel environment samples."""
-    if is_parallel:
-        n_envs = 2
-        sampler = RaySampler(env_id=env_id, n_envs=n_envs, n_steps=n_steps)
-        samples = [sample for sample in sampler]
-        expected_total_steps = n_steps * n_envs
-    else:
-        sampler = Sampler(env_id=env_id, n_steps=n_steps)
-        samples = [sample for sample in sampler]
-        expected_total_steps = n_steps
+def test_compute_statistics(env_id, n_steps):
+    """Test computing statistics for single environment samples."""
+    sampler = Sampler(env_id=env_id, n_steps=n_steps)
+    samples = [sample for sample in sampler]
+    expected_total_steps = n_steps
 
-    stats = compute_statistics(samples, is_parallel=is_parallel)
+    stats = compute_statistics(samples)
 
     assert stats['total_steps'] == expected_total_steps
     assert 'n_episodes' in stats
@@ -72,28 +66,23 @@ def test_compute_statistics(env_id, n_steps, is_parallel, test_ray_cluster):
 
 
 @pytest.mark.parametrize(
-    'env_id,n_steps,n_envs',
+    'env_id,n_steps',
     [
-        ('CartPole-v1', 10, 1),
-        ('CartPole-v1', 20, 2),
+        ('CartPole-v1', 10),
+        ('CartPole-v1', 20),
     ],
 )
-def test_main(env_id, n_steps, n_envs, test_ray_cluster, caplog):
+def test_main(env_id, n_steps, caplog):
     """Test main function with various configurations."""
     args = ['--env-id', env_id, '--n-steps', str(n_steps)]
-    if n_envs > 1:
-        args.extend(['--n-envs', str(n_envs)])
-
     exit_code = main(args)
 
     assert exit_code == 0
 
 
-@pytest.mark.flaky
-def test_main_invalid_env(test_ray_cluster):
+def test_main_invalid_env():
     """Test main function with invalid environment ID."""
     args = ['--env-id', 'InvalidEnv-v999', '--n-steps', '10']
 
-    exit_code = main(args)
-
-    assert exit_code == 1
+    with pytest.raises(gym.error.NameNotFound):
+        main(args)
