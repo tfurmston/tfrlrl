@@ -29,7 +29,6 @@ def test_add_step(env_id: str, n_steps: int, test_ray_cluster):
         buffer.add_step(sample)
 
 
-# @pytest.mark.slow
 @pytest.mark.parametrize('env_id', ['CartPole-v1'])
 @given(n_steps=st.integers(min_value=10, max_value=1000))
 @settings(deadline=None)
