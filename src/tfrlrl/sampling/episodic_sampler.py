@@ -122,7 +122,7 @@ class RayEpisodicSampler:
 
     def reset(self) -> None:
         """Reset all samplers."""
-        ray.get([env.update_policy.remote() for env in self._envs])
+        ray.get([env.reset.remote() for env in self.samplers])
 
     def update_policy(self, new_policy: BasePolicy) -> None:
         """
@@ -130,4 +130,4 @@ class RayEpisodicSampler:
 
         :param new_policy: New policy instance to use for sampling across all samplers.
         """
-        ray.get([env.update_policy.remote(new_policy) for env in self._envs])
+        ray.get([env.update_policy.remote(new_policy) for env in self.samplers])
