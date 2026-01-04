@@ -13,7 +13,7 @@ class TestSampler:
     @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100))
     @settings(deadline=2000)
-    def test_sample_n_steps_without_limit(self, env_id: str, n_steps: int, test_ray_cluster):
+    def test_sample_n_steps_without_limit(self, env_id: str, n_steps: int):
         """
         Test that n-steps can be sampled from the environment and that the outputs follow the expected format.
 
@@ -34,13 +34,12 @@ class TestSampler:
     @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100))
     @settings(deadline=2000)
-    def test_sample_n_steps_with_policy(self, env_id: str, n_steps: int, test_ray_cluster):
+    def test_sample_n_steps_with_policy(self, env_id: str, n_steps: int):
         """
         Test that n-steps can be sampled from the environment with a custom policy.
 
         :param env_id: The Gym environment ID to be used in the sampling.
         :param n_steps: The number of steps to sample from the environment.
-        :param test_ray_cluster: PyTest fixture to start Ray cluster.
         """
         policy = UniformActionSamplingPolicy(env_id)
         sampler = Sampler(env_id, n_steps=n_steps, policy=policy)
@@ -61,14 +60,13 @@ class TestSampler:
 
     @given(n_steps=st.integers(min_value=10, max_value=100))
     @settings(deadline=2000)
-    def test_sample_with_env_kwargs(self, n_steps: int, test_ray_cluster):
+    def test_sample_with_env_kwargs(self, n_steps: int):
         """
         Test that environment kwargs are correctly passed through to the environment construction.
 
         Uses FrozenLake-v1 with is_slippery parameter to verify kwargs functionality.
 
         :param n_steps: The number of steps to sample from the environment.
-        :param test_ray_cluster: PyTest fixture to start Ray cluster.
         """
         env_id = 'FrozenLake-v1'
         sampler = Sampler(env_id, n_steps=n_steps, is_slippery=False)

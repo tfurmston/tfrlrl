@@ -101,14 +101,14 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         )
 
         # Collect episodes
-        for rewards, episode_gradient in sampler:
+        for statistics in sampler:
             # Verify return types
-            assert isinstance(rewards, np.ndarray)
-            assert isinstance(episode_gradient, np.ndarray)
+            assert isinstance(statistics.total_reward, np.int64)
+            assert isinstance(statistics.episode_gradient, np.ndarray)
 
             # Episode gradient should have length equal to number of policy parameters
-            assert episode_gradient.shape == (n_params,)
-            assert len(episode_gradient) == n_params
+            assert statistics.episode_gradient.shape == (n_params,)
+            assert len(statistics.episode_gradient) == n_params
 
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
     @given(n_episodes=st.integers(min_value=2, max_value=5))
@@ -142,26 +142,16 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         )
 
         # First collection
-        for _ in sampler:
-            pass
-
-        first_rewards, first_gradient = stats_collector.aggregate_statistics()
-        first_n_steps = len(first_rewards)
+        statistics1 = [x for x in sampler]
 
         # Reset everything
-        stats_collector.reset()
         sampler.reset()
 
         # Second collection
-        for _ in sampler:
-            pass
-
-        second_rewards, second_gradient = stats_collector.aggregate_statistics()
-        second_n_steps = len(second_rewards)
+        statistics2 = [x for x in sampler]
 
         # Verify both collections produced valid results
-        assert first_n_steps > 0
-        assert second_n_steps > 0
-        assert first_gradient.shape == second_gradient.shape
-        assert first_rewards.shape[0] == first_n_steps
-        assert second_rewards.shape[0] == second_n_steps
+        assert len(statistics1) == n_episodes
+        assert len(statistics2) == n_episodes
+        for i in range(n_episodes):
+            assert statistics1[i].episode_gradient.shape == statistics2[i].episode_gradient.shape

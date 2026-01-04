@@ -1,3 +1,7 @@
+from dataclasses import dataclass
+from itertools import chain
+from typing import List
+
 import gymnasium as gym
 import numpy as np
 import pytest
@@ -9,6 +13,13 @@ from tfrlrl.policies.base import BasePolicy
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.sampling.episodic_sampler import EpisodicSampler
 from tfrlrl.sampling.statistics_collection import BaseStatisticsCollector
+
+
+@dataclass
+class TestStatistics:
+    """Dataclass for the statistics collected test sample collections."""
+
+    samples: list
 
 
 class TestStatisticsCollector(BaseStatisticsCollector):
@@ -32,7 +43,12 @@ class TestStatisticsCollector(BaseStatisticsCollector):
 
     def aggregate_statistics(self):
         """Aggregate the statistics collected by the collector."""
-        return self._samples
+        return TestStatistics(samples=self._samples)
+
+    @classmethod
+    def merge_statistics(cls, samples: List[TestStatistics]):
+        """Aggregate the statistics collected by the collector."""
+        return list(chain.from_iterable(samples))
 
 
 class TestEpisodicSampler:
@@ -61,9 +77,9 @@ class TestEpisodicSampler:
         )
         stats_collector = TestStatisticsCollector()
         sampler = EpisodicSampler(env_id, stats_collector, n_episodes=n_episodes, policy=pol)
-        for sample in sampler:
-            assert isinstance(sample, list)
-            for step in sample:
+        for statistics in sampler:
+            assert isinstance(statistics.samples, list)
+            for step in statistics.samples:
                 assert isinstance(step.env_id, str)
                 assert isinstance(step.time_step, int)
                 assert isinstance(step.observation, np.ndarray)
@@ -102,9 +118,9 @@ class TestEpisodicSampler:
             policy=pol,
             is_slippery=False,
         )
-        for sample in sampler:
-            assert isinstance(sample, list)
-            for step in sample:
+        for statistics in sampler:
+            assert isinstance(statistics.samples, list)
+            for step in statistics.samples:
                 assert isinstance(step.env_id, str)
                 assert isinstance(step.time_step, int)
                 assert isinstance(step.observation, np.ndarray)
@@ -138,9 +154,9 @@ class TestEpisodicSampler:
 
         # First iteration: consume all episodes
         first_iteration_count = 0
-        for sample in sampler:
-            assert isinstance(sample, list)
-            for step in sample:
+        for statistics in sampler:
+            assert isinstance(statistics.samples, list)
+            for step in statistics.samples:
                 assert isinstance(step.env_id, str)
                 assert isinstance(step.time_step, int)
                 assert isinstance(step.observation, np.ndarray)
@@ -164,9 +180,9 @@ class TestEpisodicSampler:
 
         # Second iteration: should work again after reset
         second_iteration_count = 0
-        for sample in sampler:
-            assert isinstance(sample, list)
-            for step in sample:
+        for statistics in sampler:
+            assert isinstance(statistics.samples, list)
+            for step in statistics.samples:
                 assert isinstance(step.env_id, str)
                 assert isinstance(step.time_step, int)
                 assert isinstance(step.observation, np.ndarray)

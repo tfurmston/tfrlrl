@@ -41,16 +41,14 @@ def train_policy_gradient(
     )
 
     for n in range(n_iterations):
-        stats = [x for x in sampler]
-        total_rewards = [np.sum(x[0]) for x in stats]
-        policy_gradients = [x[1] for x in stats]
+        statistics = statistics_collector.merge_statistics([x for x in sampler])
 
-        policy_gradient = np.average(np.array(policy_gradients), axis=0)
+        policy_gradient = np.average(np.array(statistics.episode_gradient), axis=0)
         policy.set_parameters(policy.get_parameters() + (alpha / (n + 1)) * policy_gradient)
 
         if n % 10 == 0:
             logger.info('Policy update: %s', n)
-            logger.info('Average total episodic reward: %s', np.average(np.array(total_rewards)))
+            logger.info('Average total episodic reward: %s', np.average(statistics.total_reward))
             logger.info('Policy gradient magnitude: %s', np.sum(np.abs(policy_gradient)))
 
         sampler.reset()

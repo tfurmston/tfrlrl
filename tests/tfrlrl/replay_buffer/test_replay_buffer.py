@@ -11,13 +11,12 @@ from tfrlrl.sampling.sampler import Sampler
 @pytest.mark.parametrize('env_id', ['CartPole-v1'])
 @given(n_steps=st.integers(min_value=10, max_value=100))
 @settings(deadline=None)
-def test_add_step(env_id: str, n_steps: int, test_ray_cluster):
+def test_add_step(env_id: str, n_steps: int):
     """
     Test that step can be sampled from the environment and added to replay buffer.
 
     :param env_id: The Gym environment ID to be used in the sampling.
     :param n_steps: The number of steps to sample from the environment.
-    :param test_ray_cluster: PyTest fixture to start Ray cluster.
     """
     buffer = ReplayBuffer(
         env_id=env_id,
@@ -38,7 +37,6 @@ def test_add_steps(env_id: str, n_steps: int):
 
     :param env_id: The Gym environment ID to be used in the sampling.
     :param n_steps: The number of steps to sample from the environment.
-    :param test_ray_cluster: PyTest fixture to start Ray cluster.
     """
     buffer_size = 1000
     _, steps_cls = construct_step_dataclasses(env_id)
@@ -57,14 +55,13 @@ def test_add_steps(env_id: str, n_steps: int):
 @pytest.mark.parametrize('env_id', ['CartPole-v1'])
 @given(n_steps=st.integers(min_value=100, max_value=1000), n_samples=st.integers(min_value=10, max_value=50))
 @settings(deadline=None)
-def test_sample(env_id: str, n_steps: int, n_samples: int, test_ray_cluster):
+def test_sample(env_id: str, n_steps: int, n_samples: int):
     """
     Test sampling from replay buffer.
 
     :param env_id: The Gym environment ID to be used in the sampling.
     :param n_steps: The number of steps to sample from the environment.
     :param n_samples: The number of steps to sample from the replay buffer
-    :param test_ray_cluster: PyTest fixture to start Ray cluster.
     """
     buffer_size = 1000
 

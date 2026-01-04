@@ -1,7 +1,8 @@
-from typing import Optional, Tuple
+from typing import Optional
 
-from numpy.typing import NDArray
+import ray
 
+from tfrlrl.data_models.statistics import BaseStatistics
 from tfrlrl.policies.base import BasePolicy
 from tfrlrl.sampling.sampler import Sampler
 from tfrlrl.sampling.statistics_collection import BaseStatisticsCollector
@@ -43,7 +44,7 @@ class EpisodicSampler:
         """Ensure that the EpisodicSampler class supports the iterable protocol."""
         return self
 
-    def __next__(self) -> Tuple[NDArray, NDArray]:
+    def __next__(self) -> BaseStatistics:
         """Return the next item in the sampler iterator. If this is not possible, raise a StopIteration exception."""
         if self._n_episodes is not None and self._n_episodes_taken >= self._n_episodes:
             raise StopIteration
@@ -69,3 +70,64 @@ class EpisodicSampler:
         """
         self._sampler._policy = new_policy
         self._statistics_collector.update_policy(new_policy)
+
+
+RemoteEpisodicSampler = ray.remote(EpisodicSampler)
+
+
+class RayEpisodicSampler:
+    """
+    Class that provides functionality to sample episodes from a given Gym environment in a parallel manner.
+
+    The class uses Ray to sample multiple episodes concurrently from different workers.
+    """
+
+    def __init__(
+        self,
+        n_samplers: int,
+        env_id: str,
+        statistics_collector: Optional[BaseStatisticsCollector],
+        n_episodes: int = None,
+        policy: Optional[BasePolicy] = None,
+        **kwargs,
+    ):
+        """
+        Initialise instance of RayEpisodicSampler, which entails initialising multiple samplers to be used by Ray.
+
+        :param env_id: The Gym environment ID to be used in the sampling.
+        :param statistics_collector: Optional instance of a statistics collector.
+        :param n_episodes: If given, the number of episodes to sample from the environment (in each of the Ray
+        workers). If not given, then there is no limit on the number of sampled episodes.
+        :param policy: Optional policy instance for action selection. If not provided, defaults to
+        UniformActionSamplingPolicy.
+        :param kwargs: Optional keyword-arguments for the environment.
+        """
+        self.statistics_collector = statistics_collector
+        self.samplers = [
+            RemoteEpisodicSampler.remote(
+                env_id=env_id, statistics_collector=statistics_collector, n_episodes=n_episodes, policy=policy, **kwargs
+            )
+            for _ in range(n_samplers)
+        ]
+
+    def __iter__(self):
+        """Ensure that the RayEpisodicSampler class supports the iterable protocol."""
+        return self
+
+    def __next__(self) -> BaseStatistics:
+        """Return the next item in the sampler iterator. If this is not possible, raise a StopIteration exception."""
+        return self.statistics_collector.merge_statistics(
+            ray.get([sampler.__next__.remote() for sampler in self.samplers])
+        )
+
+    def reset(self) -> None:
+        """Reset all samplers."""
+        ray.get([env.update_policy.remote() for env in self._envs])
+
+    def update_policy(self, new_policy: BasePolicy) -> None:
+        """
+        Update the policy across all samplers.
+
+        :param new_policy: New policy instance to use for sampling across all samplers.
+        """
+        ray.get([env.update_policy.remote(new_policy) for env in self._envs])
