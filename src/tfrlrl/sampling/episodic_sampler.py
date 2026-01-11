@@ -116,9 +116,10 @@ class RayEpisodicSampler:
 
     def __next__(self) -> BaseStatistics:
         """Return the next item in the sampler iterator. If this is not possible, raise a StopIteration exception."""
-        return self.statistics_collector.merge_statistics(
+        statistics = self.statistics_collector.merge_statistics(
             ray.get([sampler.__next__.remote() for sampler in self.samplers])
         )
+        return statistics
 
     def reset(self) -> None:
         """Reset all samplers."""

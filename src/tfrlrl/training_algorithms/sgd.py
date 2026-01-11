@@ -3,9 +3,14 @@
 import logging
 
 import numpy as np
+import ray
 
+from tfrlrl import settings
 from tfrlrl.policies.base import BasePolicy
-from tfrlrl.sampling.episodic_sampler import EpisodicSampler
+from tfrlrl.sampling.episodic_sampler import (
+    EpisodicSampler,
+    RayEpisodicSampler,
+)
 from tfrlrl.sampling.statistics_collection import EpisocidPolicyGradientStatisticsCollector
 
 logger = logging.getLogger(__name__)
@@ -17,6 +22,7 @@ def train_policy_gradient(
     n_iterations: int,
     n_episodes: int,
     alpha: float,
+    n_samplers: int = 1,
     **kwargs,
 ) -> BasePolicy:
     """
@@ -27,18 +33,35 @@ def train_policy_gradient(
     :param n_iterations: The number of policy updates to perform.
     :param n_episodes: The number of episodes to sample during each policy update.
     :param alpha: The initial step size to take in stochastic gradient ascent.
+    :param n_samplers: The number of samplers to used to sample from the environment.
     :param kwargs: Additional keyword arguments to pass to the EpisodicSampler (e.g., is_slippery).
     :return: The trained policy.
     """
     statistics_collector = EpisocidPolicyGradientStatisticsCollector(policy)
 
-    sampler = EpisodicSampler(
-        env_id=env_id,
-        n_episodes=n_episodes,
-        policy=policy,
-        statistics_collector=statistics_collector,
-        **kwargs,
-    )
+    if n_samplers > 1:
+        if not ray.is_initialized():
+            ray.init(
+                num_cpus=settings.ray_cpu,
+                ignore_reinit_error=True,
+            )
+            logger.info('Ray initialized for %s CPUs', settings.ray_cpu)
+        sampler = RayEpisodicSampler(
+            n_samplers=n_samplers,
+            env_id=env_id,
+            n_episodes=n_episodes,
+            policy=policy,
+            statistics_collector=statistics_collector,
+            **kwargs,
+        )
+    else:
+        sampler = EpisodicSampler(
+            env_id=env_id,
+            n_episodes=n_episodes,
+            policy=policy,
+            statistics_collector=statistics_collector,
+            **kwargs,
+        )
 
     for n in range(n_iterations):
         statistics = statistics_collector.merge_statistics([x for x in sampler])

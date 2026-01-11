@@ -1,9 +1,12 @@
 [default]
 LOG_LEVEL = 'INFO'
 ENV = 'CartPole-v1'
+RAY_CPU = 2
 [development]
 LOG_LEVEL = 'INFO'
 ENV = 'CartPole-v1'
+RAY_CPU = 2
 [production]
 LOG_LEVEL = 'INFO'
 ENV = 'CartPole-v1'
+RAY_CPU = 2

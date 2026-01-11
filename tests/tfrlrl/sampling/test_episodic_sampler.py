@@ -1,5 +1,5 @@
+from collections import ChainMap, defaultdict
 from dataclasses import dataclass
-from itertools import chain
 from typing import List
 
 import gymnasium as gym
@@ -20,9 +20,9 @@ from tfrlrl.sampling.statistics_collection import BaseStatisticsCollector
 
 @dataclass
 class DummyStatistics:
-    """Dataclass for the statistics collected test sample collections."""
+    """Dataclass for the statistics collected test sample episodes."""
 
-    samples: list
+    samples: dict[str, list]  # A map from the episode ID to the list of steps in the episode.
 
 
 class DummyStatisticsCollector(BaseStatisticsCollector):
@@ -30,11 +30,11 @@ class DummyStatisticsCollector(BaseStatisticsCollector):
 
     def __init__(self):
         """Initialise statistics collector."""
-        self._samples = []
+        self._samples = defaultdict(list)
 
     def reset(self):
         """Reset the statistics in the collector."""
-        self._samples = []
+        self._samples = defaultdict(list)
 
     def update_policy(self, new_policy: BasePolicy) -> None:
         """Update the policy of the statistics collector."""
@@ -42,7 +42,7 @@ class DummyStatisticsCollector(BaseStatisticsCollector):
 
     def collect_step_statistics(self, sample):
         """Collect statistics from a sample step."""
-        self._samples.append(sample)
+        self._samples[sample.env_id].append(sample)
 
     def aggregate_statistics(self):
         """Aggregate the statistics collected by the collector."""
@@ -52,7 +52,7 @@ class DummyStatisticsCollector(BaseStatisticsCollector):
     def merge_statistics(cls, statistics: List[DummyStatistics]):
         """Aggregate the statistics collected by the collector."""
         return DummyStatistics(
-            samples=list(chain.from_iterable([x.samples for x in statistics])),
+            samples=dict(ChainMap(*[x.samples for x in statistics])),
         )
 
 
@@ -82,9 +82,13 @@ class TestEpisodicSampler:
         )
         stats_collector = DummyStatisticsCollector()
         sampler = EpisodicSampler(env_id, stats_collector, n_episodes=n_episodes, policy=pol)
-        for statistics in sampler:
-            assert isinstance(statistics.samples, list)
-            for step in statistics.samples:
+        statistics = list(sampler)
+        assert len(statistics) == n_episodes
+        for statistic in statistics:
+            assert isinstance(statistic.samples, dict)
+            assert len(statistic.samples) == 1
+            env_id = next(iter(statistic.samples))
+            for step in statistic.samples[env_id]:
                 assert isinstance(step.env_id, str)
                 assert isinstance(step.time_step, int)
                 assert isinstance(step.observation, np.ndarray)
@@ -123,9 +127,13 @@ class TestEpisodicSampler:
             policy=pol,
             is_slippery=False,
         )
-        for statistics in sampler:
-            assert isinstance(statistics.samples, list)
-            for step in statistics.samples:
+        statistics = list(sampler)
+        assert len(statistics) == n_episodes
+        for statistic in statistics:
+            assert isinstance(statistic.samples, dict)
+            assert len(statistic.samples) == 1
+            env_id = next(iter(statistic.samples))
+            for step in statistic.samples[env_id]:
                 assert isinstance(step.env_id, str)
                 assert isinstance(step.time_step, int)
                 assert isinstance(step.observation, np.ndarray)
@@ -156,12 +164,16 @@ class TestEpisodicSampler:
         )
         stats_collector = DummyStatisticsCollector()
         sampler = EpisodicSampler(env_id, stats_collector, n_episodes=n_episodes, policy=pol)
+        statistics = list(sampler)
+        assert len(statistics) == n_episodes
 
         # First iteration: consume all episodes
         first_iteration_count = 0
-        for statistics in sampler:
-            assert isinstance(statistics.samples, list)
-            for step in statistics.samples:
+        for statistic in statistics:
+            assert isinstance(statistic.samples, dict)
+            assert len(statistic.samples) == 1
+            env_id = next(iter(statistic.samples))
+            for step in statistic.samples[env_id]:
                 assert isinstance(step.env_id, str)
                 assert isinstance(step.time_step, int)
                 assert isinstance(step.observation, np.ndarray)
@@ -182,12 +194,16 @@ class TestEpisodicSampler:
 
         # Reset the sampler
         sampler.reset()
+        statistics = list(sampler)
+        assert len(statistics) == n_episodes
 
         # Second iteration: should work again after reset
         second_iteration_count = 0
-        for statistics in sampler:
-            assert isinstance(statistics.samples, list)
-            for step in statistics.samples:
+        for statistic in statistics:
+            assert isinstance(statistic.samples, dict)
+            assert len(statistic.samples) == 1
+            env_id = next(iter(statistic.samples))
+            for step in statistic.samples[env_id]:
                 assert isinstance(step.env_id, str)
                 assert isinstance(step.time_step, int)
                 assert isinstance(step.observation, np.ndarray)
@@ -227,17 +243,27 @@ class TestRayEpisodicSampler:
             feature_fn,
         )
         stats_collector = DummyStatisticsCollector()
-        sampler = RayEpisodicSampler(n_samplers, env_id, stats_collector, n_episodes=n_episodes, policy=pol)
-        for statistics in sampler:
-            assert isinstance(statistics.samples, list)
-            for step in statistics.samples:
-                assert isinstance(step.env_id, str)
-                assert isinstance(step.time_step, int)
-                assert isinstance(step.observation, np.ndarray)
-                assert isinstance(step.next_observation, np.ndarray)
-                assert isinstance(step.reward, float) or isinstance(step.reward, int)
-                assert isinstance(step.done, bool)
-                assert isinstance(step.info, dict)
+        sampler = RayEpisodicSampler(
+            n_samplers,
+            env_id,
+            stats_collector,
+            n_episodes=n_episodes,
+            policy=pol,
+        )
+        statistics = list(sampler)
+        assert len(statistics) == n_episodes
+        for statistic in statistics:
+            assert isinstance(statistic.samples, dict)
+            assert len(statistic.samples) == n_samplers
+            for k in statistic.samples:
+                for step in statistic.samples[k]:
+                    assert isinstance(step.env_id, str)
+                    assert isinstance(step.time_step, int)
+                    assert isinstance(step.observation, np.ndarray)
+                    assert isinstance(step.next_observation, np.ndarray)
+                    assert isinstance(step.reward, float) or isinstance(step.reward, int)
+                    assert isinstance(step.done, bool)
+                    assert isinstance(step.info, dict)
 
     @given(n_episodes=st.integers(min_value=2, max_value=10))
     @settings(deadline=2000)
@@ -272,16 +298,20 @@ class TestRayEpisodicSampler:
             policy=pol,
             is_slippery=False,
         )
-        for statistics in sampler:
-            assert isinstance(statistics.samples, list)
-            for step in statistics.samples:
-                assert isinstance(step.env_id, str)
-                assert isinstance(step.time_step, int)
-                assert isinstance(step.observation, np.ndarray)
-                assert isinstance(step.next_observation, np.ndarray)
-                assert isinstance(step.reward, float) or isinstance(step.reward, int)
-                assert isinstance(step.done, bool)
-                assert isinstance(step.info, dict)
+        statistics = list(sampler)
+        assert len(statistics) == n_episodes
+        for statistic in statistics:
+            assert isinstance(statistic.samples, dict)
+            assert len(statistic.samples) == n_samplers
+            for k in statistic.samples:
+                for step in statistic.samples[k]:
+                    assert isinstance(step.env_id, str)
+                    assert isinstance(step.time_step, int)
+                    assert isinstance(step.observation, np.ndarray)
+                    assert isinstance(step.next_observation, np.ndarray)
+                    assert isinstance(step.reward, float) or isinstance(step.reward, int)
+                    assert isinstance(step.done, bool)
+                    assert isinstance(step.info, dict)
 
     @given(n_episodes=st.integers(min_value=2, max_value=10))
     @settings(deadline=2000)
@@ -316,19 +346,23 @@ class TestRayEpisodicSampler:
 
         # First iteration: consume all episodes
         first_iteration_count = 0
-        for statistics in sampler:
-            assert isinstance(statistics.samples, list)
-            for step in statistics.samples:
-                assert isinstance(step.env_id, str)
-                assert isinstance(step.time_step, int)
-                assert isinstance(step.observation, np.ndarray)
-                assert isinstance(step.next_observation, np.ndarray)
-                assert isinstance(step.reward, float) or isinstance(step.reward, int)
-                assert isinstance(step.done, bool)
-                assert isinstance(step.info, dict)
-            first_iteration_count += 1
+        statistics = list(sampler)
+        assert len(statistics) == n_episodes
+        for statistic in statistics:
+            assert isinstance(statistic.samples, dict)
+            assert len(statistic.samples) == n_samplers
+            for k in statistic.samples:
+                for step in statistic.samples[k]:
+                    assert isinstance(step.env_id, str)
+                    assert isinstance(step.time_step, int)
+                    assert isinstance(step.observation, np.ndarray)
+                    assert isinstance(step.next_observation, np.ndarray)
+                    assert isinstance(step.reward, float) or isinstance(step.reward, int)
+                    assert isinstance(step.done, bool)
+                    assert isinstance(step.info, dict)
+                first_iteration_count += 1
 
-        assert first_iteration_count == n_episodes
+        assert first_iteration_count == n_episodes * n_samplers
 
         # Iterator should be exhausted - trying to iterate should yield no results
         exhausted_count = 0
@@ -342,16 +376,20 @@ class TestRayEpisodicSampler:
 
         # Second iteration: should work again after reset
         second_iteration_count = 0
-        for statistics in sampler:
-            assert isinstance(statistics.samples, list)
-            for step in statistics.samples:
-                assert isinstance(step.env_id, str)
-                assert isinstance(step.time_step, int)
-                assert isinstance(step.observation, np.ndarray)
-                assert isinstance(step.next_observation, np.ndarray)
-                assert isinstance(step.reward, float) or isinstance(step.reward, int)
-                assert isinstance(step.done, bool)
-                assert isinstance(step.info, dict)
+        statistics = list(sampler)
+        assert len(statistics) == n_episodes
+        for statistic in statistics:
+            assert isinstance(statistic.samples, dict)
+            assert len(statistic.samples) == n_samplers
+            for k in statistic.samples:
+                for step in statistic.samples[k]:
+                    assert isinstance(step.env_id, str)
+                    assert isinstance(step.time_step, int)
+                    assert isinstance(step.observation, np.ndarray)
+                    assert isinstance(step.next_observation, np.ndarray)
+                    assert isinstance(step.reward, float) or isinstance(step.reward, int)
+                    assert isinstance(step.done, bool)
+                    assert isinstance(step.info, dict)
             second_iteration_count += 1
 
         assert second_iteration_count == n_episodes
