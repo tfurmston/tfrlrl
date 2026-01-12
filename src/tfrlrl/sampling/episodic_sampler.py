@@ -107,10 +107,13 @@ class RayEpisodicSampler:
         :param kwargs: Optional keyword-arguments for the environment.
         """
         self.statistics_collector = statistics_collector
-        # TODO: Set the number of episodes such that the total across all samplers is n_episodes.
         self.samplers = [
             RemoteEpisodicSampler.remote(
-                env_id=env_id, statistics_collector=statistics_collector, n_episodes=n_episodes, policy=policy, **kwargs
+                env_id=env_id,
+                statistics_collector=statistics_collector,
+                n_episodes=n_episodes // n_samplers,
+                policy=policy,
+                **kwargs,
             )
             for _ in range(n_samplers)
         ]

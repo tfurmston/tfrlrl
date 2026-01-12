@@ -65,8 +65,7 @@ def train_policy_gradient(
 
     for n in range(n_iterations):
         statistics = sampler.sample()
-
-        policy_gradient = np.average(np.array(statistics.episode_gradient), axis=0)
+        policy_gradient = np.average(np.array(statistics.episode_gradient), axis=1)
         policy.set_parameters(policy.get_parameters() + (alpha / (n + 1)) * policy_gradient)
 
         if n % 10 == 0:

@@ -93,6 +93,7 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
         rewards = np.array(self.rewards)
         T = rewards.size
         episode_gradient = np.matmul(np.matmul(rewards, np.tril(np.ones(T))), log_pol_grads) / T
+        episode_gradient = episode_gradient[..., np.newaxis]
         return EpisodePolicyGradientStatistics(
             total_reward=np.sum(rewards),
             episode_gradient=episode_gradient,
@@ -103,5 +104,5 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
         """Merge statistics across different episodes."""
         return EpisodePolicyGradientStatistics(
             total_reward=np.array([x.total_reward for x in statistics]),
-            episode_gradient=np.concatenate([x.episode_gradient for x in statistics], axis=0),
+            episode_gradient=np.concatenate([x.episode_gradient for x in statistics], axis=1),
         )

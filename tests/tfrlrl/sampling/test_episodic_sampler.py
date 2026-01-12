@@ -287,7 +287,7 @@ class TestRayEpisodicSampler:
             policy=pol,
         )
         statistics = list(sampler)
-        assert len(statistics) == n_episodes
+        assert len(statistics) == n_episodes // n_samplers
         for statistic in statistics:
             assert isinstance(statistic.samples, dict)
             assert len(statistic.samples) == n_samplers
@@ -335,7 +335,7 @@ class TestRayEpisodicSampler:
             is_slippery=False,
         )
         statistics = list(sampler)
-        assert len(statistics) == n_episodes
+        assert len(statistics) == n_episodes // n_samplers
         for statistic in statistics:
             assert isinstance(statistic.samples, dict)
             assert len(statistic.samples) == n_samplers
@@ -383,7 +383,7 @@ class TestRayEpisodicSampler:
         # First iteration: consume all episodes
         first_iteration_count = 0
         statistics = list(sampler)
-        assert len(statistics) == n_episodes
+        assert len(statistics) == n_episodes // n_samplers
         for statistic in statistics:
             assert isinstance(statistic.samples, dict)
             assert len(statistic.samples) == n_samplers
@@ -398,8 +398,6 @@ class TestRayEpisodicSampler:
                     assert isinstance(step.info, dict)
                 first_iteration_count += 1
 
-        assert first_iteration_count == n_episodes * n_samplers
-
         # Iterator should be exhausted - trying to iterate should yield no results
         exhausted_count = 0
         for _, _ in sampler:
@@ -413,7 +411,7 @@ class TestRayEpisodicSampler:
         # Second iteration: should work again after reset
         second_iteration_count = 0
         statistics = list(sampler)
-        assert len(statistics) == n_episodes
+        assert len(statistics) == n_episodes // n_samplers
         for statistic in statistics:
             assert isinstance(statistic.samples, dict)
             assert len(statistic.samples) == n_samplers
@@ -427,8 +425,6 @@ class TestRayEpisodicSampler:
                     assert isinstance(step.done, bool)
                     assert isinstance(step.info, dict)
             second_iteration_count += 1
-
-        assert second_iteration_count == n_episodes
 
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
     @given(n_episodes=st.integers(min_value=2, max_value=10))

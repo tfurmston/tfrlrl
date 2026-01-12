@@ -107,7 +107,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             assert isinstance(statistics.episode_gradient, np.ndarray)
 
             # Episode gradient should have length equal to number of policy parameters
-            assert statistics.episode_gradient.shape == (n_params,)
+            assert statistics.episode_gradient.shape == (n_params, 1)
             assert len(statistics.episode_gradient) == n_params
 
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
@@ -155,3 +155,45 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         assert len(statistics2) == n_episodes
         for i in range(n_episodes):
             assert statistics1[i].episode_gradient.shape == statistics2[i].episode_gradient.shape
+
+    @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+    @given(n_episodes=st.integers(min_value=1, max_value=5))
+    @settings(deadline=5000)
+    def test_merge_statistics(self, env_id: str, n_episodes: int):
+        """
+        Test that merge_statistics returns two numpy arrays with expected dimensions.
+
+        :param env_id: The Gym environment ID to be used in testing.
+        :param n_episodes: The number of episodes to sample.
+        """
+        env = gym.make(env_id)
+        S = env.observation_space.n
+        A = env.action_space.n
+
+        # Verify dimensions
+        n_params = S * (A - 1)  # Number of policy parameters
+
+        feature_fn = construct_one_hot_feature_function(S=S, A=A)
+        softmax_parameters = np.random.random(size=n_params)
+        pol = LinearSoftMax(
+            env_id,
+            softmax_parameters,
+            feature_fn,
+        )
+
+        stats_collector = EpisocidPolicyGradientStatisticsCollector(pol)
+        sampler = EpisodicSampler(
+            env_id,
+            stats_collector,
+            n_episodes=n_episodes,
+            policy=pol,
+            is_slippery=False,
+        )
+        statistics = sampler.sample()
+
+        # Verify return types
+        assert isinstance(statistics.total_reward, np.ndarray)
+        assert isinstance(statistics.episode_gradient, np.ndarray)
+
+        assert len(statistics.total_reward) == n_episodes
+        assert statistics.episode_gradient.shape == (n_params, n_episodes)
