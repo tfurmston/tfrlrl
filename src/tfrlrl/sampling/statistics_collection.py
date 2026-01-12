@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple
+from dataclasses import dataclass
+from typing import List, Optional
 
 import numpy as np
-from numpy.typing import NDArray
 
+from tfrlrl.data_models.statistics import BaseStatistics
 from tfrlrl.policies.base import BaseDifferentiablePolicy, BasePolicy
 
 
@@ -21,14 +22,28 @@ class BaseStatisticsCollector(ABC):
         ...
 
     @abstractmethod
-    def collect_step_statistics(self, sample):
+    def collect_step_statistics(self, sample) -> None:
         """Collect statistics from a sample step."""
         ...
 
     @abstractmethod
-    def aggregate_statistics(self):
+    def aggregate_statistics(self) -> BaseStatistics:
         """Aggregate the statistics collected by the collector."""
         ...
+
+    @classmethod
+    @abstractmethod
+    def merge_statistics(cls) -> BaseStatistics:
+        """Merge the statistics collected by different aggregations of statistics collector(s)."""
+        ...
+
+
+@dataclass
+class EpisodePolicyGradientStatistics(BaseStatistics):
+    """Dataclass for the statistics collected in episodic policy gradients."""
+
+    total_reward: float
+    episode_gradient: np.ndarray
 
 
 class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
@@ -40,7 +55,7 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
         self.rewards = []
         self.log_pol_grads = []
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset the collected statistics to empty lists."""
         self.rewards = []
         self.log_pol_grads = []
@@ -49,7 +64,7 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
         """Update the policy of the statistics collector."""
         self._policy = new_policy
 
-    def collect_step_statistics(self, sample):
+    def collect_step_statistics(self, sample) -> None:
         """
         Collect statistics for the given step sample.
 
@@ -66,7 +81,7 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
         )
         self.rewards.append(sample.reward)
 
-    def aggregate_statistics(self) -> Tuple[NDArray, NDArray]:
+    def aggregate_statistics(self) -> EpisodePolicyGradientStatistics:
         """
         Aggregate the statistics collected to date.
 
@@ -78,4 +93,16 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
         rewards = np.array(self.rewards)
         T = rewards.size
         episode_gradient = np.matmul(np.matmul(rewards, np.tril(np.ones(T))), log_pol_grads) / T
-        return rewards, episode_gradient
+        episode_gradient = episode_gradient[..., np.newaxis]
+        return EpisodePolicyGradientStatistics(
+            total_reward=np.sum(rewards),
+            episode_gradient=episode_gradient,
+        )
+
+    @classmethod
+    def merge_statistics(cls, statistics: List[EpisodePolicyGradientStatistics]) -> EpisodePolicyGradientStatistics:
+        """Merge statistics across different episodes."""
+        return EpisodePolicyGradientStatistics(
+            total_reward=np.array([x.total_reward for x in statistics]),
+            episode_gradient=np.concatenate([x.episode_gradient for x in statistics], axis=1),
+        )

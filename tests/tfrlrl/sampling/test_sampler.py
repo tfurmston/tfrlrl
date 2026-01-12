@@ -4,7 +4,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from tfrlrl.policies.base import UniformActionSamplingPolicy
-from tfrlrl.sampling.sampler import RaySampler, Sampler
+from tfrlrl.sampling.sampler import Sampler
 
 
 class TestSampler:
@@ -13,7 +13,7 @@ class TestSampler:
     @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100))
     @settings(deadline=2000)
-    def test_sample_n_steps_without_limit(self, env_id: str, n_steps: int, test_ray_cluster):
+    def test_sample_n_steps_without_limit(self, env_id: str, n_steps: int):
         """
         Test that n-steps can be sampled from the environment and that the outputs follow the expected format.
 
@@ -34,13 +34,12 @@ class TestSampler:
     @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
     @given(n_steps=st.integers(min_value=10, max_value=100))
     @settings(deadline=2000)
-    def test_sample_n_steps_with_policy(self, env_id: str, n_steps: int, test_ray_cluster):
+    def test_sample_n_steps_with_policy(self, env_id: str, n_steps: int):
         """
         Test that n-steps can be sampled from the environment with a custom policy.
 
         :param env_id: The Gym environment ID to be used in the sampling.
         :param n_steps: The number of steps to sample from the environment.
-        :param test_ray_cluster: PyTest fixture to start Ray cluster.
         """
         policy = UniformActionSamplingPolicy(env_id)
         sampler = Sampler(env_id, n_steps=n_steps, policy=policy)
@@ -61,14 +60,13 @@ class TestSampler:
 
     @given(n_steps=st.integers(min_value=10, max_value=100))
     @settings(deadline=2000)
-    def test_sample_with_env_kwargs(self, n_steps: int, test_ray_cluster):
+    def test_sample_with_env_kwargs(self, n_steps: int):
         """
         Test that environment kwargs are correctly passed through to the environment construction.
 
         Uses FrozenLake-v1 with is_slippery parameter to verify kwargs functionality.
 
         :param n_steps: The number of steps to sample from the environment.
-        :param test_ray_cluster: PyTest fixture to start Ray cluster.
         """
         env_id = 'FrozenLake-v1'
         sampler = Sampler(env_id, n_steps=n_steps, is_slippery=False)
@@ -123,174 +121,3 @@ class TestSampler:
             assert isinstance(sample.reward, float) or isinstance(sample.reward, int)
             assert isinstance(sample.done, bool)
             assert isinstance(sample.info, dict)
-
-
-class TestRaySampler:
-    """A test class for testing the RaySampler class."""
-
-    @pytest.mark.slow
-    @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
-    @given(n_steps=st.integers(min_value=10, max_value=100), n_envs=st.integers(min_value=1, max_value=4))
-    @settings(deadline=5000)
-    def test_ray_sample_n_steps_without_limit(self, env_id: str, n_steps: int, n_envs: int, test_ray_cluster):
-        """
-        Test that n-steps can be sampled from the environment and that any number of steps can be sampled.
-
-        :param env_id: The Gym environment ID to be used in the sampling.
-        :param n_steps: The number of steps to sample from the environment.
-        :param n_envs: The number of environments from which to sample.
-        :param test_ray_cluster: PyTest fixture to start Ray cluster.
-        """
-        ray_sampler = RaySampler(env_id, n_envs)
-        for _ in range(n_steps):
-            samples = next(ray_sampler)
-            assert isinstance(samples, ray_sampler.steps_cls)
-            assert isinstance(samples.env_ids, list)
-            assert isinstance(samples.time_steps, np.ndarray)
-            assert isinstance(samples.observations, np.ndarray)
-            assert isinstance(samples.actions, np.ndarray)
-            assert isinstance(samples.next_observations, np.ndarray)
-            assert isinstance(samples.rewards, np.ndarray)
-            assert isinstance(samples.dones, np.ndarray)
-
-            assert len(samples.env_ids) == n_envs
-            assert samples.time_steps.shape == (n_envs,)
-            assert samples.actions.shape == (n_envs,)
-            assert samples.rewards.shape == (n_envs,)
-            assert samples.dones.shape == (n_envs,)
-
-            if env_id == 'CartPole-v1':
-                # CartPole has 4-dimensional observation space
-                assert samples.observations.shape == (4, n_envs)
-                assert samples.next_observations.shape == (4, n_envs)
-            elif env_id == 'CliffWalking-v1':
-                # CartPole has 4-dimensional observation space
-                assert samples.observations.shape == (1, n_envs)
-                assert samples.next_observations.shape == (1, n_envs)
-
-    @pytest.mark.slow
-    @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
-    @given(n_steps=st.integers(min_value=10, max_value=100))
-    @settings(deadline=5000)
-    def test_ray_sample_n_steps_with_limit(self, env_id: str, n_steps: int, test_ray_cluster):
-        """
-        Test that n-steps can be sampled from the environment and the limit on n_steps is respected.
-
-        :param env_id: The Gym environment ID to be used in the sampling.
-        :param n_steps: The number of steps to sample from the environment.
-        :param test_ray_cluster: PyTest fixture to start Ray cluster.
-        """
-        n_envs = 2
-        sampler = RaySampler(env_id, n_envs, n_steps)
-        samples = list(sampler)
-        assert len(samples) == n_steps
-        for sample in samples:
-            assert isinstance(sample, sampler.steps_cls)
-            assert isinstance(sample.env_ids, list)
-            assert isinstance(sample.time_steps, np.ndarray)
-            assert isinstance(sample.observations, np.ndarray)
-            assert isinstance(sample.actions, np.ndarray)
-            assert isinstance(sample.next_observations, np.ndarray)
-            assert isinstance(sample.rewards, np.ndarray)
-            assert isinstance(sample.dones, np.ndarray)
-
-            assert len(sample.env_ids) == n_envs
-            assert sample.time_steps.shape == (n_envs,)
-            assert sample.actions.shape == (n_envs,)
-            assert sample.rewards.shape == (n_envs,)
-            assert sample.dones.shape == (n_envs,)
-
-            if env_id == 'CartPole-v1':
-                # CartPole has 4-dimensional observation space
-                assert sample.observations.shape == (4, n_envs)
-                assert sample.next_observations.shape == (4, n_envs)
-            elif env_id == 'CliffWalking-v1':
-                # CartPole has 4-dimensional observation space
-                assert sample.observations.shape == (1, n_envs)
-                assert sample.next_observations.shape == (1, n_envs)
-
-    @pytest.mark.slow
-    @pytest.mark.parametrize('env_id', ['CartPole-v1', 'CliffWalking-v1'])
-    @given(n_steps=st.integers(min_value=10, max_value=100), n_envs=st.integers(min_value=1, max_value=4))
-    @settings(deadline=5000)
-    def test_ray_sample_with_policy(self, env_id: str, n_steps: int, n_envs: int, test_ray_cluster):
-        """
-        Test that n-steps can be sampled from multiple environments with a custom policy.
-
-        :param env_id: The Gym environment ID to be used in the sampling.
-        :param n_steps: The number of steps to sample from the environment.
-        :param n_envs: The number of environments from which to sample.
-        :param test_ray_cluster: PyTest fixture to start Ray cluster.
-        """
-        policy = UniformActionSamplingPolicy(env_id)
-        ray_sampler = RaySampler(env_id, n_envs, policy=policy)
-        for _ in range(n_steps):
-            samples = next(ray_sampler)
-            assert isinstance(samples, ray_sampler.steps_cls)
-            assert isinstance(samples.env_ids, list)
-            assert isinstance(samples.time_steps, np.ndarray)
-            assert isinstance(samples.observations, np.ndarray)
-            assert isinstance(samples.actions, np.ndarray)
-            assert isinstance(samples.next_observations, np.ndarray)
-            assert isinstance(samples.rewards, np.ndarray)
-            assert isinstance(samples.dones, np.ndarray)
-
-            assert len(samples.env_ids) == n_envs
-            assert samples.time_steps.shape == (n_envs,)
-            assert samples.actions.shape == (n_envs,)
-            assert samples.rewards.shape == (n_envs,)
-            assert samples.dones.shape == (n_envs,)
-
-            if env_id == 'CartPole-v1':
-                # CartPole has 4-dimensional observation space
-                assert samples.observations.shape == (4, n_envs)
-                assert samples.next_observations.shape == (4, n_envs)
-
-                # Verify all actions are valid for CartPole (2 actions: 0 or 1)
-                assert np.all((samples.actions >= 0) & (samples.actions < 2))
-            elif env_id == 'CliffWalking-v1':
-                # CartPole has 4-dimensional observation space
-                assert samples.observations.shape == (1, n_envs)
-                assert samples.next_observations.shape == (1, n_envs)
-
-                # Verify all actions are valid for CliffWalking (4 actions: 0, 1, 2 or 3)
-                assert np.all((samples.actions >= 0) & (samples.actions < 4))
-
-    @pytest.mark.slow
-    @given(n_steps=st.integers(min_value=10, max_value=100), n_envs=st.integers(min_value=1, max_value=4))
-    @settings(deadline=5000)
-    def test_ray_sample_with_env_kwargs(self, n_steps: int, n_envs: int, test_ray_cluster):
-        """
-        Test that environment kwargs are correctly passed through to the environment construction in RaySampler.
-
-        Uses FrozenLake-v1 with is_slippery parameter to verify kwargs functionality.
-
-        :param n_steps: The number of steps to sample from the environment.
-        :param n_envs: The number of environments from which to sample.
-        :param test_ray_cluster: PyTest fixture to start Ray cluster.
-        """
-        env_id = 'FrozenLake-v1'
-        ray_sampler = RaySampler(env_id, n_envs, is_slippery=False)
-        for _ in range(n_steps):
-            samples = next(ray_sampler)
-            assert isinstance(samples, ray_sampler.steps_cls)
-            assert isinstance(samples.env_ids, list)
-            assert isinstance(samples.time_steps, np.ndarray)
-            assert isinstance(samples.observations, np.ndarray)
-            assert isinstance(samples.actions, np.ndarray)
-            assert isinstance(samples.next_observations, np.ndarray)
-            assert isinstance(samples.rewards, np.ndarray)
-            assert isinstance(samples.dones, np.ndarray)
-
-            assert len(samples.env_ids) == n_envs
-            assert samples.time_steps.shape == (n_envs,)
-            assert samples.actions.shape == (n_envs,)
-            assert samples.rewards.shape == (n_envs,)
-            assert samples.dones.shape == (n_envs,)
-
-            # FrozenLake has 1-dimensional observation space
-            assert samples.observations.shape == (1, n_envs)
-            assert samples.next_observations.shape == (1, n_envs)
-
-            # Verify all actions are valid for FrozenLake (4 actions: 0, 1, 2, 3)
-            assert np.all((samples.actions >= 0) & (samples.actions < 4))

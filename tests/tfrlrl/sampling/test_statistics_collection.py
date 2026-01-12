@@ -101,14 +101,14 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         )
 
         # Collect episodes
-        for rewards, episode_gradient in sampler:
+        for statistics in sampler:
             # Verify return types
-            assert isinstance(rewards, np.ndarray)
-            assert isinstance(episode_gradient, np.ndarray)
+            assert isinstance(statistics.total_reward, np.int64)
+            assert isinstance(statistics.episode_gradient, np.ndarray)
 
             # Episode gradient should have length equal to number of policy parameters
-            assert episode_gradient.shape == (n_params,)
-            assert len(episode_gradient) == n_params
+            assert statistics.episode_gradient.shape == (n_params, 1)
+            assert len(statistics.episode_gradient) == n_params
 
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
     @given(n_episodes=st.integers(min_value=2, max_value=5))
@@ -142,26 +142,58 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         )
 
         # First collection
-        for _ in sampler:
-            pass
-
-        first_rewards, first_gradient = stats_collector.aggregate_statistics()
-        first_n_steps = len(first_rewards)
+        statistics1 = [x for x in sampler]
 
         # Reset everything
-        stats_collector.reset()
         sampler.reset()
 
         # Second collection
-        for _ in sampler:
-            pass
-
-        second_rewards, second_gradient = stats_collector.aggregate_statistics()
-        second_n_steps = len(second_rewards)
+        statistics2 = [x for x in sampler]
 
         # Verify both collections produced valid results
-        assert first_n_steps > 0
-        assert second_n_steps > 0
-        assert first_gradient.shape == second_gradient.shape
-        assert first_rewards.shape[0] == first_n_steps
-        assert second_rewards.shape[0] == second_n_steps
+        assert len(statistics1) == n_episodes
+        assert len(statistics2) == n_episodes
+        for i in range(n_episodes):
+            assert statistics1[i].episode_gradient.shape == statistics2[i].episode_gradient.shape
+
+    @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+    @given(n_episodes=st.integers(min_value=1, max_value=5))
+    @settings(deadline=5000)
+    def test_merge_statistics(self, env_id: str, n_episodes: int):
+        """
+        Test that merge_statistics returns two numpy arrays with expected dimensions.
+
+        :param env_id: The Gym environment ID to be used in testing.
+        :param n_episodes: The number of episodes to sample.
+        """
+        env = gym.make(env_id)
+        S = env.observation_space.n
+        A = env.action_space.n
+
+        # Verify dimensions
+        n_params = S * (A - 1)  # Number of policy parameters
+
+        feature_fn = construct_one_hot_feature_function(S=S, A=A)
+        softmax_parameters = np.random.random(size=n_params)
+        pol = LinearSoftMax(
+            env_id,
+            softmax_parameters,
+            feature_fn,
+        )
+
+        stats_collector = EpisocidPolicyGradientStatisticsCollector(pol)
+        sampler = EpisodicSampler(
+            env_id,
+            stats_collector,
+            n_episodes=n_episodes,
+            policy=pol,
+            is_slippery=False,
+        )
+        statistics = sampler.sample()
+
+        # Verify return types
+        assert isinstance(statistics.total_reward, np.ndarray)
+        assert isinstance(statistics.episode_gradient, np.ndarray)
+
+        assert len(statistics.total_reward) == n_episodes
+        assert statistics.episode_gradient.shape == (n_params, n_episodes)

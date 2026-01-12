@@ -49,6 +49,12 @@ def parse_args(args=None):
         help='The initial step size to take in stochastic gradient ascent.',
     )
     parser.add_argument(
+        '--n-samplers',
+        type=int,
+        default=1,
+        help='The number of samplers to use when sampling episodes.',
+    )
+    parser.add_argument(
         '--env-kwargs',
         type=str,
         default='{}',
@@ -96,5 +102,6 @@ def main(args=None):
         n_iterations=parsed_args.n_iterations,
         n_episodes=parsed_args.n_episodes,
         alpha=parsed_args.alpha,
+        n_samplers=parsed_args.n_samplers,
         **env_kwargs,
     )
