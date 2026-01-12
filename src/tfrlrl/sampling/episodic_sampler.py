@@ -71,6 +71,10 @@ class EpisodicSampler:
         self._sampler._policy = new_policy
         self._statistics_collector.update_policy(new_policy)
 
+    def sample(self) -> BaseStatistics:
+        """Sample all episodes from the sampler and merge the statistics."""
+        return self._statistics_collector.merge_statistics([x for x in self])
+
 
 RemoteEpisodicSampler = ray.remote(EpisodicSampler)
 
@@ -103,6 +107,7 @@ class RayEpisodicSampler:
         :param kwargs: Optional keyword-arguments for the environment.
         """
         self.statistics_collector = statistics_collector
+        # TODO: Set the number of episodes such that the total across all samplers is n_episodes.
         self.samplers = [
             RemoteEpisodicSampler.remote(
                 env_id=env_id, statistics_collector=statistics_collector, n_episodes=n_episodes, policy=policy, **kwargs
@@ -116,10 +121,9 @@ class RayEpisodicSampler:
 
     def __next__(self) -> BaseStatistics:
         """Return the next item in the sampler iterator. If this is not possible, raise a StopIteration exception."""
-        statistics = self.statistics_collector.merge_statistics(
+        return self.statistics_collector.merge_statistics(
             ray.get([sampler.__next__.remote() for sampler in self.samplers])
         )
-        return statistics
 
     def reset(self) -> None:
         """Reset all samplers."""
@@ -132,3 +136,9 @@ class RayEpisodicSampler:
         :param new_policy: New policy instance to use for sampling across all samplers.
         """
         ray.get([env.update_policy.remote(new_policy) for env in self.samplers])
+
+    def sample(self) -> BaseStatistics:
+        """Sample all episodes from the sampler and merge the statistics."""
+        return self.statistics_collector.merge_statistics(
+            ray.get([sampler.sample.remote() for sampler in self.samplers])
+        )

@@ -215,6 +215,42 @@ class TestEpisodicSampler:
 
         assert second_iteration_count == n_episodes
 
+    @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+    @given(n_episodes=st.integers(min_value=2, max_value=10))
+    @settings(deadline=2000)
+    def test_sample_without_limits(self, env_id: str, n_episodes: int):
+        """
+        Test the sample function of the EpisodicSampler class and that the outputs follow the expected format.
+
+        :param env_id: The Gym environment ID to be used in the sampling.
+        :param n_steps: The number of steps to sample from the environment.
+        """
+        env = gym.make(env_id)
+        S = env.observation_space.n
+        A = env.action_space.n
+
+        feature_fn = construct_one_hot_feature_function(S=S, A=A)
+        softmax_parameters = np.random.random(size=S * (A - 1))
+        pol = LinearSoftMax(
+            env_id,
+            softmax_parameters,
+            feature_fn,
+        )
+        stats_collector = DummyStatisticsCollector()
+        sampler = EpisodicSampler(env_id, stats_collector, n_episodes=n_episodes, policy=pol)
+        statistics = sampler.sample()
+        assert isinstance(statistics, DummyStatistics)
+        assert isinstance(statistics.samples, dict)
+        for k in statistics.samples:
+            for step in statistics.samples[k]:
+                assert isinstance(step.env_id, str)
+                assert isinstance(step.time_step, int)
+                assert isinstance(step.observation, np.ndarray)
+                assert isinstance(step.next_observation, np.ndarray)
+                assert isinstance(step.reward, float) or isinstance(step.reward, int)
+                assert isinstance(step.done, bool)
+                assert isinstance(step.info, dict)
+
 
 class TestRayEpisodicSampler:
     """Class that encapsulates the unit tests for the RayEpisodicSampler class."""
@@ -393,3 +429,47 @@ class TestRayEpisodicSampler:
             second_iteration_count += 1
 
         assert second_iteration_count == n_episodes
+
+    @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+    @given(n_episodes=st.integers(min_value=2, max_value=10))
+    @settings(deadline=2000)
+    def test_ray_sample_without_limits(self, env_id: str, n_episodes: int, test_ray_cluster):
+        """
+        Test the sample function of the EpisodicSampler class and that the outputs follow the expected format.
+
+        :param env_id: The Gym environment ID to be used in the sampling.
+        :param n_steps: The number of steps to sample from the environment.
+        :param test_ray_cluster: Test Ray cluster.
+        """
+        n_samplers = 2
+        env = gym.make(env_id)
+        S = env.observation_space.n
+        A = env.action_space.n
+
+        feature_fn = construct_one_hot_feature_function(S=S, A=A)
+        softmax_parameters = np.random.random(size=S * (A - 1))
+        pol = LinearSoftMax(
+            env_id,
+            softmax_parameters,
+            feature_fn,
+        )
+        stats_collector = DummyStatisticsCollector()
+        sampler = RayEpisodicSampler(
+            n_samplers,
+            env_id,
+            stats_collector,
+            n_episodes=n_episodes,
+            policy=pol,
+        )
+        statistics = sampler.sample()
+        assert isinstance(statistics, DummyStatistics)
+        assert isinstance(statistics.samples, dict)
+        for k in statistics.samples:
+            for step in statistics.samples[k]:
+                assert isinstance(step.env_id, str)
+                assert isinstance(step.time_step, int)
+                assert isinstance(step.observation, np.ndarray)
+                assert isinstance(step.next_observation, np.ndarray)
+                assert isinstance(step.reward, float) or isinstance(step.reward, int)
+                assert isinstance(step.done, bool)
+                assert isinstance(step.info, dict)
