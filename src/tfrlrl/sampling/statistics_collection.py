@@ -1,11 +1,15 @@
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List
 
 import numpy as np
 
+from tfrlrl.baselines.linear import Baseline
 from tfrlrl.data_models.statistics import BaseStatistics
 from tfrlrl.data_models.step import construct_step_dataclasses
+
+logger = logging.getLogger(__name__)
 
 
 class BaseStatisticsCollector(ABC):
@@ -47,6 +51,7 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
     """
     Statistics collector for episodic-level statistics collection.
 
+<<<<<<< HEAD
     This class can be used to collect statistics for episodes sampled from environments. In
     particular, it collects the actions, observations and total future rewards for all of the
     steps in an episode.
