@@ -18,7 +18,7 @@ class Baseline:
         ...
 
 
-class LinearBaseline:
+class LinearBaseline(Baseline):
     """
     A linear baseline class.
 

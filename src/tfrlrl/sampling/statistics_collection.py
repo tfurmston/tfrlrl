@@ -51,7 +51,6 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
     """
     Statistics collector for episodic-level statistics collection.
 
-<<<<<<< HEAD
     This class can be used to collect statistics for episodes sampled from environments. In
     particular, it collects the actions, observations and total future rewards for all of the
     steps in an episode.
@@ -102,6 +101,7 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
             An instance of the EpisodePolicyGradientStatistics dataclass.
 
         """
+
         steps = self.steps_cls(sample_steps=self.steps)
 
         T = steps.rewards.size
