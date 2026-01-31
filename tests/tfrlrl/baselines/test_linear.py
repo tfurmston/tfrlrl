@@ -260,8 +260,11 @@ class TestLinearBaseline:
 
         features = baseline.calculate_features(observation_matrix, time_steps_array)
         baseline_values = baseline.calculate_baseline(observation_matrix, time_steps_array)
+
+        # Verify shape of baseline
         assert baseline_values.shape == (n_steps,)
 
+        # Varify value of baseline
         if coeffs is None:
             np.testing.assert_allclose(
                 baseline_values,
