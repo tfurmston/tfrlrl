@@ -34,8 +34,8 @@ class LinearBaseline(Baseline):
     def calculate_features(self, observation_matrix: npt.ArrayLike, time_steps: npt.ArrayLike) -> npt.ArrayLike:
         """Calculate baseline features for the given observations."""
         o = np.clip(observation_matrix, -10, 10)
-        al = time_steps.reshape(-1, 1) / 100.0
-        return np.concatenate([o, o**2, al, al**2, al**3, np.ones((time_steps.shape[0], 1))], axis=1)
+        al = time_steps.reshape(1, -1) / 100.0
+        return np.concatenate([o, o**2, al, al**2, al**3, np.ones((1, time_steps.shape[0]))], axis=0)
 
     def calculate_baseline(
         self, observation_matrix: npt.ArrayLike, time_steps: npt.ArrayLike, feature_matrix: npt.ArrayLike = None
@@ -52,8 +52,8 @@ class LinearBaseline(Baseline):
         reg_coeff = self._reg_coeff
         for _ in range(5):
             self._coeffs = np.linalg.lstsq(
-                np.dot(feature_matrix.T, feature_matrix) + reg_coeff * np.identity(feature_matrix.shape[1]),
-                np.dot(feature_matrix.T, regressand),
+                np.dot(feature_matrix, feature_matrix.T) + reg_coeff * np.identity(feature_matrix.shape[1]),
+                np.dot(feature_matrix, regressand.T),
             )[0]
             if not np.any(np.isnan(self._coeffs)):
                 break

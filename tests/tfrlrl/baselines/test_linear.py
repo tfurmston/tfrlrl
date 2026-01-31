@@ -18,7 +18,7 @@ class TestLinearBaseline:
         """
         Test that calculate_features returns a feature matrix with the correct shape.
 
-        The feature matrix should have shape (n_steps, 2*obs_dim + 4) where:
+        The feature matrix should have shape (2*obs_dim + 4, n_steps) where:
         - obs_dim features for original observations
         - obs_dim features for squared observations
         - 3 features for time step polynomial (t/100, (t/100)^2, (t/100)^3)
@@ -31,14 +31,14 @@ class TestLinearBaseline:
         baseline = LinearBaseline()
 
         # Create random observations with correct shape
-        observation_matrix = np.random.randn(n_steps, obs_dim)
+        observation_matrix = np.random.randn(obs_dim, n_steps)
         time_steps = np.arange(n_steps)
 
         # Calculate features
         features = baseline.calculate_features(observation_matrix, time_steps)
 
         # Verify shape
-        expected_shape = (n_steps, 2 * obs_dim + 4)
+        expected_shape = (2 * obs_dim + 4, n_steps)
         assert features.shape == expected_shape, (
             f'Feature matrix shape {features.shape} does not match expected shape {expected_shape}'
         )
@@ -64,7 +64,7 @@ class TestLinearBaseline:
         baseline = LinearBaseline()
 
         # Create observations with values outside [-10, 10] range
-        observation_matrix = np.random.uniform(low=-100, high=100, size=(n_steps, obs_dim))
+        observation_matrix = np.random.uniform(low=-100, high=100, size=(obs_dim, n_steps))
         time_steps = np.arange(n_steps)
 
         # Calculate features
@@ -73,8 +73,8 @@ class TestLinearBaseline:
         # Extract observation features (first 2*obs_dim columns)
         # First obs_dim columns are clipped observations
         # Next obs_dim columns are clipped observations squared
-        observation_features = features[:, :obs_dim]
-        observation_squared_features = features[:, obs_dim : 2 * obs_dim]
+        observation_features = features[:obs_dim, :]
+        observation_squared_features = features[obs_dim : 2 * obs_dim, :]
 
         # Verify that observation features are clipped to [-10, 10]
         assert np.all(observation_features >= -10), 'Some observation features are below -10'
@@ -105,16 +105,16 @@ class TestLinearBaseline:
         n_steps = len(time_steps)
 
         # Create dummy observations (values don't matter for this test)
-        observation_matrix = np.zeros((n_steps, obs_dim))
+        observation_matrix = np.zeros((obs_dim, n_steps))
 
         # Calculate features
         features = baseline.calculate_features(observation_matrix, time_steps)
 
         # Extract time step features (columns 2*obs_dim to 2*obs_dim + 3)
-        time_feature_t1 = features[:, 2 * obs_dim]  # t/100
-        time_feature_t2 = features[:, 2 * obs_dim + 1]  # (t/100)^2
-        time_feature_t3 = features[:, 2 * obs_dim + 2]  # (t/100)^3
-        constant_feature = features[:, 2 * obs_dim + 3]  # constant (ones)
+        time_feature_t1 = features[2 * obs_dim, :]  # t/100
+        time_feature_t2 = features[2 * obs_dim + 1, :]  # (t/100)^2
+        time_feature_t3 = features[2 * obs_dim + 2, :]  # (t/100)^3
+        constant_feature = features[2 * obs_dim + 3, :]  # constant (ones)
 
         # Expected normalized time steps
         expected_t1 = time_steps / 100.0
@@ -187,14 +187,14 @@ class TestLinearBaseline:
             time_steps.append(sample.time_step)
 
         # Convert to numpy arrays
-        observation_matrix = np.concatenate(observations, axis=1).T
+        observation_matrix = np.concatenate(observations, axis=1)
         time_steps_array = np.array(time_steps)
 
         # Calculate features
         features = baseline.calculate_features(observation_matrix, time_steps_array)
 
         # Verify shape
-        expected_shape = (n_steps, 2 * obs_dim + 4)
+        expected_shape = (2 * obs_dim + 4, n_steps)
         assert features.shape == expected_shape, (
             f'Feature matrix shape {features.shape} does not match expected shape {expected_shape}'
         )
@@ -204,7 +204,7 @@ class TestLinearBaseline:
         assert not np.any(np.isinf(features)), 'Feature matrix contains infinite values'
 
         # Verify constant column is all ones
-        constant_column = features[:, -1]
+        constant_column = features[-1, :]
         np.testing.assert_allclose(
             constant_column,
             np.ones(n_steps),
