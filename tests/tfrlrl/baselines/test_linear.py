@@ -1,5 +1,6 @@
 import gymnasium as gym
 import numpy as np
+import numpy.typing as npt
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -211,4 +212,83 @@ class TestLinearBaseline:
             rtol=1e-6,
             atol=1e-9,
             err_msg='Constant feature column should be all ones',
+        )
+
+    @pytest.mark.parametrize('env_id', ['CartPole-v1', 'MountainCar-v0'])
+    @pytest.mark.parametrize('coeffs', [None, 'random'])
+    @given(n_steps=st.integers(min_value=10, max_value=50))
+    @settings(deadline=2000)
+    def test_calculate_baseline_with_sampled_episodes(self, env_id: str, n_steps: int, coeffs: npt.ArrayLike):
+        """
+        Test calculate_baseline with real episode data sampled from a Gymnasium environment.
+
+        This integration test verifies that the baseline calculation works correctly
+        with actual environment observations and time steps, both before and after
+        setting coefficients.
+
+        :param env_id: The Gymnasium environment ID to sample from.
+        :param n_steps: The number of steps to sample from the environment.
+        :param coeffs: The coefficients of the baseline.
+        """
+        env = gym.make(env_id)
+
+        # Determine observation dimension based on environment
+        if hasattr(env.observation_space, 'n'):
+            # Discrete observation space
+            raise EnvironmentError('Linear baseline can only be used on continuous observation spaces.')
+        else:
+            # Box observation space
+            obs_dim = env.observation_space.shape[0]
+
+        feature_dim = 2 * obs_dim + 4
+        if coeffs == 'random':
+            coeffs = np.random.randn(feature_dim)
+        baseline = LinearBaseline(coeffs=coeffs)
+
+        # Sample steps from the environment
+        sampler = Sampler(env_id, n_steps=n_steps)
+        observations = []
+        time_steps = []
+
+        for sample in sampler:
+            observations.append(sample.observation)
+            time_steps.append(sample.time_step)
+
+        # Convert to numpy arrays with shape (obs_dim, n_steps)
+        observation_matrix = np.concatenate(observations, axis=1)
+        time_steps_array = np.array(time_steps)
+
+        features = baseline.calculate_features(observation_matrix, time_steps_array)
+        baseline_values = baseline.calculate_baseline(observation_matrix, time_steps_array)
+        assert baseline_values.shape == (n_steps,)
+
+        if coeffs is None:
+            np.testing.assert_allclose(
+                baseline_values,
+                np.zeros(n_steps),
+                rtol=1e-6,
+                atol=1e-9,
+            )
+        else:
+            np.testing.assert_allclose(
+                baseline_values,
+                np.dot(coeffs, features),
+                rtol=1e-6,
+                atol=1e-9,
+            )
+
+        # Verify no NaN or Inf values
+        assert not np.any(np.isnan(baseline_values))
+        assert not np.any(np.isinf(baseline_values))
+
+        # Verify baseline is the same when using pre-calculated features.
+        np.testing.assert_allclose(
+            baseline.calculate_baseline(observation_matrix, time_steps_array),
+            baseline.calculate_baseline(
+                observation_matrix,
+                time_steps_array,
+                feature_matrix=features,
+            ),
+            rtol=1e-6,
+            atol=1e-9,
         )
