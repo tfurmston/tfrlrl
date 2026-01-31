@@ -6,6 +6,7 @@ from hypothesis import strategies as st
 
 from tfrlrl.features.onehot import OneHotFeatureFunction
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
+from tfrlrl.baselines.linear import LinearBaseline
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.sampling.episodic_sampler import EpisodicSampler
 from tfrlrl.sampling.statistics_collection import EpisocidPolicyGradientStatisticsCollector
@@ -54,9 +55,12 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         assert stats_collector.steps == []
 
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+    @pytest.mark.parametrize('include_baseline', [True, False])
     @given(n_episodes=st.integers(min_value=1, max_value=5))
     @settings(deadline=5000)
-    def test_aggregate_statistics_return_types_and_dimensions(self, env_id: str, n_episodes: int):
+    def test_aggregate_statistics_return_types_and_dimensions(
+        self, env_id: str, n_episodes: int, include_baseline: bool
+    ):
         """
         Test that aggregate_statistics returns two numpy arrays with expected dimensions.
 
@@ -72,7 +76,11 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
         policy = LinearSoftMax(env_id, feature_fn)
 
-        stats_collector = EpisocidPolicyGradientStatisticsCollector(env_id)
+        if include_baseline:
+            baseline = LinearBaseline()
+        else:
+            baseline = None
+        stats_collector = EpisocidPolicyGradientStatisticsCollector(baseline=baseline)
         sampler = EpisodicSampler(
             env_id,
             stats_collector,
@@ -92,9 +100,10 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             assert statistics.observations.shape[-1] == statistics.total_expected_rewards.shape[-1]
 
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+    @pytest.mark.parametrize('include_baseline', [True, False])
     @given(n_episodes=st.integers(min_value=2, max_value=5))
     @settings(deadline=5000)
-    def test_reset_and_reuse(self, env_id: str, n_episodes: int):
+    def test_reset_and_reuse(self, env_id: str, n_episodes: int, include_baseline: bool):
         """
         Test that after reset, the collector can be reused for new episodes.
 
@@ -107,7 +116,15 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
         policy = LinearSoftMax(env_id, feature_fn)
 
-        stats_collector = EpisocidPolicyGradientStatisticsCollector(env_id)
+        if include_baseline:
+            baseline = LinearBaseline()
+        else:
+            baseline = None
+
+        stats_collector = EpisocidPolicyGradientStatisticsCollector(
+            env_id,
+            baseline=baseline,
+        )
         sampler = EpisodicSampler(
             env_id,
             stats_collector,

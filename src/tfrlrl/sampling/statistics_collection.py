@@ -45,6 +45,8 @@ class EpisodePolicyGradientStatistics(BaseStatistics):
     observations: np.ndarray
     actions: np.ndarray
     total_expected_rewards: np.ndarray
+    baseline_features: np.ndarray = None
+    baseline_targets: np.ndarray = None
 
 
 class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
@@ -101,17 +103,28 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
             An instance of the EpisodePolicyGradientStatistics dataclass.
 
         """
-
         steps = self.steps_cls(sample_steps=self.steps)
 
         T = steps.rewards.size
         total_expected_rewards = np.matmul(steps.rewards, np.tril(np.ones(T))) / T
+
+        baseline_features = None
+        if self.baseline is not None:
+            baseline_features = self.baseline.calculate_features(steps.observations, np.arange(T))
+            logger.debug('Substracting baseline from total expected rewards.')
+            total_expected_rewards -= self.baseline.calculate_baseline(
+                steps.observations,
+                np.arange(T),
+                feature_matrix=baseline_features,
+            )
 
         return EpisodePolicyGradientStatistics(
             total_reward=np.sum(steps.rewards),
             observations=steps.observations,
             actions=steps.actions,
             total_expected_rewards=total_expected_rewards,
+            baseline_features=baseline_features,
+            baseline_targets=None if self.baseline is None else total_expected_rewards,
         )
 
     @classmethod
