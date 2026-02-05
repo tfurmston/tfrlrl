@@ -6,8 +6,10 @@ from typing import List
 import numpy as np
 
 from tfrlrl.baselines.linear import Baseline
-from tfrlrl.data_models.statistics import BaseStatistics, StatisticsException
+from tfrlrl.data_models.statistics import BaseStatistics
 from tfrlrl.data_models.step import construct_step_dataclasses
+from tfrlrl.data_models.statistics import BaseStatistics
+from tfrlrl.sampling.utils import merge_optional_statistics
 
 logger = logging.getLogger(__name__)
 
@@ -138,19 +140,11 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
             An instance of the EpisodePolicyGradientStatistics dataclass.
 
         """
-        baseline_features = [x.baseline_features for x in statistics]
-        baseline_targets = [x.baseline_targets for x in statistics]
-
-        if any([x is None for x in baseline_features]) and any([x is not None for x in baseline_features]):
-            raise StatisticsException('All baseline features should either be None or a NumPy array.')
-        if any([x is None for x in baseline_targets]) and any([x is not None for x in baseline_targets]):
-            raise StatisticsException('All baseline features should either be None or a NumPy array.')
-
         return EpisodePolicyGradientStatistics(
             total_reward=np.array([x.total_reward for x in statistics]),
             observations=np.concatenate([x.observations for x in statistics], axis=-1),
             actions=np.concatenate([x.actions for x in statistics], axis=-1),
             total_expected_rewards=np.concatenate([x.total_expected_rewards for x in statistics]),
-            baseline_features=baseline_features or None,
-            baseline_targets=baseline_targets or None,
+            baseline_features=merge_optional_statistics(statistics, 'baseline_features', 1),
+            baseline_targets=merge_optional_statistics(statistics, 'baseline_targets', 0),
         )
