@@ -19,7 +19,7 @@ class EpisodicSampler:
     def __init__(
         self,
         env_id: str,
-        statistics_collector: Optional[BaseStatisticsCollector],
+        statistics_collector: BaseStatisticsCollector,
         n_episodes: int = None,
         policy: Optional[BasePolicy] = None,
         **kwargs,
@@ -28,7 +28,7 @@ class EpisodicSampler:
         Initialise instance of EpisodicSampler, which entails initialising the environment and setting member variables.
 
         :param env_id: The Gym environment ID to be used in the sampling.
-        :param statistics_collector: Optional instance of a statistics collector.
+        :param statistics_collector: An instance of a statistics collector.
         :param n_episodes: If given, the number of episodes to sample from the environment. If not given, then there is
           no limit on the number of sampled episodes.
         :param policy: Optional policy instance for action selection. If not provided, defaults to

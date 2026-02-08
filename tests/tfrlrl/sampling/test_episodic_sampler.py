@@ -1,59 +1,19 @@
-from collections import ChainMap, defaultdict
-from dataclasses import dataclass
-from typing import List
-
 import gymnasium as gym
 import numpy as np
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from tests.conftest import (
+    DummyStatistics,
+    DummyStatisticsCollector,
+)
 from tfrlrl.features.onehot import construct_one_hot_feature_function
-from tfrlrl.policies.base import BasePolicy
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.sampling.episodic_sampler import (
     EpisodicSampler,
     RayEpisodicSampler,
 )
-from tfrlrl.sampling.statistics_collection import BaseStatisticsCollector
-
-
-@dataclass
-class DummyStatistics:
-    """Dataclass for the statistics collected test sample episodes."""
-
-    samples: dict[str, list]  # A map from the episode ID to the list of steps in the episode.
-
-
-class DummyStatisticsCollector(BaseStatisticsCollector):
-    """Test class for collecting statistics during sampling."""
-
-    def __init__(self):
-        """Initialise statistics collector."""
-        self._samples = defaultdict(list)
-
-    def reset(self):
-        """Reset the statistics in the collector."""
-        self._samples = defaultdict(list)
-
-    def update_policy(self, new_policy: BasePolicy) -> None:
-        """Update the policy of the statistics collector."""
-        pass
-
-    def collect_step_statistics(self, sample):
-        """Collect statistics from a sample step."""
-        self._samples[sample.env_id].append(sample)
-
-    def aggregate_statistics(self):
-        """Aggregate the statistics collected by the collector."""
-        return DummyStatistics(samples=self._samples)
-
-    @classmethod
-    def merge_statistics(cls, statistics: List[DummyStatistics]):
-        """Aggregate the statistics collected by the collector."""
-        return DummyStatistics(
-            samples=dict(ChainMap(*[x.samples for x in statistics])),
-        )
 
 
 class TestEpisodicSampler:
