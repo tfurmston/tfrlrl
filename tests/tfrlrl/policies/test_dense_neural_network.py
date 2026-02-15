@@ -1,4 +1,5 @@
 import gymnasium as gym
+import numpy as np
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -63,3 +64,83 @@ def test_sample_episode_with_dense_network_policy(env_id: str, n_episodes: int, 
     )
     samples = list(sampler)
     assert len(samples) == n_episodes
+
+
+@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+def test_calculate_log_probabilities_from_dense_network_policy_single_observation(env_id):
+    """
+    Test calculate_log_probabilities with a single observation with a DenseNetworkPolicy.
+
+    env_id: The environment I.D. from which to sample episodes.
+    """
+    env = gym.make(env_id)
+
+    hidden_space_dims = [16, 32]
+    policy = DenseNetworkPolicy(
+        env_id=env_id,
+        hidden_space_dims=hidden_space_dims,
+    )
+
+    log_probability = policy.calculate_log_probabilities(
+        env.observation_space.sample()[..., np.newaxis],
+        env.action_space.sample(),
+    )
+    assert log_probability.shape == (1,)
+
+
+@pytest.mark.parametrize(
+    'env_id, extend_actions',
+    [
+        (
+            'InvertedPendulum-v5',
+            True,
+        ),
+        (
+            'InvertedPendulum-v5',
+            False,
+        ),
+    ],
+)
+@given(
+    n_observations=st.integers(min_value=1, max_value=20),
+)
+@settings(deadline=None)
+def test_calculate_log_probabilities_from_dense_network_policy_multiple_observations(
+    env_id, n_observations, extend_actions
+):
+    """
+    Test calculate_log_probabilities with multiple observations with a DenseNetworkPolicy.
+
+    env_id: The environment I.D. from which to sample episodes.
+    """
+    env = gym.make(env_id)
+
+    hidden_space_dims = [16, 32]
+    policy = DenseNetworkPolicy(
+        env_id=env_id,
+        hidden_space_dims=hidden_space_dims,
+    )
+
+    observations = np.concatenate(
+        [env.observation_space.sample()[..., np.newaxis] for _ in range(n_observations)],
+        axis=1,
+    )
+    if extend_actions:
+        actions = np.concatenate(
+            [env.action_space.sample()[..., np.newaxis] for _ in range(n_observations)],
+            axis=1,
+        )
+    else:
+        actions = np.concatenate(
+            [env.action_space.sample() for _ in range(n_observations)],
+        )
+
+    log_probabilities = policy.calculate_log_probabilities(
+        observations,
+        actions,
+    )
+
+    if extend_actions:
+        assert log_probabilities.shape == (n_observations, 1)
+    else:
+        assert log_probabilities.shape == (n_observations,)

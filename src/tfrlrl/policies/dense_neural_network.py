@@ -2,7 +2,6 @@ from collections import OrderedDict
 from typing import List
 
 import gymnasium as gym
-import numpy as np
 import numpy.typing as npt
 from torch import (
     Tensor,
@@ -13,7 +12,7 @@ from torch import (
 )
 from torch.distributions.normal import Normal
 
-from tfrlrl.policies.base import BaseDifferentiablePolicy
+from tfrlrl.policies.base import BasePyTorchPolicy
 
 
 class DensePolicyNetwork(nn.Module):
@@ -73,21 +72,22 @@ class DensePolicyNetwork(nn.Module):
         return action_means, action_stddevs
 
 
-class DenseNetworkPolicy(BaseDifferentiablePolicy):
+class DenseNetworkPolicy(BasePyTorchPolicy):
     """Policy class that uses a dense neural network for constructing the mean and standard deviation of a Gaussian."""
 
     def __init__(self, env_id: str, hidden_space_dims: List[int]):
         """Initialise dense network policy."""
-        super().__init__()
-        self._env = gym.make(env_id)
         # if not isinstance(self._env.action_space, gym.spaces.Discrete):
         #     raise PolicyException('The LinearSoftMax is applicable to discrete action spaces only.')
-
-        self.network = DensePolicyNetwork(
-            self._env.observation_space.shape[0],
-            self._env.action_space.shape[0],
-            hidden_space_dims,
+        self._env = gym.make(env_id)
+        super().__init__(
+            network=DensePolicyNetwork(
+                self._env.observation_space.shape[0],
+                self._env.action_space.shape[0],
+                hidden_space_dims,
+            )
         )
+
         self.eps = 1e-6
 
     def generate_action(self, observation: npt.ArrayLike) -> npt.ArrayLike:
@@ -100,38 +100,24 @@ class DenseNetworkPolicy(BaseDifferentiablePolicy):
         param: observation: The current state observation.
         return: A randomly sampled continuous action from the environment's continuous action space.
         """
-        action_mean, action_stddev = self.network(tensor(observation))
-        dist = Normal(action_mean[0] + self.eps, action_stddev[0] + self.eps)
-        action = dist.sample().numpy()
-        action = action[..., np.newaxis]
-        return action
+        action_mean, action_stddev = self.network(tensor(observation).T)
+        dist = Normal(action_mean + self.eps, action_stddev + self.eps)
+        return dist.sample().numpy()
 
-    def calculate_log_derivative(self):
+    def calculate_log_probabilities(self, observations: npt.NDArray, actions: npt.NDArray) -> Tensor:
         """
-        Calculate the log derivative of the policy with respect to its parameters.
+        Calculate the log-probailities of the for the given (observation, action) pairs.
 
-        This method computes the gradient of the log probability of taking the given action
-        in the given observation state with respect to the policy's parameters. This is used
-        in policy gradient methods like REINFORCE, Actor-Critic, and PPO.
-
-        param: observation: The state observation from the environment.
-        param: action: The action taken in the given observation state.
-        return: The log derivative (gradient) of the policy parameters for the given observation-action pair.
+        param: observations: The state observations from the environment.
+        param: actions: The actions taken in the given observation state.
+        return: The lo-probabilities of the policy for the given observation-action pairs.
         """
-        raise NotImplementedError
-
-    def get_parameters(self):
-        """
-        Get the current policy parameters.
-
-        return: The current parameters of the policy as a numpy array.
-        """
-        raise NotImplementedError
-
-    def set_parameters(self):
-        """
-        Set new policy parameters.
-
-        param: parameters: The new parameters to set for the policy.
-        """
-        raise NotImplementedError
+        action_means, action_stddevs = self.network(tensor(observations).T)
+        return (
+            Normal(
+                action_means[:, 0] + self.eps,
+                action_stddevs[:, 0] + self.eps,
+            )
+            .log_prob(tensor(actions))
+            .T
+        )

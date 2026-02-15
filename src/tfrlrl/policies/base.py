@@ -1,8 +1,12 @@
 from abc import ABC, abstractmethod
-from typing import Tuple, Union
+from typing import Any, Generator, Tuple, Union
 
 import gymnasium as gym
 from numpy.typing import NDArray
+from torch import (
+    Tensor,
+    nn,
+)
 
 
 class PolicyException(Exception):
@@ -122,6 +126,82 @@ class BaseDifferentiablePolicy(BasePolicy):
 
         Args:
             parameters: The new parameters to set for the policy.
+
+        """
+        ...
+
+
+class BasePyTorchPolicy(BasePolicy):
+    """
+    Abstract base class for PyTorch reinforcement learning policies.
+
+    This class extends BasePolicy to support policies which are parameterised through PyTorch,
+    enabling gradient-based policy optimization methods such as policy gradient algorithms.
+    """
+
+    def __init__(self, network: nn.Module):
+        """
+        Initialise dense network policy.
+
+        Initialise the PyTorch policy, including setting the network.
+
+        Args:
+            network: An instance of a PyTorch Module that will be used within the policy.
+
+        """
+        super().__init__()
+        self.network = network
+
+    def get_parameters(self) -> Generator[nn.parameter.Parameter, None, None]:
+        """
+        Get the current policy parameters.
+
+        Return the parameters of the PyTorch neural network. This function can be used to set the
+        parameters in a PyTorch optimisation algorithm.
+
+        Returns:
+            The current parameters of the policy as a generator PyTorch parameters.
+
+        """
+        return self.network.parameters()
+
+    def get_state(self) -> dict[str, Any]:
+        """
+        Get the state dictionary of the Pytorch network.
+
+        Return the state dictionary of the policy's Pytorch network.
+
+        Returns:
+            The current state dictionary of the policy's Pytorch network.
+
+        """
+        return self.network.state_dict()
+
+    def set_state(self, state_dict: dict[str, Any]) -> None:
+        """
+        Set the state dictionary of the Pytorch network.
+
+        Args:
+            state_dict: The state dictionary to be assigned to the policy's Pytorch network.
+
+        """
+        self.network.load_state_dict(state_dict)
+
+    @abstractmethod
+    def calculate_log_probabilities(self, observations: NDArray, actions: NDArray) -> Tensor:
+        """
+        Calculate the log-probabilities of the given actions for the corresponding observations.
+
+        Calculate the log-probabilities for the given actions for the corresponding observations.
+        This function is expected to be used in batch.
+
+        Args:
+            observations: A NumPy array of the observations for which to calculate the log-probabilities.
+            actions: A NumPy array of the actions for which to calculate the log-probabilities (of the corresponding
+            observations).
+
+        Returns:
+            A PyTorch Tensor containing the log-probabilities of the given (observation, action) pairs.
 
         """
         ...
