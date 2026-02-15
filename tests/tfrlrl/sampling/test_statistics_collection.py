@@ -37,7 +37,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             feature_fn,
         )
 
-        stats_collector = EpisocidPolicyGradientStatisticsCollector(pol)
+        stats_collector = EpisocidPolicyGradientStatisticsCollector()
         sampler = EpisodicSampler(
             env_id,
             stats_collector,
@@ -52,16 +52,23 @@ class TestEpisocidPolicyGradientStatisticsCollector:
 
         # Verify that statistics were collected
         assert len(stats_collector.rewards) > 0
-        assert len(stats_collector.log_pol_grads) > 0
+        assert len(stats_collector.observations) > 0
+        assert len(stats_collector.actions) > 0
+
+        assert len(stats_collector.rewards) == len(stats_collector.observations)
+        assert len(stats_collector.rewards) == len(stats_collector.actions)
 
         # Reset the statistics collector
         stats_collector.reset()
 
         # Verify that statistics are cleared
         assert len(stats_collector.rewards) == 0
-        assert len(stats_collector.log_pol_grads) == 0
+        assert len(stats_collector.observations) == 0
+        assert len(stats_collector.actions) == 0
+
         assert stats_collector.rewards == []
-        assert stats_collector.log_pol_grads == []
+        assert stats_collector.observations == []
+        assert stats_collector.actions == []
 
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
     @given(n_episodes=st.integers(min_value=1, max_value=5))
@@ -91,7 +98,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             feature_fn,
         )
 
-        stats_collector = EpisocidPolicyGradientStatisticsCollector(pol)
+        stats_collector = EpisocidPolicyGradientStatisticsCollector()
         sampler = EpisodicSampler(
             env_id,
             stats_collector,
@@ -104,11 +111,12 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         for statistics in sampler:
             # Verify return types
             assert isinstance(statistics.total_reward, np.int64)
-            assert isinstance(statistics.episode_gradient, np.ndarray)
+            assert isinstance(statistics.observations, np.ndarray)
+            assert isinstance(statistics.actions, np.ndarray)
+            assert isinstance(statistics.total_expected_rewards, np.ndarray)
 
-            # Episode gradient should have length equal to number of policy parameters
-            assert statistics.episode_gradient.shape == (n_params, 1)
-            assert len(statistics.episode_gradient) == n_params
+            assert statistics.observations.shape[-1] == statistics.actions.shape[-1]
+            assert statistics.observations.shape[-1] == statistics.total_expected_rewards.shape[-1]
 
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
     @given(n_episodes=st.integers(min_value=2, max_value=5))
@@ -132,7 +140,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             feature_fn,
         )
 
-        stats_collector = EpisocidPolicyGradientStatisticsCollector(pol)
+        stats_collector = EpisocidPolicyGradientStatisticsCollector()
         sampler = EpisodicSampler(
             env_id,
             stats_collector,
@@ -153,8 +161,6 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         # Verify both collections produced valid results
         assert len(statistics1) == n_episodes
         assert len(statistics2) == n_episodes
-        for i in range(n_episodes):
-            assert statistics1[i].episode_gradient.shape == statistics2[i].episode_gradient.shape
 
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
     @given(n_episodes=st.integers(min_value=1, max_value=5))
@@ -181,7 +187,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             feature_fn,
         )
 
-        stats_collector = EpisocidPolicyGradientStatisticsCollector(pol)
+        stats_collector = EpisocidPolicyGradientStatisticsCollector()
         sampler = EpisodicSampler(
             env_id,
             stats_collector,
@@ -193,7 +199,14 @@ class TestEpisocidPolicyGradientStatisticsCollector:
 
         # Verify return types
         assert isinstance(statistics.total_reward, np.ndarray)
-        assert isinstance(statistics.episode_gradient, np.ndarray)
+        assert isinstance(statistics.observations, np.ndarray)
+        assert isinstance(statistics.actions, np.ndarray)
+        assert isinstance(statistics.total_expected_rewards, np.ndarray)
 
         assert len(statistics.total_reward) == n_episodes
-        assert statistics.episode_gradient.shape == (n_params, n_episodes)
+        assert statistics.observations.shape[-1] == statistics.actions.shape[-1]
+        assert statistics.observations.shape[-1] == statistics.total_expected_rewards.shape[-1]
+
+        assert len(statistics.observations.shape) == 2
+        assert len(statistics.actions.shape) == 2
+        assert len(statistics.total_expected_rewards.shape) == 1

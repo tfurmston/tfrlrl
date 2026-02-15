@@ -29,10 +29,14 @@ class LinearSoftMax(BaseDifferentiablePolicy):
         """
         Initialize the LinearSoftMax policy.
 
-        :param env_id: The Gymnasium environment ID.
-        :param softmax_parameters: The parameters of the softmax policy.
-        :param feature_fn: A function that maps observations to feature representations.
-        :raises PolicyException: If the environment does not have a discrete action space.
+        Args:
+            env_id: The Gymnasium environment ID.
+            softmax_parameters: The parameters of the softmax policy.
+            feature_fn: A function that maps observations to feature representations.
+
+        Raises:
+            :raises PolicyException: If the environment does not have a discrete action space.
+
         """
         super().__init__()
         self._env = gym.make(env_id)
@@ -46,8 +50,12 @@ class LinearSoftMax(BaseDifferentiablePolicy):
         """
         Calculate the probability distribution over actions for a given observation.
 
-        :param observation: The current state observation from the environment.
-        :return: A probability distribution over actions.
+        Args:
+            observation: The current state observation from the environment.
+
+        Returns:
+            :return: A probability distribution over actions.
+
         """
         scores = np.matmul(self._feature_fn(observation), self._softmax_parameters)
         scores -= np.max(scores)
@@ -57,8 +65,12 @@ class LinearSoftMax(BaseDifferentiablePolicy):
         """
         Generate an action by sampling from the softmax probability distribution.
 
-        :param observation: The current state observation from the environment.
-        :return: A sampled action from the discrete action space.
+        Args:
+            observation: The current state observation from the environment.
+
+        Returns:
+            :return: A sampled action from the discrete action space.
+
         """
         return self._env.action_space.sample(probability=self.calculate_action_probabilities(observation))
 
@@ -66,10 +78,16 @@ class LinearSoftMax(BaseDifferentiablePolicy):
         """
         Calculate the log derivative of the policy with respect to its parameters.
 
-        :param observation: The state observation from the environment.
-        :param action: The action taken in the given observation state.
-        :return: The log derivative (gradient) of the policy parameters.
-        :raises NotImplementedError: This method is not yet implemented.
+        Args:
+            observation: The state observation from the environment.
+            action: The action taken in the given observation state.
+
+        Returns:
+            :return: The log derivative (gradient) of the policy parameters.
+
+        Raises:
+            :raises NotImplementedError: This method is not yet implemented.
+
         """
         a_probs = self.calculate_action_probabilities(observation)
         f_mat = self._feature_fn(observation)
@@ -79,7 +97,9 @@ class LinearSoftMax(BaseDifferentiablePolicy):
         """
         Get the current policy parameters.
 
-        :return: The current softmax parameters of the policy.
+        Returns:
+            :return: The current softmax parameters of the policy.
+
         """
         return self._softmax_parameters
 
@@ -87,6 +107,18 @@ class LinearSoftMax(BaseDifferentiablePolicy):
         """
         Set new policy parameters.
 
-        :param parameters: The new softmax parameters to set for the policy.
+        Args:
+            parameters: The new softmax parameters to set for the policy.
+
         """
         self._softmax_parameters = parameters
+
+    def update(self, parameters: NDArray) -> None:
+        """
+        Set new policy parameters.
+
+        Args:
+            parameters: The new policy parameters.
+
+        """
+        self.set_parameters(parameters)

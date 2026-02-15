@@ -26,8 +26,10 @@ class TestEpisodicSampler:
         """
         Test that n-episodes can be sampled from the environment and that the outputs follow the expected format.
 
-        :param env_id: The Gym environment ID to be used in the sampling.
-        :param n_steps: The number of steps to sample from the environment.
+        Args:
+            env_id: The Gym environment ID to be used in the sampling.
+            n_episodes: The number of n_episodes to sample from the environment.
+
         """
         env = gym.make(env_id)
         S = env.observation_space.n
@@ -65,7 +67,9 @@ class TestEpisodicSampler:
 
         Uses FrozenLake-v1 with is_slippery parameter to verify kwargs functionality.
 
-        :param n_steps: The number of steps to sample from the environment.
+        Args:
+            n_episodes: The number of episodes to sample from the environment.
+
         """
         env_id = 'FrozenLake-v1'
         env = gym.make(env_id)
@@ -104,11 +108,79 @@ class TestEpisodicSampler:
 
     @given(n_episodes=st.integers(min_value=2, max_value=10))
     @settings(deadline=2000)
+    def test_sample_episode_with_policy_update(self, n_episodes: int):
+        """
+        Test that updating the policy.
+
+        Uses LinearSoftmaxPolicy to test update of policies.
+
+        Args:
+            n_episodes: The number of episodes to sample from the environment.
+
+        """
+        env_id = 'FrozenLake-v1'
+        env = gym.make(env_id)
+        S = env.observation_space.n
+        A = env.action_space.n
+
+        feature_fn = construct_one_hot_feature_function(S=S, A=A)
+        softmax_parameters = np.random.random(size=S * (A - 1))
+        pol = LinearSoftMax(
+            env_id,
+            softmax_parameters,
+            feature_fn,
+        )
+        stats_collector = DummyStatisticsCollector()
+        sampler = EpisodicSampler(
+            env_id,
+            stats_collector,
+            n_episodes=n_episodes,
+            policy=pol,
+            is_slippery=False,
+        )
+        statistics = list(sampler)
+        assert len(statistics) == n_episodes
+        for statistic in statistics:
+            assert isinstance(statistic.samples, dict)
+            assert len(statistic.samples) == 1
+            env_id = next(iter(statistic.samples))
+            for step in statistic.samples[env_id]:
+                assert isinstance(step.env_id, str)
+                assert isinstance(step.time_step, int)
+                assert isinstance(step.observation, np.ndarray)
+                assert isinstance(step.next_observation, np.ndarray)
+                assert isinstance(step.reward, float) or isinstance(step.reward, int)
+                assert isinstance(step.done, bool)
+                assert isinstance(step.info, dict)
+
+        new_softmax_parameters = np.random.random(size=S * (A - 1))
+        sampler.reset()
+        sampler.update(parameters=new_softmax_parameters)
+
+        statistics = list(sampler)
+        assert len(statistics) == n_episodes
+        for statistic in statistics:
+            assert isinstance(statistic.samples, dict)
+            assert len(statistic.samples) == 1
+            env_id = next(iter(statistic.samples))
+            for step in statistic.samples[env_id]:
+                assert isinstance(step.env_id, str)
+                assert isinstance(step.time_step, int)
+                assert isinstance(step.observation, np.ndarray)
+                assert isinstance(step.next_observation, np.ndarray)
+                assert isinstance(step.reward, float) or isinstance(step.reward, int)
+                assert isinstance(step.done, bool)
+                assert isinstance(step.info, dict)
+
+    @given(n_episodes=st.integers(min_value=2, max_value=10))
+    @settings(deadline=2000)
     def test_reset_allows_reuse_as_iterator(self, n_episodes: int):
         """
         Test that the reset method allows the EpisodicSampler to be used as an iterator multiple times.
 
-        :param n_episodes: The number of episodes to sample from the environment.
+        Args:
+            n_episodes: The number of episodes to sample from the environment.
+
         """
         env_id = 'FrozenLake-v1'
         env = gym.make(env_id)
@@ -182,8 +254,10 @@ class TestEpisodicSampler:
         """
         Test the sample function of the EpisodicSampler class and that the outputs follow the expected format.
 
-        :param env_id: The Gym environment ID to be used in the sampling.
-        :param n_steps: The number of steps to sample from the environment.
+        Args:
+            env_id: The Gym environment ID to be used in the sampling.
+            n_episodes: The number of episodes to sample from the environment.
+
         """
         env = gym.make(env_id)
         S = env.observation_space.n
@@ -222,9 +296,11 @@ class TestRayEpisodicSampler:
         """
         Test that n-episodes can be sampled from the environment and that the outputs follow the expected format.
 
-        :param env_id: The Gym environment ID to be used in the sampling.
-        :param n_steps: The number of steps to sample from the environment.
-        :param test_ray_cluster: Test Ray cluster.
+        Args:
+            env_id: The Gym environment ID to be used in the sampling.
+            n_episodes: The number of episodes to sample from the environment.
+            test_ray_cluster: Test Ray cluster.
+
         """
         n_samplers = 2
         env = gym.make(env_id)
@@ -269,8 +345,10 @@ class TestRayEpisodicSampler:
 
         Uses FrozenLake-v1 with is_slippery parameter to verify kwargs functionality.
 
-        :param n_steps: The number of steps to sample from the environment.
-        :param test_ray_cluster: Test Ray cluster.
+        Args:
+            n_episodes: The number of episodes to sample from the environment.
+            test_ray_cluster: Test Ray cluster.
+
         """
         n_samplers = 2
         env_id = 'FrozenLake-v1'
@@ -315,8 +393,10 @@ class TestRayEpisodicSampler:
         """
         Test that the reset method allows the EpisodicSampler to be used as an iterator multiple times.
 
-        :param n_episodes: The number of episodes to sample from the environment.
-        :param test_ray_cluster: Test Ray cluster.
+        Args:
+            n_episodes: The number of episodes to sample from the environment.
+            test_ray_cluster: Test Ray cluster.
+
         """
         n_samplers = 2
         env_id = 'FrozenLake-v1'
@@ -393,9 +473,11 @@ class TestRayEpisodicSampler:
         """
         Test the sample function of the EpisodicSampler class and that the outputs follow the expected format.
 
-        :param env_id: The Gym environment ID to be used in the sampling.
-        :param n_steps: The number of steps to sample from the environment.
-        :param test_ray_cluster: Test Ray cluster.
+        Args:
+            env_id: The Gym environment ID to be used in the sampling.
+            n_episodes: The number of episodes to sample from the environment.
+            test_ray_cluster: Test Ray cluster.
+
         """
         n_samplers = 2
         env = gym.make(env_id)

@@ -21,12 +21,14 @@ class Sampler:
         """
         Initialise instance of Sampler, which entails initialising the environment and setting member variables.
 
-        :param env_id: The Gym environment ID to be used in the sampling.
-        :param n_steps: If given, the number of steps to sample from the environment. If not given, then there is no
-        limit on the number of sampled steps.
-        :param policy: Optional policy instance for action selection. If not provided, defaults to
-        UniformActionSamplingPolicy.
-        :param kwargs: Optional keyword-arguments for the environment.
+        Args:
+            env_id: The Gym environment ID to be used in the sampling.
+            n_steps: If given, the number of steps to sample from the environment. If not given, then there is no
+            limit on the number of sampled steps.
+            policy: Optional policy instance for action selection. If not provided, defaults to
+            UniformActionSamplingPolicy.
+            kwargs: Optional keyword-arguments for the environment.
+
         """
         self.step_cls, self.steps_cls = construct_step_dataclasses(env_id)
         self._env = gym.make(env_id, **kwargs)
@@ -90,10 +92,12 @@ class Sampler:
         if self._n_steps_taken is not None:
             self._n_steps_taken = 0
 
-    def update_policy(self, new_policy: BasePolicy) -> None:
+    def update(self, **kwargs) -> None:
         """
-        Update the policy used for action selection.
+        Update the sampler, e.g. the policy used for action selection.
 
-        :param new_policy: New policy instance to use for sampling.
+        Args:
+            kwargs: Keyword arguments passed to the policy update.
+
         """
-        self._policy = new_policy
+        self._policy.update(**kwargs)

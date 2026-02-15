@@ -154,3 +154,45 @@ def test_calculate_log_derivative_finite_difference(env_id: str, observation: in
         atol=1e-4,
         err_msg='Analytical gradient does not match numerical gradient',
     )
+
+
+@pytest.mark.parametrize('env_id', ['CliffWalking-v1'])
+@given(observation=st.integers(min_value=0, max_value=47), seed=st.integers(min_value=0, max_value=10000))
+@settings(deadline=None)
+def test_update_linear_softmax_policy(env_id: str, observation: int, seed: int):
+    """
+    Test the update of the policy parameter values.
+
+    Args:
+        env_id: The Gymnasium environment ID with a discrete action space.
+        observation: A valid observation (state) from the environment.
+        seed: Random seed for generating softmax parameters.
+
+    """
+    env = gym.make(env_id)
+    np.random.seed(seed)
+    softmax_parameters = np.random.uniform(
+        low=-10.0,
+        high=10.0,
+        size=(env.observation_space.n * (env.action_space.n - 1),),
+    )
+    feature_fn = construct_one_hot_feature_function(env.observation_space.n, env.action_space.n)
+
+    policy = LinearSoftMax(env_id, softmax_parameters, feature_fn)
+    action_probs = policy.calculate_action_probabilities(np.array([observation]))
+
+    # Check that probabilities sum to 1.0 (within numerical tolerance)
+    np.testing.assert_allclose(np.sum(action_probs), 1.0, rtol=1e-6, atol=1e-9)
+
+    new_softmax_parameters = np.random.uniform(
+        low=-10.0,
+        high=10.0,
+        size=(env.observation_space.n * (env.action_space.n - 1),),
+    )
+    policy.update(new_softmax_parameters)
+
+    # Check that all probabilities are non-negative
+    assert np.all(action_probs >= 0.0), 'All action probabilities should be non-negative'
+
+    # Check that all probabilities are <= 1.0
+    assert np.all(action_probs <= 1.0), 'All action probabilities should be <= 1.0'

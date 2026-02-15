@@ -27,13 +27,15 @@ class EpisodicSampler:
         """
         Initialise instance of EpisodicSampler, which entails initialising the environment and setting member variables.
 
-        :param env_id: The Gym environment ID to be used in the sampling.
-        :param statistics_collector: An instance of a statistics collector.
-        :param n_episodes: If given, the number of episodes to sample from the environment. If not given, then there is
-          no limit on the number of sampled episodes.
-        :param policy: Optional policy instance for action selection. If not provided, defaults to
-        UniformActionSamplingPolicy.
-        :param kwargs: Optional keyword-arguments for the environment.
+        Args:
+            env_id: The Gym environment ID to be used in the sampling.
+            statistics_collector: An instance of a statistics collector.
+            n_episodes: If given, the number of episodes to sample from the environment. If not given,
+            then there is no limit on the number of sampled episodes.
+            policy: Optional policy instance for action selection. If not provided, defaults to
+            UniformActionSamplingPolicy.
+            kwargs: Optional keyword-arguments for the environment.
+
         """
         self._sampler = Sampler(env_id, policy=policy, **kwargs)
         self._statistics_collector = statistics_collector
@@ -62,14 +64,15 @@ class EpisodicSampler:
         self._statistics_collector.reset()
         self._n_episodes_taken = 0
 
-    def update_policy(self, new_policy: BasePolicy) -> None:
+    def update(self, **kwargs) -> None:
         """
-        Update the policy used for action selection.
+        Update the the sampler, e.g., the policy used for action selection.
 
-        :param new_policy: New policy instance to use for sampling.
+        Args:
+            kwargs: The keyword arguments to be passed to the sampler update.
+
         """
-        self._sampler._policy = new_policy
-        self._statistics_collector.update_policy(new_policy)
+        self._sampler.update(**kwargs)
 
     def sample(self) -> BaseStatistics:
         """Sample all episodes from the sampler and merge the statistics."""
@@ -98,13 +101,16 @@ class RayEpisodicSampler:
         """
         Initialise instance of RayEpisodicSampler, which entails initialising multiple samplers to be used by Ray.
 
-        :param env_id: The Gym environment ID to be used in the sampling.
-        :param statistics_collector: Optional instance of a statistics collector.
-        :param n_episodes: If given, the number of episodes to sample from the environment (in each of the Ray
-        workers). If not given, then there is no limit on the number of sampled episodes.
-        :param policy: Optional policy instance for action selection. If not provided, defaults to
-        UniformActionSamplingPolicy.
-        :param kwargs: Optional keyword-arguments for the environment.
+        Args:
+            env_id: The Gym environment ID to be used in the sampling.
+            n_samplers: The number of samplers to be used in sampling.
+            statistics_collector: Optional instance of a statistics collector.
+            n_episodes: If given, the number of episodes to sample from the environment (in each of the Ray
+            workers). If not given, then there is no limit on the number of sampled episodes.
+            policy: Optional policy instance for action selection. If not provided, defaults to
+            UniformActionSamplingPolicy.
+            kwargs: Optional keyword-arguments for the environment.
+
         """
         self.statistics_collector = statistics_collector
         self.samplers = [
@@ -132,13 +138,15 @@ class RayEpisodicSampler:
         """Reset all samplers."""
         ray.get([env.reset.remote() for env in self.samplers])
 
-    def update_policy(self, new_policy: BasePolicy) -> None:
+    def update(self, **kwargs) -> None:
         """
-        Update the policy across all samplers.
+        Update the the sampler, e.g., the policy used for action selection.
 
-        :param new_policy: New policy instance to use for sampling across all samplers.
+        Args:
+            kwargs: Keyword arguments to be passed to the sampler updated.
+
         """
-        ray.get([env.update_policy.remote(new_policy) for env in self.samplers])
+        ray.get([env.update.remote(**kwargs) for env in self.samplers])
 
     def sample(self) -> BaseStatistics:
         """Sample all episodes from the sampler and merge the statistics."""

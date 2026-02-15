@@ -38,6 +38,17 @@ class BasePolicy(ABC):
         """
         ...
 
+    @abstractmethod
+    def update(self, **kwargs) -> None:
+        """
+        Update the policy using the keyword arguments provided.
+
+        Args:
+            kwargs: Keyward arguments passed to the policy update.
+
+        """
+        ...
+
 
 class UniformActionSamplingPolicy(BasePolicy):
     """
@@ -78,6 +89,14 @@ class UniformActionSamplingPolicy(BasePolicy):
 
         """
         return self._env.action_space.sample()
+
+    def update(self, **kwargs) -> None:
+        """
+        Update the policy.
+
+        This is a dummy function, as there is nothing to update in this policy.
+        """
+        pass
 
 
 class BaseDifferentiablePolicy(BasePolicy):
@@ -186,6 +205,16 @@ class BasePyTorchPolicy(BasePolicy):
 
         """
         self.network.load_state_dict(state_dict)
+
+    def update(self, state_dict) -> None:
+        """
+        Update the policy.
+
+        Args:
+            state_dict: The state dictionary to be assigned to the policy's Pytorch network.
+
+        """
+        self.set_state(state_dict)
 
     @abstractmethod
     def calculate_log_probabilities(self, observations: NDArray, actions: NDArray) -> Tensor:
