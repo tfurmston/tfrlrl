@@ -113,12 +113,13 @@ class LinearSoftMax(BaseDifferentiablePolicy):
         """
         self._softmax_parameters = parameters
 
-    def update(self, parameters: NDArray) -> None:
+    def update(self, parameters: NDArray, **kwargs) -> None:
         """
         Set new policy parameters.
 
         Args:
             parameters: The new policy parameters.
+            kwargs: Optional keyword-arguments for the policy update.
 
         """
         self.set_parameters(parameters)

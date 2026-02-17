@@ -47,11 +47,11 @@ class TestParseArgs:
 class TestMain:
     """Tests for the main function."""
 
-    @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+    @pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
     @given(
         n_iterations=st.integers(min_value=1, max_value=3),
         n_episodes=st.integers(min_value=5, max_value=15),
-        alpha=st.floats(min_value=0.1, max_value=5.0),
+        alpha=st.floats(min_value=0.0001, max_value=0.001),
     )
     @settings(deadline=10000)
     def test_main_with_different_parameters(self, env_id: str, n_iterations: int, n_episodes: int, alpha: float):
@@ -78,7 +78,7 @@ class TestMain:
 
         assert exit_code is None or exit_code == 0
 
-    @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+    @pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
     def test_main_with_env_kwargs(self, env_id: str):
         """
         Test main function with env-kwargs set.
@@ -95,14 +95,14 @@ class TestMain:
             '--alpha',
             '1.0',
             '--env-kwargs',
-            '{"is_slippery": false}',
+            '{"reset_noise_scale": 0.001}',
         ]
 
         exit_code = main(args)
 
         assert exit_code is None or exit_code == 0
 
-    @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+    @pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
     def test_main_with_default_env_kwargs(self, env_id: str):
         """
         Test main function with default (empty) env-kwargs.

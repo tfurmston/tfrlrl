@@ -206,12 +206,13 @@ class BasePyTorchPolicy(BasePolicy):
         """
         self.network.load_state_dict(state_dict)
 
-    def update(self, state_dict) -> None:
+    def update(self, state_dict, **kwargs) -> None:
         """
         Update the policy.
 
         Args:
             state_dict: The state dictionary to be assigned to the policy's Pytorch network.
+            kwargs: Optional keyword-arguments for the policy update.
 
         """
         self.set_state(state_dict)
