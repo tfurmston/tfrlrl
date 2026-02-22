@@ -1,13 +1,58 @@
+from collections import OrderedDict
 from typing import Callable, Tuple, Union
 
 import gymnasium as gym
-import numpy as np
+import numpy.typing as npt
 from numpy.typing import NDArray
+from torch import (
+    Tensor,
+    nn,
+    tensor,
+)
+from torch.distributions.multinomial import Multinomial
 
-from tfrlrl.policies.base import BaseDifferentiablePolicy, PolicyException
+from tfrlrl.policies.base import (
+    BasePyTorchPolicy,
+    PolicyException,
+)
 
 
-class LinearSoftMax(BaseDifferentiablePolicy):
+class LinearSoftMaxNetwork(nn.Module):
+    """
+    PyTorch module class for a linear soft-max network.
+
+    The linear soft-max neural network of this class is used to select from a range of discrete actions.
+    """
+
+    def __init__(self, n_features: int):
+        """
+        Initialise linear soft-max neural network.
+
+        param: n_features: The number of features in the feature space.
+        """
+        super().__init__()
+
+        # Define sequential network for policy
+        self.network = nn.Sequential(
+            OrderedDict(
+                [
+                    ('linear', nn.Linear(n_features, 1)),
+                    ('softmax', nn.Softmax(dim=-1)),
+                ]
+            )
+        )
+
+    def forward(self, x: Tensor) -> tuple[Tensor]:
+        """
+        Perform a forward pass of the network on the given tensor.
+
+        param: x: An input tensor over which to perform the forward pass.
+        return: A Tensor for the action probabilities.
+        """
+        return self.network(x.float())
+
+
+class LinearSoftMax(BasePyTorchPolicy):
     """
     Linear softmax policy for discrete action spaces.
 
@@ -25,7 +70,7 @@ class LinearSoftMax(BaseDifferentiablePolicy):
 
     """
 
-    def __init__(self, env_id: str, softmax_parameters: NDArray, feature_fn: Callable[[NDArray], NDArray]):
+    def __init__(self, env_id: str, feature_fn: Callable[[NDArray], NDArray]):
         """
         Initialize the LinearSoftMax policy.
 
@@ -43,23 +88,9 @@ class LinearSoftMax(BaseDifferentiablePolicy):
         if not isinstance(self._env.action_space, gym.spaces.Discrete):
             raise PolicyException('The LinearSoftMax is applicable to discrete action spaces only.')
 
-        self._softmax_parameters = softmax_parameters
+        # TODO: Set the correct number of features
+        self.network = LinearSoftMaxNetwork(5)
         self._feature_fn = feature_fn
-
-    def calculate_action_probabilities(self, observation: NDArray):
-        """
-        Calculate the probability distribution over actions for a given observation.
-
-        Args:
-            observation: The current state observation from the environment.
-
-        Returns:
-            :return: A probability distribution over actions.
-
-        """
-        scores = np.matmul(self._feature_fn(observation), self._softmax_parameters)
-        scores -= np.max(scores)
-        return np.exp(scores) / np.sum(np.exp(scores))
 
     def generate_action(self, observation: NDArray) -> Tuple[Union[int, float, NDArray]]:
         """
@@ -72,54 +103,16 @@ class LinearSoftMax(BaseDifferentiablePolicy):
             :return: A sampled action from the discrete action space.
 
         """
-        return self._env.action_space.sample(probability=self.calculate_action_probabilities(observation))
+        dist = Multinomial(1, probs=self.network(tensor(self._feature_fn(observation)).T))
+        return dist.sample().numpy()
 
-    def calculate_log_derivative(self, observation: NDArray, action: int) -> NDArray:
+    def calculate_log_probabilities(self, observations: npt.NDArray, actions: npt.NDArray) -> Tensor:
         """
-        Calculate the log derivative of the policy with respect to its parameters.
+        Calculate the log-probailities of the for the given (observation, action) pairs.
 
-        Args:
-            observation: The state observation from the environment.
-            action: The action taken in the given observation state.
-
-        Returns:
-            :return: The log derivative (gradient) of the policy parameters.
-
-        Raises:
-            :raises NotImplementedError: This method is not yet implemented.
-
+        param: observations: The state observations from the environment.
+        param: actions: The actions taken in the given observation state.
+        return: The log-probabilities of the policy for the given observation-action pairs.
         """
-        a_probs = self.calculate_action_probabilities(observation)
-        f_mat = self._feature_fn(observation)
-        return f_mat[action, :] - np.matmul(a_probs, f_mat)
-
-    def get_parameters(self) -> NDArray:
-        """
-        Get the current policy parameters.
-
-        Returns:
-            :return: The current softmax parameters of the policy.
-
-        """
-        return self._softmax_parameters
-
-    def set_parameters(self, parameters: NDArray) -> None:
-        """
-        Set new policy parameters.
-
-        Args:
-            parameters: The new softmax parameters to set for the policy.
-
-        """
-        self._softmax_parameters = parameters
-
-    def update(self, parameters: NDArray, **kwargs) -> None:
-        """
-        Set new policy parameters.
-
-        Args:
-            parameters: The new policy parameters.
-            kwargs: Optional keyword-arguments for the policy update.
-
-        """
-        self.set_parameters(parameters)
+        dist = Multinomial(1, probs=self.network(tensor(self._feature_fn(observations)).T))
+        return dist.log_prob(tensor(actions)).T
