@@ -18,7 +18,9 @@ def test_sample_single_action_from_dense_network_policy(env_id):
     """
     Test sampling a single action with a DenseNetworkPolicy.
 
-    env_id: The environment I.D. from which to sample episodes.
+    Args:
+        env_id: The environment I.D. from which to sample episodes.
+
     """
     env = gym.make(env_id)
 
@@ -43,10 +45,12 @@ def test_sample_episode_with_dense_network_policy(env_id: str, n_episodes: int, 
     """
     Test sampling of episodes with a DenseNetworkPolicy.
 
-    env_id: The environment I.D. from which to sample episodes.
-    n_episodes: The number of episodes to sample.
-    h1_dimensions: The number of units in the first hidden layer.
-    h2_dimensions: The number of units in the second hidden layer.
+    Args:
+        env_id: The environment I.D. from which to sample episodes.
+        n_episodes: The number of episodes to sample.
+        h1_dimensions: The number of units in the first hidden layer.
+        h2_dimensions: The number of units in the second hidden layer.
+
     """
     statistics_collector = DummyStatisticsCollector()
 
@@ -71,7 +75,9 @@ def test_calculate_log_probabilities_from_dense_network_policy_single_observatio
     """
     Test calculate_log_probabilities with a single observation with a DenseNetworkPolicy.
 
-    env_id: The environment I.D. from which to sample episodes.
+    Args:
+        env_id: The environment I.D. from which to sample episodes.
+
     """
     env = gym.make(env_id)
 
@@ -111,7 +117,11 @@ def test_calculate_log_probabilities_from_dense_network_policy_multiple_observat
     """
     Test calculate_log_probabilities with multiple observations with a DenseNetworkPolicy.
 
-    env_id: The environment I.D. from which to sample episodes.
+    Args:
+        env_id: The environment I.D. from which to sample episodes.
+        n_observations: The number of observations to sample.
+        extend_actions: A Boolean indicating whether to extend the diemsions of the actions.
+
     """
     env = gym.make(env_id)
 

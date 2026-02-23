@@ -122,8 +122,8 @@ def test_feature_function_one_hot_encoding(env_id: str):
     # The first action is excluded to avoid linear dependency
     for i in range(1, A):
         row_sum = np.sum(features[:, i])
-        assert row_sum == 1.0, f'Row {i} should sum to 1.0, got {row_sum}'
-        assert np.sum(features[:, i] == 1.0) == 1, f'Row {i} should have exactly one 1.0'
+        assert row_sum == 1.0
+        assert np.sum(features[:, i] == 1.0) == 1
 
 
 @pytest.mark.parametrize('env_id', ['CliffWalking-v1'])

@@ -1,5 +1,4 @@
 from collections import OrderedDict
-from typing import Callable, Tuple, Union
 
 import gymnasium as gym
 import numpy.typing as npt
@@ -9,8 +8,9 @@ from torch import (
     nn,
     tensor,
 )
-from torch.distributions.multinomial import Multinomial
+from torch.distributions.multinomial import Categorical
 
+from tfrlrl.features.base import FeatureFunction
 from tfrlrl.policies.base import (
     BasePyTorchPolicy,
     PolicyException,
@@ -37,7 +37,7 @@ class LinearSoftMaxNetwork(nn.Module):
             OrderedDict(
                 [
                     ('linear', nn.Linear(n_features, 1)),
-                    ('softmax', nn.Softmax(dim=-1)),
+                    ('softmax', nn.Softmax(dim=1)),
                 ]
             )
         )
@@ -70,29 +70,27 @@ class LinearSoftMax(BasePyTorchPolicy):
 
     """
 
-    def __init__(self, env_id: str, feature_fn: Callable[[NDArray], NDArray]):
+    def __init__(self, env_id: str, feature_fn: FeatureFunction):
         """
         Initialize the LinearSoftMax policy.
 
         Args:
             env_id: The Gymnasium environment ID.
-            softmax_parameters: The parameters of the softmax policy.
-            feature_fn: A function that maps observations to feature representations.
+            feature_fn: An instance of a feature function.
 
         Raises:
             :raises PolicyException: If the environment does not have a discrete action space.
 
         """
-        super().__init__()
         self._env = gym.make(env_id)
         if not isinstance(self._env.action_space, gym.spaces.Discrete):
             raise PolicyException('The LinearSoftMax is applicable to discrete action spaces only.')
-
-        # TODO: Set the correct number of features
-        self.network = LinearSoftMaxNetwork(5)
+        super().__init__(
+            network=LinearSoftMaxNetwork(feature_fn.n_features),
+        )
         self._feature_fn = feature_fn
 
-    def generate_action(self, observation: NDArray) -> Tuple[Union[int, float, NDArray]]:
+    def generate_action(self, observation: NDArray) -> Tensor:
         """
         Generate an action by sampling from the softmax probability distribution.
 
@@ -103,7 +101,7 @@ class LinearSoftMax(BasePyTorchPolicy):
             :return: A sampled action from the discrete action space.
 
         """
-        dist = Multinomial(1, probs=self.network(tensor(self._feature_fn(observation)).T))
+        dist = Categorical(probs=self.network(tensor(self._feature_fn(observation)).T).squeeze())
         return dist.sample().numpy()
 
     def calculate_log_probabilities(self, observations: npt.NDArray, actions: npt.NDArray) -> Tensor:
@@ -114,5 +112,5 @@ class LinearSoftMax(BasePyTorchPolicy):
         param: actions: The actions taken in the given observation state.
         return: The log-probabilities of the policy for the given observation-action pairs.
         """
-        dist = Multinomial(1, probs=self.network(tensor(self._feature_fn(observations)).T))
-        return dist.log_prob(tensor(actions)).T
+        dist = Categorical(probs=self.network(tensor(self._feature_fn(observations)).T).squeeze())
+        return dist.log_prob(tensor(actions))
