@@ -17,19 +17,21 @@ from tfrlrl.policies.base import BasePyTorchPolicy
 
 class DensePolicyNetwork(nn.Module):
     """
-    PyTorch module class for a dense neural network.
+    A dense neural network for calculating the mean and standard deviation of a Gaussian distribution.
 
     The dense neural network of this class is used to construct the mean and standard deviation of a Gausssian
-    policy.
+    policy. This is then used to sample actions in an environment with continuous actions.
     """
 
     def __init__(self, obs_space_dims: int, action_space_dims: int, hidden_space_dims: List[int]):
         """
         Initialise dense neural network for calculating the mean and standard deviation of a Gaussian policy.
 
-        param: obs_space_dims: The number of dimensions in the observation space.
-        param: action_space_dims: The number of dimensions in the action space.
-        param: hidden_space_dims: A list of the number of dimensions for the hidden layers in the network.
+        Args:
+            obs_space_dims: The number of dimensions in the observation space.
+            action_space_dims: The number of dimensions in the action space.
+            hidden_space_dims: A list of the number of dimensions for the hidden layers in the network.
+
         """
         super().__init__()
 
@@ -61,8 +63,12 @@ class DensePolicyNetwork(nn.Module):
         """
         Perform a forward pass of the network on the given tensor.
 
-        param: x: An input tensor over which to perform the forward pass.
-        return: A tuple of (Tensor, Tensor) for the mean and standard deviation of the policy.
+        Args:
+            x: An input tensor over which to perform the forward pass.
+
+        Returns:
+            A tuple of (Tensor, Tensor) for the mean and standard deviation of the policy.
+
         """
         shared_features = self.shared_net(x.float())
 
@@ -97,8 +103,13 @@ class DenseNetworkPolicy(BasePyTorchPolicy):
         This function samples an action from a Gaussian in which the mean and standard deviation are constructed
         from the dense neural network.
 
-        param: observation: The current state observation.
-        return: A randomly sampled continuous action from the environment's continuous action space.
+        Args:
+            observation: The current state observation.
+
+        Returns:
+            A NumPy array containing a randomly sampled continuous action from the environment's continuous
+            action space.
+
         """
         action_mean, action_stddev = self.network(tensor(observation).T)
         dist = Normal(action_mean + self.eps, action_stddev + self.eps)
@@ -108,9 +119,13 @@ class DenseNetworkPolicy(BasePyTorchPolicy):
         """
         Calculate the log-probailities of the for the given (observation, action) pairs.
 
-        param: observations: The state observations from the environment.
-        param: actions: The actions taken in the given observation state.
-        return: The lo-probabilities of the policy for the given observation-action pairs.
+        Args:
+            observations: The state observations from the environment.
+            actions: The actions taken in the given observation state.
+
+        Returns:
+            A Tensor containing the log-probabilities of the policy for the given observation-action pairs.
+
         """
         action_means, action_stddevs = self.network(tensor(observations).T)
         return (
