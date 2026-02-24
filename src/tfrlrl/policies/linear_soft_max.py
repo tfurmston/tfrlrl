@@ -60,9 +60,10 @@ class LinearSoftMax(BasePyTorchPolicy):
     feature functions. The policy is differentiable with respect to its parameters, enabling
     gradient-based optimization.
 
+    The policy is applicable to domains with a discreta action space.
+
     Args:
         env_id: The Gymnasium environment ID (e.g., 'CliffWalking-v0').
-        softmax_parameters: The parameters of the softmax policy.
         feature_fn: A function that maps observations to feature representations.
 
     Raises:
@@ -90,6 +91,19 @@ class LinearSoftMax(BasePyTorchPolicy):
         )
         self._feature_fn = feature_fn
 
+    def calculate_action_distribution(self, observations: npt.NDArray) -> Categorical:
+        """
+        Calculate the action probabilities for the given observations.
+
+        Args:
+            observations: The state observations from the environment.
+
+        Returns:
+            return: The log-probabilities of the policy for the given observation-action pairs.
+
+        """
+        return Categorical(probs=self.network(tensor(self._feature_fn(observations)).T).squeeze())
+
     def generate_action(self, observation: NDArray) -> Tensor:
         """
         Generate an action by sampling from the softmax probability distribution.
@@ -98,19 +112,21 @@ class LinearSoftMax(BasePyTorchPolicy):
             observation: The current state observation from the environment.
 
         Returns:
-            :return: A sampled action from the discrete action space.
+            return: A sampled action from the discrete action space.
 
         """
-        dist = Categorical(probs=self.network(tensor(self._feature_fn(observation)).T).squeeze())
-        return dist.sample().numpy()
+        return self.calculate_action_distribution(observation).sample().numpy()
 
     def calculate_log_probabilities(self, observations: npt.NDArray, actions: npt.NDArray) -> Tensor:
         """
         Calculate the log-probailities of the for the given (observation, action) pairs.
 
-        param: observations: The state observations from the environment.
-        param: actions: The actions taken in the given observation state.
-        return: The log-probabilities of the policy for the given observation-action pairs.
+        Args:
+            observations: The state observations from the environment.
+            actions: The actions taken in the given observation state.
+
+        Returns:
+            return: The log-probabilities of the policy for the given observation-action pairs.
+
         """
-        dist = Categorical(probs=self.network(tensor(self._feature_fn(observations)).T).squeeze())
-        return dist.log_prob(tensor(actions))
+        return self.calculate_action_distribution(observations).log_prob(tensor(actions))
