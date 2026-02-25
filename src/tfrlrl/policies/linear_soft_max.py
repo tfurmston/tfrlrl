@@ -104,6 +104,7 @@ class LinearSoftMax(BasePyTorchPolicy):
         """
         return Categorical(probs=self.network(tensor(self._feature_fn(observations)).T).squeeze())
 
+    # TODO: Fix output type
     def generate_action(self, observation: NDArray) -> Tensor:
         """
         Generate an action by sampling from the softmax probability distribution.
@@ -115,7 +116,7 @@ class LinearSoftMax(BasePyTorchPolicy):
             return: A sampled action from the discrete action space.
 
         """
-        return self.calculate_action_distribution(observation).sample().numpy()
+        return self.calculate_action_distribution(observation).sample().numpy().flat[0]
 
     def calculate_log_probabilities(self, observations: npt.NDArray, actions: npt.NDArray) -> Tensor:
         """

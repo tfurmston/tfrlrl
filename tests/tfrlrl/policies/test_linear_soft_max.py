@@ -48,7 +48,7 @@ def test_linear_softmax_policy_generate_action(env_id: str, observation: int, se
     policy = LinearSoftMax(env_id, feature_fn)
     action = policy.generate_action(np.array([observation]))
 
-    assert isinstance(action, np.ndarray)
+    assert isinstance(action, np.int64)
     assert action.size == 1
     assert action.flat[0] in [0, 1, 2, 3]
 
