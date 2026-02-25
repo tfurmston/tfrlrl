@@ -7,7 +7,7 @@ from numpy.typing import NDArray
 
 
 class EnvironmentException(Exception):
-    """Exception class to capture environment issues, such as incompatible state/action dimensions."""
+    """Environment error, such as incompatible state/action dimensions."""
 
     pass
 
@@ -24,7 +24,7 @@ class FeatureFunction(ABC):
     @property
     @abstractmethod
     def n_features(self) -> int:
-        """Class property that represents the number of features in the feature function."""
+        """The number of features in the feature function."""
         ...
 
     @abstractmethod

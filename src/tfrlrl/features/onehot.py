@@ -9,18 +9,18 @@ from tfrlrl.features.base import (
 
 class OneHotFeatureFunction(FeatureFunction):
     """
-    Class encapsulating a one-hot feature function.
+    A one-hot feature function.
 
-    This class is used to encapsulate a one-hot feature function. It can be used in toy examples to
-    represent a full parameterised policy.
+    A one-hot feature function that can be used in toy discrete domains to represent a full
+    parameterised policy.
     """
 
     def __init__(self, S: int, A: int):
         """
         Initialise one-hot feature function for discrete state-action spaces.
 
-        This class represents a feature function that maps state observations to one-hot encoded features,
-        excluding one action per state to avoid linear dependency (common in softmax parameterization).
+        A feature function that maps state observations to one-hot encoded features, excluding one
+        action per state to avoid linear dependency (common in softmax parameterization).
 
         Args:
             S: The total number of states in the state space.
@@ -36,7 +36,7 @@ class OneHotFeatureFunction(FeatureFunction):
 
     @property
     def n_features(self) -> int:
-        """Class property that represents the number of features in the feature function."""
+        """The number of features in the feature function."""
         return self.S * (self.A - 1)
 
     def __call__(self, observations: NDArray) -> NDArray:
