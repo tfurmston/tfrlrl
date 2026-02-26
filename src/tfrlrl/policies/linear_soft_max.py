@@ -1,8 +1,7 @@
 from collections import OrderedDict
 
 import gymnasium as gym
-import numpy.typing as npt
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike
 from torch import (
     Tensor,
     nn,
@@ -91,7 +90,7 @@ class LinearSoftMax(BasePyTorchPolicy):
         )
         self._feature_fn = feature_fn
 
-    def calculate_action_distribution(self, observations: npt.NDArray) -> Categorical:
+    def calculate_action_distribution(self, observations: ArrayLike) -> Categorical:
         """
         Calculate the action probabilities for the given observations.
 
@@ -105,7 +104,7 @@ class LinearSoftMax(BasePyTorchPolicy):
         return Categorical(probs=self.network(tensor(self._feature_fn(observations)).T).squeeze())
 
     # TODO: Fix output type
-    def generate_action(self, observation: NDArray) -> Tensor:
+    def generate_action(self, observation: ArrayLike) -> int:
         """
         Generate an action by sampling from the softmax probability distribution.
 
@@ -118,7 +117,7 @@ class LinearSoftMax(BasePyTorchPolicy):
         """
         return self.calculate_action_distribution(observation).sample().numpy().flat[0]
 
-    def calculate_log_probabilities(self, observations: npt.NDArray, actions: npt.NDArray) -> Tensor:
+    def calculate_log_probabilities(self, observations: ArrayLike, actions: ArrayLike) -> Tensor:
         """
         Calculate the log-probailities of the for the given (observation, action) pairs.
 

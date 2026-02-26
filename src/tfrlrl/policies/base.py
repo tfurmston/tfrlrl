@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Generator, Tuple, Union
 
 import gymnasium as gym
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike
 from torch import (
     Tensor,
     nn,
@@ -24,7 +24,7 @@ class BasePolicy(ABC):
     """
 
     @abstractmethod
-    def generate_action(self, observation: NDArray) -> Tuple[Union[int, float, NDArray]]:
+    def generate_action(self, observation: ArrayLike) -> Tuple[Union[int, float, ArrayLike]]:
         """
         Generate an action for the given state observation.
 
@@ -77,7 +77,7 @@ class UniformActionSamplingPolicy(BasePolicy):
         if not isinstance(self._env.action_space, gym.spaces.Discrete):
             raise PolicyException('The UniformActionSamplingPolicy is applicable to discrete action spaces only.')
 
-    def generate_action(self, observation: NDArray) -> Tuple[Union[int, float, NDArray]]:
+    def generate_action(self, observation: ArrayLike) -> Tuple[Union[int, float, ArrayLike]]:
         """
         Generate a random action uniformly sampled from the discrete action space.
 
@@ -167,7 +167,7 @@ class BasePyTorchPolicy(BasePolicy):
         self.set_state(state_dict)
 
     @abstractmethod
-    def calculate_log_probabilities(self, observations: NDArray, actions: NDArray) -> Tensor:
+    def calculate_log_probabilities(self, observations: ArrayLike, actions: ArrayLike) -> Tensor:
         """
         Calculate the log-probabilities of the given actions for the corresponding observations.
 
