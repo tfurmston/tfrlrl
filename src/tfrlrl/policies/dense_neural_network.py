@@ -12,7 +12,7 @@ from torch import (
 )
 from torch.distributions.normal import Normal
 
-from tfrlrl.policies.base import BasePyTorchPolicy
+from tfrlrl.policies.base import BasePyTorchPolicy, PolicyException
 
 
 class DensePolicyNetwork(nn.Module):
@@ -83,9 +83,11 @@ class DenseNetworkPolicy(BasePyTorchPolicy):
 
     def __init__(self, env_id: str, hidden_space_dims: List[int]):
         """Initialise dense network policy."""
-        # if not isinstance(self._env.action_space, gym.spaces.Discrete):
-        #     raise PolicyException('The LinearSoftMax is applicable to discrete action spaces only.')
         self._env = gym.make(env_id)
+        if not isinstance(self._env.action_space, gym.spaces.Box):
+            raise PolicyException('The DenseNetworkPolicy is applicable to continuous action spaces only.')
+        if not isinstance(self._env.observation_space, gym.spaces.Box):
+            raise PolicyException('The DenseNetworkPolicy is applicable to continuous observation spaces only.')
         super().__init__(
             network=DensePolicyNetwork(
                 self._env.observation_space.shape[0],

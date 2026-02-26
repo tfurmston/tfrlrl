@@ -7,10 +7,28 @@ from hypothesis import strategies as st
 from tests.conftest import (
     DummyStatisticsCollector,
 )
+from tfrlrl.policies.base import PolicyException
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
 from tfrlrl.sampling.episodic_sampler import (
     EpisodicSampler,
 )
+
+
+@pytest.mark.parametrize('env_id', ['CliffWalking-v1'])
+def test_dense_network_policy_with_discrete_environment(env_id):
+    """
+    Test the DenseNetworkPolicy throws environment error on discrete domain.
+
+    Args:
+        env_id: The environment I.D. from which to sample episodes.
+
+    """
+    hidden_space_dims = [16, 32]
+    with pytest.raises(PolicyException):
+        DenseNetworkPolicy(
+            env_id=env_id,
+            hidden_space_dims=hidden_space_dims,
+        )
 
 
 @pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
