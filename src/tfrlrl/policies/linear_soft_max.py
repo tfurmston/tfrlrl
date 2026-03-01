@@ -103,7 +103,6 @@ class LinearSoftMax(BasePyTorchPolicy):
         """
         return Categorical(probs=self.network(tensor(self._feature_fn(observations)).T).squeeze())
 
-    # TODO: Fix output type
     def generate_action(self, observation: ArrayLike) -> int:
         """
         Generate an action by sampling from the softmax probability distribution.
