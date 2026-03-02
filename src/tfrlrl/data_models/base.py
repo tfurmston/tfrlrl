@@ -84,17 +84,56 @@ class DictDescriptor(Validator):
 
 
 class NumpyArrayDescriptor(Validator):
-    """A Descriptor validator class for Numpy NdArrays."""
+    """
+    A Descriptor validator class for Numpy NdArrays.
+
+    Attributes:
+        allowed_instances: A tuple of allow instance types. If the validator allows for the conversion of
+        floats/ints to NumPy arrays, then this will include int and float types. Otherwise, it will be a
+        singleton tuple of a NumPy array.
+
+    """
+
+    def __init__(self, allow_numeric: bool = True):
+        """
+        Initialise NumPy descriptor.
+
+        Args:
+            allow_numeric: A Boolean indicating whether numeric types are allowed. If so, then numerics, i.e
+            floats and ints will be converted to a NumPy array of the appropriate type.
+
+        """
+        if allow_numeric:
+            self.allowed_instances = (np.ndarray, int, float)
+        else:
+            self.allowed_instances = (np.ndarray,)
 
     def validate(self, value):
         """Validate that value is an NumPy ndarray."""
-        if not isinstance(value, np.ndarray):
-            raise TypeError(f'Expected {value!r} to be an NumPy ndarray')
+        if not isinstance(value, self.allowed_instances):
+            raise TypeError(f'Expected {value!r} to be on instance of {self.allowed_instances}')
+
+    def _preprocess_value(self, x):
+        """Convert to NumPy array in case of floats or ints."""
+        return (
+            x if isinstance(x, np.ndarray) else x * np.ones(1, dtype=np.float64 if isinstance(x, float) else np.int64)
+        )
 
 
 class NumpyArrayExpandedDescriptor(NumpyArrayDescriptor):
     """A Descriptor validator class for Numpy NdArrays that require an expanded final dimension."""
 
+    def __init__(self, allow_numeric: bool = True):
+        """
+        Initialise NumPy Array Expanded descriptor.
+
+        Args:
+            allow_numeric: A Boolean indicating whether numeric types are allowed. If so, then numerics, i.e
+            floats and ints will be converted to a NumPy array of the appropriate type.
+
+        """
+        super().__init__(allow_numeric=allow_numeric)
+
     def _preprocess_value(self, x):
         """Add a new axis to the end of the raw observation vector."""
-        return x[:, np.newaxis]
+        return super()._preprocess_value(x)[:, np.newaxis]

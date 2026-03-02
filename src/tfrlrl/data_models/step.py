@@ -9,6 +9,7 @@ from tfrlrl.data_models.base import (
     DictDescriptor,
     IntDescriptor,
     IntFloatDescriptor,
+    NumpyArrayDescriptor,
     NumpyArrayExpandedDescriptor,
     StringDescriptor,
     Validator,
@@ -25,8 +26,12 @@ def construct_action_space_definition(env_id: str) -> Tuple[str, Type[Validator]
     """
     Construct the (dataclass) definition of the action space for the given environment.
 
-    :param env_id: The I.D. of the environment for which the action space definition is to be constructed.
-    :return: The label of the data class field for the action, along with the descriptor for the action space.
+    Args:
+        env_id: The I.D. of the environment for which the action space definition is to be constructed.
+
+    Returns:
+        The label of the data class field for the action, along with the descriptor for the action space.
+
     """
     env = gym.make(env_id)
     if isinstance(env.action_space, gym.spaces.Discrete):
@@ -40,8 +45,12 @@ def construct_steps_postinitialisation_fn(env_id: str) -> Callable:
     """
     Construct the post-initialisation function for the Steps dataclass.
 
-    :param env_id: The environment I.D. for which the post-initialisation function is to be constructed.
-    :return: The post-initialisation function.
+    Args:
+        env_id: The environment I.D. for which the post-initialisation function is to be constructed.
+
+    Returns:
+        The post-initialisation function.
+
     """
     env = gym.make(env_id)
     if isinstance(env.action_space, gym.spaces.Discrete):
@@ -75,21 +84,37 @@ def construct_steps_postinitialisation_fn(env_id: str) -> Callable:
     raise StepDataclassException('Action space must be Discrete or Box.')
 
 
-def construct_step_dataclass(env_id: str):
+def construct_step_dataclass(env_id: str, expand_observations: bool, expand_next_observations: bool):
     """
     Construct a dataclass to represent a step in the given environment.
 
-    :param env_id: The environment I.D. for which to make the dataclass.
-    :return: The dataclass representing a step in the given environment.
+    Args:
+        env_id: The environment I.D. for which to make the dataclass.
+        expand_observations: Whether the expand the observation with an additional last dimension.
+        expand_next_observations: Whether the expand the next observation with an additional last dimension.
+
+    Returns:
+        The dataclass representing a step in the given environment.
+
     """
+    if expand_observations:
+        obs_tuple = ('observation', NumpyArrayExpandedDescriptor, NumpyArrayExpandedDescriptor())
+    else:
+        obs_tuple = ('observation', NumpyArrayDescriptor, NumpyArrayDescriptor())
+
+    if expand_next_observations:
+        next_obs_tuple = ('next_observation', NumpyArrayExpandedDescriptor, NumpyArrayExpandedDescriptor())
+    else:
+        next_obs_tuple = ('next_observation', NumpyArrayDescriptor, NumpyArrayDescriptor())
+
     return make_dataclass(
         'Step',
         [
             ('env_id', StringDescriptor, StringDescriptor()),
             ('time_step', IntDescriptor, IntDescriptor()),
-            ('observation', NumpyArrayExpandedDescriptor, NumpyArrayExpandedDescriptor()),
+            obs_tuple,
             construct_action_space_definition(env_id),
-            ('next_observation', NumpyArrayExpandedDescriptor, NumpyArrayExpandedDescriptor()),
+            next_obs_tuple,
             ('reward', IntFloatDescriptor, IntFloatDescriptor()),
             ('info', DictDescriptor, DictDescriptor()),
             ('done', BooleanDescriptor, BooleanDescriptor()),
@@ -101,8 +126,12 @@ def construct_steps_dataclass(env_id: str):
     """
     Construct a dataclass to represent a steps in the given environment.
 
-    :param env_id: The environment I.D. for which to make the dataclass.
-    :return: The dataclass representing steps in the given environment.
+    Args:
+        env_id: The environment I.D. for which to make the dataclass.
+
+    Returns:
+        The dataclass representing steps in the given environment.
+
     """
     return make_dataclass(
         'Steps',
@@ -123,13 +152,28 @@ def construct_steps_dataclass(env_id: str):
 
 def construct_step_dataclasses(env_id: str):
     """
-    Construct a dataclass to represent a step and a range of steps in the given environment.
+    Construct a dataclass to represent an observation, a step and a range of steps in the given environment.
 
-    :param env_id: The environment I.D. for which to make the dataclass.
-    :return: The dataclass representing a step in the given environment.
-    :return: The dataclass representing a range steps in the given environment.
+    Args:
+        env_id: The environment I.D. for which to make the dataclass.
+
+    Returns:
+        A three element tuple containing the dataclasses for an observation, a step and steps,
+        respectively.
+
     """
-    step_sls = construct_step_dataclass(env_id)
-    steps_sls = construct_steps_dataclass(env_id)
+    observation_cls = make_dataclass(
+        'Observation',
+        [
+            ('observation', NumpyArrayExpandedDescriptor, NumpyArrayExpandedDescriptor()),
+        ],
+    )
 
-    return step_sls, steps_sls
+    step_cls = construct_step_dataclass(
+        env_id,
+        False,
+        True,
+    )
+    steps_cls = construct_steps_dataclass(env_id)
+
+    return observation_cls, step_cls, steps_cls

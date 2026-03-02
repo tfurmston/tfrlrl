@@ -98,6 +98,11 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             assert isinstance(statistics.actions, np.ndarray)
             assert isinstance(statistics.total_expected_rewards, np.ndarray)
 
+            print('dddd')
+            print(statistics.observations.shape)
+            print(statistics.actions.shape)
+            print(statistics.total_expected_rewards.shape)
+
             assert statistics.observations.shape[-1] == statistics.actions.shape[-1]
             assert statistics.observations.shape[-1] == statistics.total_expected_rewards.shape[-1]
 
