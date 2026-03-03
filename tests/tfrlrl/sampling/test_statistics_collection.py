@@ -29,7 +29,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
         policy = LinearSoftMax(env_id, feature_fn)
 
-        stats_collector = EpisocidPolicyGradientStatisticsCollector()
+        stats_collector = EpisocidPolicyGradientStatisticsCollector(env_id)
         sampler = EpisodicSampler(
             env_id,
             stats_collector,
@@ -43,24 +43,14 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             pass
 
         # Verify that statistics were collected
-        assert len(stats_collector.rewards) > 0
-        assert len(stats_collector.observations) > 0
-        assert len(stats_collector.actions) > 0
-
-        assert len(stats_collector.rewards) == len(stats_collector.observations)
-        assert len(stats_collector.rewards) == len(stats_collector.actions)
+        assert len(stats_collector.steps) > 0
 
         # Reset the statistics collector
         stats_collector.reset()
 
         # Verify that statistics are cleared
-        assert len(stats_collector.rewards) == 0
-        assert len(stats_collector.observations) == 0
-        assert len(stats_collector.actions) == 0
-
-        assert stats_collector.rewards == []
-        assert stats_collector.observations == []
-        assert stats_collector.actions == []
+        assert len(stats_collector.steps) == 0
+        assert stats_collector.steps == []
 
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
     @given(n_episodes=st.integers(min_value=1, max_value=5))
@@ -81,7 +71,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
         policy = LinearSoftMax(env_id, feature_fn)
 
-        stats_collector = EpisocidPolicyGradientStatisticsCollector()
+        stats_collector = EpisocidPolicyGradientStatisticsCollector(env_id)
         sampler = EpisodicSampler(
             env_id,
             stats_collector,
@@ -97,12 +87,6 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             assert isinstance(statistics.observations, np.ndarray)
             assert isinstance(statistics.actions, np.ndarray)
             assert isinstance(statistics.total_expected_rewards, np.ndarray)
-
-            print('dddd')
-            print(statistics.observations.shape)
-            print(statistics.actions.shape)
-            print(statistics.total_expected_rewards.shape)
-
             assert statistics.observations.shape[-1] == statistics.actions.shape[-1]
             assert statistics.observations.shape[-1] == statistics.total_expected_rewards.shape[-1]
 
@@ -122,7 +106,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
         policy = LinearSoftMax(env_id, feature_fn)
 
-        stats_collector = EpisocidPolicyGradientStatisticsCollector()
+        stats_collector = EpisocidPolicyGradientStatisticsCollector(env_id)
         sampler = EpisodicSampler(
             env_id,
             stats_collector,
@@ -160,7 +144,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
         policy = LinearSoftMax(env_id, feature_fn)
 
-        stats_collector = EpisocidPolicyGradientStatisticsCollector()
+        stats_collector = EpisocidPolicyGradientStatisticsCollector(env_id)
         sampler = EpisodicSampler(
             env_id,
             stats_collector,
@@ -181,5 +165,5 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         assert statistics.observations.shape[-1] == statistics.total_expected_rewards.shape[-1]
 
         assert len(statistics.observations.shape) == 2
-        assert len(statistics.actions.shape) == 2
+        assert len(statistics.actions.shape) == 1
         assert len(statistics.total_expected_rewards.shape) == 1

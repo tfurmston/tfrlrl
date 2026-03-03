@@ -5,6 +5,7 @@ from typing import List
 import numpy as np
 
 from tfrlrl.data_models.statistics import BaseStatistics
+from tfrlrl.data_models.step import construct_step_dataclasses
 
 
 class BaseStatisticsCollector(ABC):
@@ -48,19 +49,35 @@ class EpisodePolicyGradientStatistics(BaseStatistics):
 
 
 class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
-    """Class for collecting policy statistics during episodes."""
+    """
+    Statistics collector for episodic-level statistics collection.
 
-    def __init__(self):
-        """Initialise the policy-gradients statistics collector."""
-        self.observations = []
-        self.actions = []
-        self.rewards = []
+    This class can be used to collect statistics for episodes sampled from environments. In
+    particular, it collects the actions, observations and total future rewards for all of the
+    steps in an episode.
+
+    Attributes:
+        steps_cls: A dataclass for aggregating a collection of steps.
+        steps: The collection of steps collected to date.
+
+    """
+
+    def __init__(self, env_id: str):
+        """
+        Initialise the policy-gradients statistics collector.
+
+        Args:
+            env_id: The I.D. of the environment from which to collect statistics.
+
+        """
+        _, _, self.steps_cls = construct_step_dataclasses(
+            env_id,
+        )
+        self.steps = []
 
     def reset(self) -> None:
         """Reset the collected statistics to empty lists."""
-        self.observations = []
-        self.actions = []
-        self.rewards = []
+        self.steps = []
 
     def collect_step_statistics(self, sample) -> None:
         """
@@ -72,17 +89,7 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
             sample: The step sample from which to calculate the statistics.
 
         """
-        # TODO: Fix the actions to be a consistent shape.
-        # This should be done in the samplers, not here.
-        if isinstance(sample.action, int):
-            self.actions.append(sample.action * np.ones(1))
-        elif isinstance(sample.action, np.integer):
-            self.actions.append(sample.action[..., np.newaxis][..., np.newaxis])
-        else:
-            self.actions.append(sample.action)
-
-        self.observations.append(sample.observation)
-        self.rewards.append(sample.reward)
+        self.steps.append(sample)
 
     def aggregate_statistics(self) -> EpisodePolicyGradientStatistics:
         """
@@ -95,17 +102,15 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
             An instance of the EpisodePolicyGradientStatistics dataclass.
 
         """
-        observations = np.concatenate(self.observations, axis=1)
-        actions = np.concatenate(self.actions, axis=1)
-        rewards = np.array(self.rewards)
+        steps = self.steps_cls(sample_steps=self.steps)
 
-        T = rewards.size
-        total_expected_rewards = np.matmul(rewards, np.tril(np.ones(T))) / T
+        T = steps.rewards.size
+        total_expected_rewards = np.matmul(steps.rewards, np.tril(np.ones(T))) / T
 
         return EpisodePolicyGradientStatistics(
-            total_reward=np.sum(rewards),
-            observations=observations,
-            actions=actions,
+            total_reward=np.sum(steps.rewards),
+            observations=steps.observations,
+            actions=steps.actions,
             total_expected_rewards=total_expected_rewards,
         )
 
@@ -122,7 +127,7 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
         """
         return EpisodePolicyGradientStatistics(
             total_reward=np.array([x.total_reward for x in statistics]),
-            observations=np.concatenate([x.observations for x in statistics], axis=1),
-            actions=np.concatenate([x.actions for x in statistics], axis=1),
+            observations=np.concatenate([x.observations for x in statistics], axis=-1),
+            actions=np.concatenate([x.actions for x in statistics], axis=-1),
             total_expected_rewards=np.concatenate([x.total_expected_rewards for x in statistics]),
         )

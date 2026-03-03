@@ -44,7 +44,7 @@ def train_policy_gradient(
     :param kwargs: Additional keyword arguments to pass to the EpisodicSampler (e.g., is_slippery).
     :return: The trained policy.
     """
-    statistics_collector = EpisocidPolicyGradientStatisticsCollector()
+    statistics_collector = EpisocidPolicyGradientStatisticsCollector(env_id)
     optimizer = AdamW(policy.get_parameters(), lr=alpha)
 
     if n_samplers > 1:
