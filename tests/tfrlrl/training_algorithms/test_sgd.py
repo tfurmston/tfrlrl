@@ -1,15 +1,18 @@
+import gymnasium as gym
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from tfrlrl.features.onehot import OneHotFeatureFunction
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
+from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.training_algorithms.sgd import train_policy_gradient
 
 
 class TestTrainPolicyGradient:
-    """Class that encapsulates the unit tests for the train_policy_gradient function."""
+    """Unit tests for the train_policy_gradient function."""
 
-    @pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+    @pytest.mark.parametrize('env_id', ['FrozenLake-v1', 'InvertedPendulum-v5'])
     @given(
         n_iterations=st.integers(min_value=2, max_value=10),
         n_episodes=st.integers(min_value=10, max_value=100),
@@ -33,10 +36,16 @@ class TestTrainPolicyGradient:
             alpha: The initial step size for stochastic gradient ascent.
 
         """
-        policy = DenseNetworkPolicy(
-            env_id=env_id,
-            hidden_space_dims=[16, 32],
-        )
+        env = gym.make(env_id)
+
+        if env_id == 'InvertedPendulum-v5':
+            policy = DenseNetworkPolicy(
+                env_id=env_id,
+                hidden_space_dims=[16, 32],
+            )
+        else:
+            feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+            policy = LinearSoftMax(env_id, feature_fn)
 
         # Train the policy
         trained_policy = train_policy_gradient(
@@ -49,12 +58,15 @@ class TestTrainPolicyGradient:
 
         # Verify that a policy is returned
         assert trained_policy is not None
-        assert isinstance(trained_policy, DenseNetworkPolicy)
+        if env_id == 'InvertedPendulum-v5':
+            assert isinstance(trained_policy, DenseNetworkPolicy)
+        else:
+            assert isinstance(trained_policy, LinearSoftMax)
 
         # Verify that the returned policy is the same object that was passed in
         assert trained_policy is policy
 
-    @pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+    @pytest.mark.parametrize('env_id', ['FrozenLake-v1', 'InvertedPendulum-v5'])
     @given(
         n_iterations=st.integers(min_value=2, max_value=10),
         n_episodes=st.integers(min_value=10, max_value=100),
@@ -80,11 +92,16 @@ class TestTrainPolicyGradient:
             test_ray_cluster: Test Ray cluster.
 
         """
+        env = gym.make(env_id)
         n_samplers = 2
-        policy = DenseNetworkPolicy(
-            env_id=env_id,
-            hidden_space_dims=[16, 32],
-        )
+        if env_id == 'InvertedPendulum-v5':
+            policy = DenseNetworkPolicy(
+                env_id=env_id,
+                hidden_space_dims=[16, 32],
+            )
+        else:
+            feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+            policy = LinearSoftMax(env_id, feature_fn)
 
         # Train the policy
         trained_policy = train_policy_gradient(
@@ -98,7 +115,10 @@ class TestTrainPolicyGradient:
 
         # Verify that a policy is returned
         assert trained_policy is not None
-        assert isinstance(trained_policy, DenseNetworkPolicy)
+        if env_id == 'InvertedPendulum-v5':
+            assert isinstance(trained_policy, DenseNetworkPolicy)
+        else:
+            assert isinstance(trained_policy, LinearSoftMax)
 
         # Verify that the returned policy is the same object that was passed in
         assert trained_policy is policy

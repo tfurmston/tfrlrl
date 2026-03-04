@@ -5,6 +5,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from tfrlrl.features.onehot import OneHotFeatureFunction
+from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.sampling.episodic_sampler import EpisodicSampler
 from tfrlrl.sampling.statistics_collection import EpisocidPolicyGradientStatisticsCollector
@@ -128,7 +129,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         assert len(statistics1) == n_episodes
         assert len(statistics2) == n_episodes
 
-    @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+    @pytest.mark.parametrize('env_id', ['FrozenLake-v1', 'InvertedPendulum-v5'])
     @given(n_episodes=st.integers(min_value=1, max_value=5))
     @settings(deadline=5000)
     def test_merge_statistics(self, env_id: str, n_episodes: int):
@@ -141,8 +142,18 @@ class TestEpisocidPolicyGradientStatisticsCollector:
 
         """
         env = gym.make(env_id)
-        feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
-        policy = LinearSoftMax(env_id, feature_fn)
+
+        if env_id == 'InvertedPendulum-v5':
+            hidden_space_dims = [16, 32]
+            policy = DenseNetworkPolicy(
+                env_id=env_id,
+                hidden_space_dims=hidden_space_dims,
+            )
+            env_kwargs = {}
+        else:
+            feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+            policy = LinearSoftMax(env_id, feature_fn)
+            env_kwargs = {'is_slippery': False}
 
         stats_collector = EpisocidPolicyGradientStatisticsCollector(env_id)
         sampler = EpisodicSampler(
@@ -150,7 +161,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             stats_collector,
             n_episodes=n_episodes,
             policy=policy,
-            is_slippery=False,
+            **env_kwargs,
         )
         statistics = sampler.sample()
 
@@ -165,5 +176,9 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         assert statistics.observations.shape[-1] == statistics.total_expected_rewards.shape[-1]
 
         assert len(statistics.observations.shape) == 2
-        assert len(statistics.actions.shape) == 1
+
+        if env_id == 'InvertedPendulum-v5':
+            assert len(statistics.actions.shape) == 2
+        else:
+            assert len(statistics.actions.shape) == 1
         assert len(statistics.total_expected_rewards.shape) == 1
