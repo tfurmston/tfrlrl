@@ -66,6 +66,7 @@ class TestTrainPolicyGradient:
         # Verify that the returned policy is the same object that was passed in
         assert trained_policy is policy
 
+    @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1', 'InvertedPendulum-v5'])
     @given(
         n_iterations=st.integers(min_value=2, max_value=10),

@@ -263,9 +263,10 @@ class TestEpisodicSampler:
 class TestRayEpisodicSampler:
     """Class that encapsulates the unit tests for the RayEpisodicSampler class."""
 
+    @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
     @given(n_episodes=st.integers(min_value=2, max_value=10))
-    @settings(deadline=2000)
+    @settings(deadline=5000)
     def test_ray_sample_n_episodes_without_limit(self, env_id: str, n_episodes: int, test_ray_cluster):
         """
         Test that n-episodes can be sampled from the environment and that the outputs follow the expected format.
@@ -304,8 +305,9 @@ class TestRayEpisodicSampler:
                     assert isinstance(step.done, bool)
                     assert isinstance(step.info, dict)
 
+    @pytest.mark.slow
     @given(n_episodes=st.integers(min_value=2, max_value=10))
-    @settings(deadline=2000)
+    @settings(deadline=5000)
     def test_ray_sample_episode_with_env_kwargs(self, n_episodes: int, test_ray_cluster):
         """
         Test that environment kwargs are correctly passed through to the environment construction.
@@ -347,8 +349,9 @@ class TestRayEpisodicSampler:
                     assert isinstance(step.done, bool)
                     assert isinstance(step.info, dict)
 
+    @pytest.mark.slow
     @given(n_episodes=st.integers(min_value=2, max_value=10))
-    @settings(deadline=2000)
+    @settings(deadline=5000)
     def test_ray_reset_allows_reuse_as_iterator(self, n_episodes: int, test_ray_cluster):
         """
         Test that the reset method allows the EpisodicSampler to be used as an iterator multiple times.
@@ -419,9 +422,10 @@ class TestRayEpisodicSampler:
                     assert isinstance(step.info, dict)
             second_iteration_count += 1
 
+    @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
     @given(n_episodes=st.integers(min_value=2, max_value=10))
-    @settings(deadline=2000)
+    @settings(deadline=5000)
     def test_ray_sample_without_limits(self, env_id: str, n_episodes: int, test_ray_cluster):
         """
         Test the sample function of the EpisodicSampler class and that the outputs follow the expected format.

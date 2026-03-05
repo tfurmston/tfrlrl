@@ -6,12 +6,16 @@ A Python reinforcement learning library providing core RL infrastructure includi
 
 - **Environment Sampling**: Single and parallel environment sampling using Ray
 - **Replay Buffers**: Efficient circular buffer implementation for experience replay
-- **Data Models & Sampling Environments**: Type-safe dataclasses that match environment specifications
+- **Data Models**: Type-safe dataclasses that match environment specifications
 - **Policies**: Support for PyTorch policies 
 - **CLI Tools**: Command-line interface for sampling and data collection
 - **Configuration Management**: Centralized settings via Dynaconf
 
-### Data Models & Sampling Environments
+### Environment Sampling
+
+This repository provides some helper classes for sampling from environments. This includes the ability to sample whole episodes simply, and the ability to distribute the sampling through the use of Ray. The distributed samplers have the same API as the standard samplers, so it should be possible to swap in distributed sampling as required with no code changes. 
+
+### Data Models
 
 This repository includes a range of dataclasses that are used to designed the samples steps from environments. These dataclasses detect the specification of the environment, e.g. a discrete or continuous action space, and set the appropriate types for the corresponding fields in the data model. All actions, observations and rewards will be stored in NumPy arrays, with any required conversion automatically managed by these data classes. For example, when sampling from a toy environment with a discrete space, the integer state observations returned by Gym will automatically be stored in a NumPy array.
 
