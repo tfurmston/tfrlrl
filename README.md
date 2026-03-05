@@ -6,9 +6,20 @@ A Python reinforcement learning library providing core RL infrastructure includi
 
 - **Environment Sampling**: Single and parallel environment sampling using Ray
 - **Replay Buffers**: Efficient circular buffer implementation for experience replay
-- **Dynamic Data Models**: Type-safe dataclasses that adapt to environment specifications
+- **Data Models & Sampling Environments**: Type-safe dataclasses that match environment specifications
+- **Policies**: Support for PyTorch policies 
 - **CLI Tools**: Command-line interface for sampling and data collection
 - **Configuration Management**: Centralized settings via Dynaconf
+
+### Data Models & Sampling Environments
+
+This repository includes a range of dataclasses that are used to designed the samples steps from environments. These dataclasses detect the specification of the environment, e.g. a discrete or continuous action space, and set the appropriate types for the corresponding fields in the data model. All actions, observations and rewards will be stored in NumPy arrays, with any required conversion automatically managed by these data classes. For example, when sampling from a toy environment with a discrete space, the integer state observations returned by Gym will automatically be stored in a NumPy array.
+
+These classes automatically manage an additional dimension to the samples that allows aggregation of samples across multiple steps. This dimension is always the last dimension of the field. For example, `N` discrete actions will be store in a `(1, N)` NumPy array, while `N` observations, each of size `(o_1, o_2)`, will be stored in a `(o_1, 0_2, N)` array. 
+
+### Policies
+
+This repository provides flexible support for different policies. The only requirement is policies are implemented in PyTorch and inherit from the `BasePyTorchPolicy` base class. See the `DensePolicyNetwork` and `LinearSoftMaxNetwork` for examples. 
 
 ## Installation
 
