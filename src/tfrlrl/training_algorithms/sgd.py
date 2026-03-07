@@ -9,7 +9,7 @@ from torch import (
     tensor,
 )
 from torch.optim import (
-    AdamW,
+    SGD,
 )
 
 from tfrlrl import settings
@@ -35,17 +35,21 @@ def train_policy_gradient(
     """
     Train a policy using stochastic gradient ascent on the policy gradient.
 
-    :param env_id: Gymnasium environment ID (e.g., CartPole-v1, MountainCar-v0).
-    :param policy: The policy to train. Must have get_parameters() and set_parameters() methods.
-    :param n_iterations: The number of policy updates to perform.
-    :param n_episodes: The number of episodes to sample during each policy update.
-    :param alpha: The initial step size to take in stochastic gradient ascent.
-    :param n_samplers: The number of samplers to used to sample from the environment.
-    :param kwargs: Additional keyword arguments to pass to the EpisodicSampler (e.g., is_slippery).
-    :return: The trained policy.
+    Args:
+        env_id: Gymnasium environment ID (e.g., CartPole-v1, MountainCar-v0).
+        policy: The policy to train. Must have get_parameters() and set_parameters() methods.
+        n_iterations: The number of policy updates to perform.
+        n_episodes: The number of episodes to sample during each policy update.
+        alpha: The initial step size to take in stochastic gradient ascent.
+        n_samplers: The number of samplers to used to sample from the environment.
+        kwargs: Additional keyword arguments to pass to the EpisodicSampler (e.g., is_slippery).
+
+    Returns:
+        The trained policy.
+
     """
     statistics_collector = EpisocidPolicyGradientStatisticsCollector(env_id)
-    optimizer = AdamW(policy.get_parameters(), lr=alpha)
+    optimizer = SGD(policy.get_parameters(), lr=alpha, momentum=0.9)
 
     if n_samplers > 1:
         if not ray.is_initialized():

@@ -61,7 +61,6 @@ class Sampler:
         next_observation, reward, terminated, truncated, info = self._env.step(
             action,
         )
-
         self.step = self.step_cls(
             env_id=self._env_id,
             time_step=self._n_env_steps_taken,

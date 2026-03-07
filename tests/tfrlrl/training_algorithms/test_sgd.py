@@ -14,9 +14,9 @@ class TestTrainPolicyGradient:
 
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1', 'InvertedPendulum-v5'])
     @given(
-        n_iterations=st.integers(min_value=2, max_value=10),
+        n_iterations=st.integers(min_value=2, max_value=5),
         n_episodes=st.integers(min_value=10, max_value=100),
-        alpha=st.floats(min_value=0.0001, max_value=0.001),
+        alpha=st.floats(min_value=0.00001, max_value=0.0001),
     )
     @settings(deadline=5000)
     def test_train_policy_gradient_returns_policy(

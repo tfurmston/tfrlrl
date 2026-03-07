@@ -56,11 +56,11 @@ class OneHotFeatureFunction(FeatureFunction):
             observations: The observations over which to calculate the features.
 
         Returns:
-            :return: The feature vectors for the given observations.
+            The feature vectors for the given observations.
 
         """
         if observations.size == 1:
-            return self.f[:, observations.flat[0] : (observations.flat[0] + self.A)]
+            return self.f[:, observations.flat[0] * self.A : (observations.flat[0] + 1) * self.A]
 
         if observations.shape[0] > 1 or len(observations.shape) > 2:
             raise EnvironmentException(
@@ -68,7 +68,7 @@ class OneHotFeatureFunction(FeatureFunction):
             )
         return np.concatenate(
             [
-                self.f[:, observations[0, i] : (observations[0, i] + self.A)][:, :, np.newaxis]
+                self.f[:, observations[0, i] * self.A : (observations[0, i] + 1) * self.A][:, :, np.newaxis]
                 for i in range(observations.shape[1])
             ],
             axis=2,

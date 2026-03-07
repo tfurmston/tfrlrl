@@ -99,13 +99,15 @@ def test_feature_function_output_shape_with_multiple_observations(env_id: str, n
     assert features.shape == expected_shape
 
 
+@given(observation=st.integers(min_value=0, max_value=47))
 @pytest.mark.parametrize('env_id', ['CliffWalking-v1'])
-def test_feature_function_one_hot_encoding(env_id: str):
+def test_feature_function_one_hot_encoding(env_id: str, observation: int):
     """
     Test that the feature function produces correct one-hot encoded features.
 
     Args:
         env_id: The Gymnasium environment ID to be used.
+        observation: The state observation.
 
     """
     env = gym.make(env_id)
@@ -115,15 +117,87 @@ def test_feature_function_one_hot_encoding(env_id: str):
     feature_fn = OneHotFeatureFunction(S, A)
 
     # Test a specific observation
-    observation = 0
     features = feature_fn(np.array([observation]))
 
-    # Check that each row (except possibly the first action) has exactly one non-zero element
+    # Check that each column (except possibly the first action) has exactly one non-zero element
     # The first action is excluded to avoid linear dependency
     for i in range(1, A):
-        row_sum = np.sum(features[:, i])
-        assert row_sum == 1.0
+        col_sum = np.sum(features[:, i])
+        assert col_sum == 1.0
         assert np.sum(features[:, i] == 1.0) == 1
+
+    assert np.sum(features[:, 0]) == 0
+    assert features[observation * 3, 1] == 1
+    assert features[observation * 3 + 1, 2] == 1
+    assert features[observation * 3 + 2, 3] == 1
+
+
+@given(n_observations=st.integers(min_value=2, max_value=100))
+@pytest.mark.parametrize('env_id', ['CliffWalking-v1'])
+def test_feature_function_one_hot_encoding_with_multiple_observations(env_id: str, n_observations: int):
+    """
+    Test that the feature function produces correct one-hot encoded features.
+
+    Args:
+        env_id: The Gymnasium environment ID to be used.
+        n_observations: The number of state observation to sample.
+
+    """
+    env = gym.make(env_id)
+    S = env.observation_space.n
+    A = env.action_space.n
+
+    feature_fn = OneHotFeatureFunction(S, A)
+
+    observations = np.random.randint(low=0, high=47, size=(1, n_observations))
+
+    # Test a specific observation
+    features = feature_fn(observations)
+
+    for o in range(n_observations):
+        # Check that each column (except possibly the first action) has exactly one non-zero element
+        # The first action is excluded to avoid linear dependency
+        for i in range(1, A):
+            col_sum = np.sum(features[:, i, o])
+            assert col_sum == 1.0
+            assert np.sum(features[:, i, o] == 1.0) == 1
+
+        assert np.sum(features[:, 0, o]) == 0
+        assert features[observations[0, o] * 3, 1, o] == 1
+        assert features[observations[0, o] * 3 + 1, 2, o] == 1
+        assert features[observations[0, o] * 3 + 2, 3, o] == 1
+
+
+@given(
+    observation1=st.integers(min_value=0, max_value=47),
+    observation2=st.integers(min_value=0, max_value=47),
+)
+@pytest.mark.parametrize('env_id', ['CliffWalking-v1'])
+def test_feature_function_one_hot_encoding_with_different_observations(
+    env_id: str, observation1: int, observation2: int
+):
+    """
+    Test that the feature function produces different encodings for different observations.
+
+    Args:
+        env_id: The Gymnasium environment ID to be used.
+        observation1: The first state observation.
+        observation2: The second state observation.
+
+    """
+    env = gym.make(env_id)
+    S = env.observation_space.n
+    A = env.action_space.n
+
+    feature_fn = OneHotFeatureFunction(S, A)
+
+    features1 = feature_fn(np.array([observation1]))
+    features2 = feature_fn(np.array([observation2]))
+
+    if observation1 != observation2:
+        assert np.sum(np.abs(features1 - features2)) > 0
+    else:
+        assert np.sum(np.abs(features1 - features2)) == 0
 
 
 @pytest.mark.parametrize('env_id', ['CliffWalking-v1'])

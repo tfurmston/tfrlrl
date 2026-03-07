@@ -176,6 +176,5 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         assert statistics.observations.shape[-1] == statistics.total_expected_rewards.shape[-1]
 
         assert len(statistics.observations.shape) == 2
-
         assert len(statistics.actions.shape) == 2
         assert len(statistics.total_expected_rewards.shape) == 1
