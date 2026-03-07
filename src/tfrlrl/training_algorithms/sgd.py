@@ -74,27 +74,17 @@ def train_policy_gradient(
     for n in range(n_iterations):
         statistics = sampler.sample()
 
-        actions = statistics.actions
-        actions = actions[np.newaxis, :]
-
         # Update the policy network
         optimizer.zero_grad()
 
         log_probabilities = policy.calculate_log_probabilities(
             observations=statistics.observations,
-            actions=actions,
+            actions=statistics.actions,
         )
         loss = -sum(log_probabilities * tensor(statistics.total_expected_rewards))
 
         loss.backward()
         optimizer.step()
-
-        print(f'iteration: {n}')
-        # print(statistics.observations.shape)
-        # print(actions.shape)
-        # print(log_probabilities.shape)
-        # print(tensor(statistics.total_expected_rewards).shape)
-        print(loss)
 
         if n % 10 == 0:
             logger.info('Policy update: %s', n)

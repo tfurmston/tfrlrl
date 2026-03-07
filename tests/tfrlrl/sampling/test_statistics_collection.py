@@ -177,8 +177,5 @@ class TestEpisocidPolicyGradientStatisticsCollector:
 
         assert len(statistics.observations.shape) == 2
 
-        if env_id == 'InvertedPendulum-v5':
-            assert len(statistics.actions.shape) == 2
-        else:
-            assert len(statistics.actions.shape) == 1
+        assert len(statistics.actions.shape) == 2
         assert len(statistics.total_expected_rewards.shape) == 1

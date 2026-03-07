@@ -61,7 +61,7 @@ def construct_steps_postinitialisation_fn(env_id: str) -> Callable:
             self.env_ids = [x.env_id for x in sample_steps]
             self.time_steps = np.array([x.time_step for x in sample_steps])
             self.observations = np.concatenate([x.observation for x in sample_steps], axis=-1)
-            self.actions = np.array([x.action for x in sample_steps])
+            self.actions = np.array([[x.action for x in sample_steps]])
             self.next_observations = np.concatenate([x.next_observation for x in sample_steps], axis=-1)
             self.rewards = np.array([x.reward for x in sample_steps])
             self.dones = np.array([x.done for x in sample_steps])
