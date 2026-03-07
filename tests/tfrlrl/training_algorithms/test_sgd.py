@@ -1,4 +1,7 @@
+import copy
+
 import gymnasium as gym
+import numpy as np
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -65,6 +68,59 @@ class TestTrainPolicyGradient:
 
         # Verify that the returned policy is the same object that was passed in
         assert trained_policy is policy
+
+    @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+    @given(
+        n_iterations=st.integers(min_value=2, max_value=5),
+        n_episodes=st.integers(min_value=10, max_value=100),
+        alpha=st.floats(min_value=0.001, max_value=0.01),
+    )
+    @settings(deadline=5000)
+    def test_train_policy_gradient_updates_policy(
+        self,
+        env_id: str,
+        n_iterations: int,
+        n_episodes: int,
+        alpha: float,
+    ):
+        """
+        Test that train_policy_gradient executes successfully and updates the policy.
+
+        Args:
+            env_id: The Gym environment ID to be used in training.
+            n_iterations: The number of policy updates to perform.
+            n_episodes: The number of episodes to sample during each policy update.
+            alpha: The initial step size for stochastic gradient ascent.
+
+        """
+        env = gym.make(env_id)
+
+        feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+        policy = LinearSoftMax(env_id, feature_fn)
+
+        original_paramters = copy.deepcopy(list(policy.get_parameters()))
+
+        # Train the policy - We set reward_schedule to ensure the policy is updated.
+        trained_policy = train_policy_gradient(
+            env_id=env_id,
+            policy=policy,
+            n_iterations=n_iterations,
+            n_episodes=n_episodes,
+            alpha=alpha,
+            is_slippery=False,
+            reward_schedule=(1, 1, 1),
+        )
+
+        # Verify that a policy is returned
+        assert trained_policy is not None
+        assert isinstance(trained_policy, LinearSoftMax)
+
+        # Verify that the returned policy is the same object that was passed in
+        assert trained_policy is policy
+
+        updated_parameters = list(policy.get_parameters())
+        parameter_diff = original_paramters[0].detach().numpy() - updated_parameters[0].detach().numpy()
+        assert np.sum(np.abs(parameter_diff)) > 0
 
     @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1', 'InvertedPendulum-v5'])
