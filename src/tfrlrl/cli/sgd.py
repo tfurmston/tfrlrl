@@ -2,7 +2,11 @@ import argparse
 import json
 import logging
 
+import gymnasium as gym
+
+from tfrlrl.features.onehot import OneHotFeatureFunction
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
+from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.training_algorithms.sgd import train_policy_gradient
 
 logging.basicConfig(format='%(asctime)s %(message)s', force=True)
@@ -56,6 +60,20 @@ def parse_args(args=None):
         default='{}',
         help='Environment-specific keyword arguments as a JSON string (e.g., \'{"is_slippery": false}\').',
     )
+    parser.add_argument(
+        '--policy-class',
+        type=str,
+        required=True,
+        choices=['linear', 'dense'],
+        help='The type of policy class to use in the stochastic gradient algorithm.',
+    )
+    parser.add_argument(
+        '--n-hidden',
+        type=int,
+        nargs='+',
+        default=[16, 32],
+        help='The number of hidden dimensions to use in a dense policy network.',
+    )
     return parser.parse_args(args)
 
 
@@ -81,10 +99,17 @@ def main(args=None):
     if env_kwargs is not None:
         logger.info('Environment Arguments: %s', env_kwargs)
 
-    policy = DenseNetworkPolicy(
-        env_id=parsed_args.env_id,
-        hidden_space_dims=[16, 32],
-    )
+    if parsed_args.policy_class == 'linear':
+        logger.info('Using a linear policy with a one-hot feature encoding.')
+        env = gym.make(parsed_args.env_id)
+        feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+        policy = LinearSoftMax(parsed_args.env_id, feature_fn)
+    else:
+        logger.info('Using a dense policy with hidden dimensions: %s', parsed_args.n_hidden)
+        policy = DenseNetworkPolicy(
+            env_id=parsed_args.env_id,
+            hidden_space_dims=parsed_args.n_hidden,
+        )
 
     train_policy_gradient(
         env_id=parsed_args.env_id,
