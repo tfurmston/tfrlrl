@@ -68,13 +68,13 @@ Perform basic stochastic gradient ascent to optimise the policy. This is intende
 
 ```bash
 # Perform stochastic gradient ascent on the given environment
-poetry run tfrlrl-sgd --env-id FrozenLake-v1 --n-iterations 100
+poetry run tfrlrl-sgd --env-id FrozenLake-v1 --policy-class linear --n-iterations 100 
 
 # With environment-specific configuration
-poetry run tfrlrl-sgd --env-id FrozenLake-v1 --n-iterations 100 --env-kwargs '{"is_slippery": false}'
+poetry run tfrlrl-sgd --env-id FrozenLake-v1 --policy-class linear --n-iterations 100 --env-kwargs '{"is_slippery": false}'
 
 # With custom hyperparameters
-poetry run tfrlrl-sgd --env-id FrozenLake-v1 --n-iterations 50 --n-episodes 200 --alpha 10.0
+poetry run tfrlrl-sgd --env-id FrozenLake-v1 --policy-class linear --n-iterations 50 --n-episodes 200 --alpha 10.0
 ```
 
 **Options:**
@@ -83,7 +83,11 @@ poetry run tfrlrl-sgd --env-id FrozenLake-v1 --n-iterations 50 --n-episodes 200 
 - `--n-iterations`: Total number of policy updates to perform (default: 100)
 - `--n-episodes`: Total number of episodes to sample during each policy update (default: 100)
 - `--alpha`: The initial step size in stochastic gradient ascent. Step sizes are linearly decreased w.r.t. the iteration of stochastic gradients (default: 100.0)
+- `--n-samplers`: The number of samplers to use during sampling (default: 1)
 - `--env-kwargs`: Environment-specific keyword arguments as a JSON string (default: `{}`). For example, `'{"is_slippery": false}'` for FrozenLake-v1
+- `--n-samplers`: The number of samplers to use during sampling (default: 1)
+- `--policy-class`: The class of policy to use in the environment. Allowed values are `linear` and `dense`.
+- `--n-hidden`: The number of hidden dimensions to use in the case of a dense policy.
 
 ## Configuration
 
