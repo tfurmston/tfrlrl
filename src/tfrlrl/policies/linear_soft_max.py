@@ -27,7 +27,9 @@ class LinearSoftMaxNetwork(nn.Module):
         """
         Initialise linear soft-max neural network.
 
-        param: n_features: The number of features in the feature space.
+        Args:
+            n_features: The number of features in the feature space.
+
         """
         super().__init__()
 
@@ -45,8 +47,12 @@ class LinearSoftMaxNetwork(nn.Module):
         """
         Perform a forward pass of the network on the given tensor.
 
-        param: x: An input tensor over which to perform the forward pass.
-        return: A Tensor for the action probabilities.
+        Args:
+            x: An input tensor over which to perform the forward pass.
+
+        Returns:
+            A Tensor for the action probabilities.
+
         """
         return self.network(x.float())
 
