@@ -45,7 +45,7 @@ class OneHotFeatureFunction(FeatureFunction):
 
         This function creates one-hot features for the given observations. If a single observation is
         given, in the form of either a NumPy integer or a NumPy array of size 1, then the functon will
-        return a NumPy array of size, [n_features, n_actions], in which n_features is the number of
+        return a NumPy array of size, [n_features, n_actions, 1], in which n_features is the number of
         features and n_actions is the number of actions. If multiple observations are given, then it
         must be in the form of a two-dimensional NumPy array in which the first diemsnion is of size
         one. This dimension represents the index of the state. In this case, the return type is a
@@ -60,7 +60,7 @@ class OneHotFeatureFunction(FeatureFunction):
 
         """
         if observations.size == 1:
-            return self.f[:, observations.flat[0] * self.A : (observations.flat[0] + 1) * self.A]
+            return self.f[:, observations.flat[0] * self.A : (observations.flat[0] + 1) * self.A][:, :, np.newaxis]
 
         if observations.shape[0] > 1 or len(observations.shape) > 2:
             raise EnvironmentException(

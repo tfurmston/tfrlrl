@@ -69,7 +69,7 @@ def test_feature_function_output_shape_with_single_observation(env_id: str, obse
     features = feature_fn(np.array([observation]))
 
     # The feature function should return a matrix of shape (S * (A - 1), A)
-    expected_shape = (S * (A - 1), A)
+    expected_shape = (S * (A - 1), A, 1)
     assert features.shape == expected_shape
 
 
