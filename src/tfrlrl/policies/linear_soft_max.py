@@ -90,6 +90,16 @@ class LinearSoftMax(BasePyTorchPolicy):
         )
         self._feature_fn = feature_fn
 
+    def construct_network_input(self, observations: ArrayLike) -> Tensor:
+        """
+        Construct input for PyTorch network from given observations.
+
+        Args:
+            observations: The observations for which the input PyTorch tensors are to be constructed.
+
+        """
+        return tensor(self._feature_fn(observations)).T
+
     def calculate_action_distribution(self, observations: ArrayLike) -> Categorical:
         """
         Calculate the action probabilities for the given observations.
@@ -101,7 +111,7 @@ class LinearSoftMax(BasePyTorchPolicy):
             return: The log-probabilities of the policy for the given observation-action pairs.
 
         """
-        return Categorical(probs=self.network(tensor(self._feature_fn(observations)).T).squeeze())
+        return Categorical(probs=self.network(self.construct_network_input(observations)).squeeze())
 
     def generate_action(self, observation: ArrayLike) -> int:
         """

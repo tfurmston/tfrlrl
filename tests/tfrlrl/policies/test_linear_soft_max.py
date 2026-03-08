@@ -104,7 +104,18 @@ def test_linear_softmax_policy_action_probabilities_sum_to_one(env_id: str, obse
     feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
     policy = LinearSoftMax(env_id, feature_fn)
 
-    action_probs = policy.calculate_action_distribution(np.array([observation])).probs.detach().numpy()
+    observation = np.array([observation])
+
+    action_probs = policy.calculate_action_distribution(observation).probs.detach().numpy()
+    action_probs_from_network = policy.network(policy.construct_network_input(observation)).squeeze()
+
+    # Check that probabilities are consistent with those obtained from the network
+    np.testing.assert_allclose(
+        action_probs,
+        action_probs_from_network.detach().numpy(),
+        rtol=1e-6,
+        atol=1e-9,
+    )
 
     # Check that probabilities sum to 1.0 (within numerical tolerance)
     np.testing.assert_allclose(np.sum(action_probs), 1.0, rtol=1e-6, atol=1e-9)
