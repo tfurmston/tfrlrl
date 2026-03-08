@@ -36,7 +36,7 @@ class LinearSoftMaxNetwork(nn.Module):
             OrderedDict(
                 [
                     ('linear', nn.Linear(n_features, 1)),
-                    ('softmax', nn.Softmax(dim=1)),
+                    ('softmax', nn.Softmax(dim=0)),
                 ]
             )
         )

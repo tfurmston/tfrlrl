@@ -5,6 +5,7 @@ import logging
 import numpy as np
 import ray
 from torch import (
+    no_grad,
     sum,
     tensor,
 )
@@ -49,7 +50,7 @@ def train_policy_gradient(
 
     """
     statistics_collector = EpisocidPolicyGradientStatisticsCollector(env_id)
-    optimizer = SGD(policy.get_parameters(), lr=alpha, momentum=0.9)
+    optimizer = SGD(policy.get_parameters(), lr=alpha)
 
     if n_samplers > 1:
         if not ray.is_initialized():
@@ -76,17 +77,15 @@ def train_policy_gradient(
         )
 
     for n in range(n_iterations):
-        statistics = sampler.sample()
+        with no_grad():
+            statistics = sampler.sample()
 
-        # Update the policy network
         optimizer.zero_grad()
-
         log_probabilities = policy.calculate_log_probabilities(
             observations=statistics.observations,
             actions=statistics.actions,
         )
         loss = -sum(log_probabilities * tensor(statistics.total_expected_rewards))
-
         loss.backward()
         optimizer.step()
 

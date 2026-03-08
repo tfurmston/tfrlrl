@@ -1,3 +1,5 @@
+import copy
+
 import gymnasium as gym
 import numpy as np
 import pytest
@@ -5,6 +7,9 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from torch import (
     Tensor,
+)
+from torch.optim import (
+    SGD,
 )
 
 from tfrlrl.features.onehot import OneHotFeatureFunction
@@ -58,7 +63,7 @@ def test_linear_softmax_policy_generate_action(env_id: str, observation: int, se
 @settings(deadline=None)
 def test_linear_softmax_policy_calculate_log_probabilities(env_id: str, n_observations: int, seed: int):
     """
-    Test the generate_action function of the LinearSoftMax policy.
+    Test the calculate_log_probabilities function of the LinearSoftMax policy.
 
     Args:
         env_id: The Gymnasium environment ID with a discrete action space.
@@ -145,4 +150,65 @@ def test_linear_softmax_policy_log_probabilities(env_id: str, observation: int, 
         log_probability,
         rtol=1e-6,
         atol=1e-9,
+    )
+
+
+@pytest.mark.parametrize('env_id', ['CliffWalking-v1'])
+@given(
+    observation=st.integers(min_value=0, max_value=47),
+    action=st.integers(min_value=0, max_value=3),
+    seed=st.integers(min_value=0, max_value=10000),
+)
+@settings(deadline=None)
+def test_linear_softmax_policy_log_probabilities_derivatives(env_id: str, observation: int, action: int, seed: int):
+    """
+    Test calculation of the derivativres of the log-probabilities of the policy.
+
+    Args:
+        env_id: The Gymnasium environment ID with a discrete action space.
+        observation: A valid observation (state) from the environment.
+        action: A valid action from the environment.
+        seed: Random seed for generating softmax parameters.
+
+    """
+    eps = 0.01
+
+    env = gym.make(env_id)
+    np.random.seed(seed)
+    feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+    policy = LinearSoftMax(env_id, feature_fn)
+
+    action = np.array([action])
+    observation = np.array([observation])
+
+    policy_dict = copy.deepcopy(policy.get_state())
+    n_weights = policy_dict['network.linear.weight'].shape[1]
+
+    df_log_probs_finite_diffs = np.zeros((1, n_weights))
+
+    for n in range(n_weights):
+        new_policy_dict_plus = copy.deepcopy(policy_dict)
+        new_policy_dict_minus = copy.deepcopy(policy_dict)
+
+        new_policy_dict_plus['network.linear.weight'][0, n] += eps
+        policy.set_state(new_policy_dict_plus)
+        log_probability_plus = policy.calculate_log_probabilities(observation, action).detach().numpy()
+
+        new_policy_dict_minus['network.linear.weight'][0, n] -= eps
+        policy.set_state(new_policy_dict_minus)
+        log_probability_minus = policy.calculate_log_probabilities(observation, action).detach().numpy()
+
+        df_log_probs_finite_diffs[0, n] = 0.5 * (log_probability_plus - log_probability_minus) / eps
+
+    optimizer = SGD(policy.get_parameters())
+    optimizer.zero_grad()
+    loss = policy.calculate_log_probabilities(observation, action)
+    loss.backward()
+
+    df_log_probs = list(policy.get_parameters())[0].grad.detach().numpy()
+
+    np.testing.assert_almost_equal(
+        df_log_probs,
+        df_log_probs_finite_diffs,
+        decimal=2,
     )
