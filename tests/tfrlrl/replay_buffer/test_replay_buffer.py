@@ -39,7 +39,7 @@ def test_add_steps(env_id: str, n_steps: int):
     :param n_steps: The number of steps to sample from the environment.
     """
     buffer_size = 1000
-    _, steps_cls = construct_step_dataclasses(env_id)
+    _, _, steps_cls = construct_step_dataclasses(env_id)
     sampler = Sampler(env_id, n_steps)
 
     buffer = ReplayBuffer(

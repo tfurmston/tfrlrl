@@ -1,8 +1,12 @@
 from abc import ABC, abstractmethod
-from typing import Tuple, Union
+from typing import Any, Generator, Tuple, Union
 
 import gymnasium as gym
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike
+from torch import (
+    Tensor,
+    nn,
+)
 
 
 class PolicyException(Exception):
@@ -20,7 +24,7 @@ class BasePolicy(ABC):
     """
 
     @abstractmethod
-    def generate_action(self, observation: NDArray) -> Tuple[Union[int, float, NDArray]]:
+    def generate_action(self, observation: ArrayLike) -> Tuple[Union[int, float, ArrayLike]]:
         """
         Generate an action for the given state observation.
 
@@ -30,6 +34,17 @@ class BasePolicy(ABC):
         Returns:
             An action appropriate for the environment's action space. Can be an integer
             for discrete action spaces, or a float/array for continuous action spaces.
+
+        """
+        ...
+
+    @abstractmethod
+    def update(self, **kwargs) -> None:
+        """
+        Update the policy using the keyword arguments provided.
+
+        Args:
+            kwargs: Keyward arguments passed to the policy update.
 
         """
         ...
@@ -62,7 +77,7 @@ class UniformActionSamplingPolicy(BasePolicy):
         if not isinstance(self._env.action_space, gym.spaces.Discrete):
             raise PolicyException('The UniformActionSamplingPolicy is applicable to discrete action spaces only.')
 
-    def generate_action(self, observation: NDArray) -> Tuple[Union[int, float, NDArray]]:
+    def generate_action(self, observation: ArrayLike) -> Tuple[Union[int, float, ArrayLike]]:
         """
         Generate a random action uniformly sampled from the discrete action space.
 
@@ -75,53 +90,97 @@ class UniformActionSamplingPolicy(BasePolicy):
         """
         return self._env.action_space.sample()
 
-
-class BaseDifferentiablePolicy(BasePolicy):
-    """
-    Abstract base class for differentiable parameterized reinforcement learning policies.
-
-    This class extends BasePolicy to support policies with differentiable parameters,
-    enabling gradient-based policy optimization methods such as policy gradient algorithms.
-    Subclasses must implement both generate_action and calculate_log_derivative methods.
-    """
-
-    @abstractmethod
-    def calculate_log_derivative(self, observation: NDArray, action: Tuple[Union[int, float, NDArray]]) -> NDArray:
+    def update(self, **kwargs) -> None:
         """
-        Calculate the log derivative of the policy with respect to its parameters.
+        Update the policy.
 
-        This method computes the gradient of the log probability of taking the given action
-        in the given observation state with respect to the policy's parameters. This is used
-        in policy gradient methods like REINFORCE, Actor-Critic, and PPO.
+        This is a dummy function, as there is nothing to update in this policy.
+        """
+        pass
+
+
+class BasePyTorchPolicy(BasePolicy):
+    """
+    Abstract base class for PyTorch reinforcement learning policies.
+
+    This class extends BasePolicy to support policies which are parameterised through PyTorch,
+    enabling gradient-based policy optimization methods such as policy gradient algorithms.
+    """
+
+    def __init__(self, network: nn.Module):
+        """
+        Initialise dense network policy.
+
+        Initialise the PyTorch policy, including setting the network.
 
         Args:
-            observation: The state observation from the environment.
-            action: The action taken in the given observation state.
-
-        Returns:
-            The log derivative (gradient) of the policy parameters for the given observation-action pair.
+            network: An instance of a PyTorch Module that will be used within the policy.
 
         """
-        ...
+        super().__init__()
+        self.network = network
 
-    @abstractmethod
-    def get_parameters(self) -> NDArray:
+    def get_parameters(self) -> Generator[nn.parameter.Parameter, None, None]:
         """
         Get the current policy parameters.
 
+        Return the parameters of the PyTorch neural network. This function can be used to set the
+        parameters in a PyTorch optimisation algorithm.
+
         Returns:
-            The current parameters of the policy as a numpy array.
+            The current parameters of the policy as a generator PyTorch parameters.
 
         """
-        ...
+        return self.network.parameters()
 
-    @abstractmethod
-    def set_parameters(self, parameters: NDArray) -> None:
+    def get_state(self) -> dict[str, Any]:
         """
-        Set new policy parameters.
+        Get the state dictionary of the Pytorch network.
+
+        Return the state dictionary of the policy's Pytorch network.
+
+        Returns:
+            The current state dictionary of the policy's Pytorch network.
+
+        """
+        return self.network.state_dict()
+
+    def set_state(self, state_dict: dict[str, Any]) -> None:
+        """
+        Set the state dictionary of the Pytorch network.
 
         Args:
-            parameters: The new parameters to set for the policy.
+            state_dict: The state dictionary to be assigned to the policy's Pytorch network.
+
+        """
+        self.network.load_state_dict(state_dict)
+
+    def update(self, state_dict, **kwargs) -> None:
+        """
+        Update the policy.
+
+        Args:
+            state_dict: The state dictionary to be assigned to the policy's Pytorch network.
+            kwargs: Optional keyword-arguments for the policy update.
+
+        """
+        self.set_state(state_dict)
+
+    @abstractmethod
+    def calculate_log_probabilities(self, observations: ArrayLike, actions: ArrayLike) -> Tensor:
+        """
+        Calculate the log-probabilities of the given actions for the corresponding observations.
+
+        Calculate the log-probabilities for the given actions for the corresponding observations.
+        This function is expected to be used in batch.
+
+        Args:
+            observations: A NumPy array of the observations for which to calculate the log-probabilities.
+            actions: A NumPy array of the actions for which to calculate the log-probabilities (of the corresponding
+            observations).
+
+        Returns:
+            A PyTorch Tensor containing the log-probabilities of the given (observation, action) pairs.
 
         """
         ...

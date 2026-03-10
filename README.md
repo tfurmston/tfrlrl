@@ -6,9 +6,24 @@ A Python reinforcement learning library providing core RL infrastructure includi
 
 - **Environment Sampling**: Single and parallel environment sampling using Ray
 - **Replay Buffers**: Efficient circular buffer implementation for experience replay
-- **Dynamic Data Models**: Type-safe dataclasses that adapt to environment specifications
+- **Data Models**: Type-safe dataclasses that match environment specifications
+- **Policies**: Support for PyTorch policies 
 - **CLI Tools**: Command-line interface for sampling and data collection
 - **Configuration Management**: Centralized settings via Dynaconf
+
+### Environment Sampling
+
+This repository provides some helper classes for sampling from environments. This includes the ability to sample whole episodes simply, and the ability to distribute the sampling through the use of Ray. The distributed samplers have the same API as the standard samplers, so it should be possible to swap in distributed sampling as required with no code changes. 
+
+### Data Models
+
+This repository includes a range of dataclasses that are used to designed the samples steps from environments. These dataclasses detect the specification of the environment, e.g. a discrete or continuous action space, and set the appropriate types for the corresponding fields in the data model. All actions, observations and rewards will be stored in NumPy arrays, with any required conversion automatically managed by these data classes. For example, when sampling from a toy environment with a discrete space, the integer state observations returned by Gym will automatically be stored in a NumPy array.
+
+These classes automatically manage an additional dimension to the samples that allows aggregation of samples across multiple steps. This dimension is always the last dimension of the field. For example, `N` discrete actions will be store in a `(1, N)` NumPy array, while `N` observations, each of size `(o_1, o_2)`, will be stored in a `(o_1, 0_2, N)` array. 
+
+### Policies
+
+This repository provides flexible support for different policies. The only requirement is policies are implemented in PyTorch and inherit from the `BasePyTorchPolicy` base class. See the `DensePolicyNetwork` and `LinearSoftMaxNetwork` for examples. 
 
 ## Installation
 
@@ -53,13 +68,13 @@ Perform basic stochastic gradient ascent to optimise the policy. This is intende
 
 ```bash
 # Perform stochastic gradient ascent on the given environment
-poetry run tfrlrl-sgd --env-id FrozenLake-v1 --n-iterations 100
+poetry run tfrlrl-sgd --env-id FrozenLake-v1 --policy-class linear --n-iterations 100 
 
 # With environment-specific configuration
-poetry run tfrlrl-sgd --env-id FrozenLake-v1 --n-iterations 100 --env-kwargs '{"is_slippery": false}'
+poetry run tfrlrl-sgd --env-id FrozenLake-v1 --policy-class linear --n-iterations 100 --env-kwargs '{"is_slippery": false}'
 
 # With custom hyperparameters
-poetry run tfrlrl-sgd --env-id FrozenLake-v1 --n-iterations 50 --n-episodes 200 --alpha 10.0
+poetry run tfrlrl-sgd --env-id FrozenLake-v1 --policy-class linear --n-iterations 50 --n-episodes 200 --alpha 10.0
 ```
 
 **Options:**
@@ -68,7 +83,11 @@ poetry run tfrlrl-sgd --env-id FrozenLake-v1 --n-iterations 50 --n-episodes 200 
 - `--n-iterations`: Total number of policy updates to perform (default: 100)
 - `--n-episodes`: Total number of episodes to sample during each policy update (default: 100)
 - `--alpha`: The initial step size in stochastic gradient ascent. Step sizes are linearly decreased w.r.t. the iteration of stochastic gradients (default: 100.0)
+- `--n-samplers`: The number of samplers to use during sampling (default: 1)
 - `--env-kwargs`: Environment-specific keyword arguments as a JSON string (default: `{}`). For example, `'{"is_slippery": false}'` for FrozenLake-v1
+- `--n-samplers`: The number of samplers to use during sampling (default: 1)
+- `--policy-class`: The class of policy to use in the environment. Allowed values are `linear` and `dense`.
+- `--n-hidden`: The number of hidden dimensions to use in the case of a dense policy.
 
 ## Configuration
 

@@ -2,7 +2,6 @@ import uuid
 from typing import Dict, Optional, Tuple, Union
 
 import gymnasium as gym
-import numpy as np
 from numpy.typing import NDArray
 
 from tfrlrl.data_models.step import construct_step_dataclasses
@@ -21,26 +20,24 @@ class Sampler:
         """
         Initialise instance of Sampler, which entails initialising the environment and setting member variables.
 
-        :param env_id: The Gym environment ID to be used in the sampling.
-        :param n_steps: If given, the number of steps to sample from the environment. If not given, then there is no
-        limit on the number of sampled steps.
-        :param policy: Optional policy instance for action selection. If not provided, defaults to
-        UniformActionSamplingPolicy.
-        :param kwargs: Optional keyword-arguments for the environment.
+        Args:
+            env_id: The Gym environment ID to be used in the sampling.
+            n_steps: If given, the number of steps to sample from the environment. If not given, then there is no
+            limit on the number of sampled steps.
+            policy: Optional policy instance for action selection. If not provided, defaults to
+            UniformActionSamplingPolicy.
+            kwargs: Optional keyword-arguments for the environment.
+
         """
-        self.step_cls, self.steps_cls = construct_step_dataclasses(env_id)
+        self.obs_cls, self.step_cls, self.steps_cls = construct_step_dataclasses(
+            env_id,
+        )
         self._env = gym.make(env_id, **kwargs)
         self._env_id = str(uuid.uuid4())
         self._n_steps = n_steps
         self._n_steps_taken = 0
         self._n_env_steps_taken = 0
-        self._observation = None
-        self._next_observation = None
-        self._action = None
-        self._reward = None
-        self._terminated = True
-        self._truncated = True
-        self._info = None
+        self.step = None
         self._policy = policy if policy is not None else UniformActionSamplingPolicy(env_id)
 
     def __iter__(self):
@@ -52,48 +49,44 @@ class Sampler:
         if self._n_steps is not None and self._n_steps_taken >= self._n_steps:
             raise StopIteration
 
-        if self._terminated or self._truncated:
-            self._observation, self._info = self._env.reset()
-            if isinstance(self._observation, float):
-                self._observation = self._observation * np.ones(1)
-            elif isinstance(self._observation, int):
-                self._observation = self._observation * np.ones(1, dtype=np.int64)
+        if self.step is None or self.step.done:
+            initial_observation, info = self._env.reset()
+            observation = self.obs_cls(observation=initial_observation).observation
             self._env_id = str(uuid.uuid4())
             self._n_env_steps_taken = 0
         else:
-            self._observation = self._next_observation
+            observation = self.step.next_observation
 
-        self._action = self._policy.generate_action(self._observation)
-        self._next_observation, self._reward, self._terminated, self._truncated, self._info = self._env.step(
-            self._action,
+        action = self._policy.generate_action(observation[..., 0])
+        next_observation, reward, terminated, truncated, info = self._env.step(
+            action,
         )
-        if isinstance(self._next_observation, float):
-            self._next_observation = self._next_observation * np.ones(1)
-        elif isinstance(self._next_observation, int):
-            self._next_observation = self._next_observation * np.ones(1, dtype=np.int64)
+        self.step = self.step_cls(
+            env_id=self._env_id,
+            time_step=self._n_env_steps_taken,
+            observation=observation,
+            action=action,
+            next_observation=next_observation,
+            reward=reward,
+            done=terminated or truncated,
+            info=info,
+        )
 
         self._n_steps_taken += 1
         self._n_env_steps_taken += 1
-        return self.step_cls(
-            env_id=self._env_id,
-            time_step=self._n_env_steps_taken,
-            observation=self._observation,
-            action=self._action,
-            next_observation=self._next_observation,
-            reward=self._reward,
-            done=self._terminated or self._truncated,
-            info=self._info,
-        )
+        return self.step
 
     def reset(self) -> None:
         """Reset the iterator so that a new iterable can be created."""
         if self._n_steps_taken is not None:
             self._n_steps_taken = 0
 
-    def update_policy(self, new_policy: BasePolicy) -> None:
+    def update(self, **kwargs) -> None:
         """
-        Update the policy used for action selection.
+        Update the sampler, e.g. the policy used for action selection.
 
-        :param new_policy: New policy instance to use for sampling.
+        Args:
+            kwargs: Keyword arguments passed to the policy update.
+
         """
-        self._policy = new_policy
+        self._policy.update(**kwargs)

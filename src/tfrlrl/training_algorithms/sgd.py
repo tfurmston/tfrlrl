@@ -4,9 +4,17 @@ import logging
 
 import numpy as np
 import ray
+from torch import (
+    no_grad,
+    sum,
+    tensor,
+)
+from torch.optim import (
+    SGD,
+)
 
 from tfrlrl import settings
-from tfrlrl.policies.base import BasePolicy
+from tfrlrl.policies.base import BasePyTorchPolicy
 from tfrlrl.sampling.episodic_sampler import (
     EpisodicSampler,
     RayEpisodicSampler,
@@ -18,26 +26,31 @@ logger = logging.getLogger(__name__)
 
 def train_policy_gradient(
     env_id: str,
-    policy: BasePolicy,
+    policy: BasePyTorchPolicy,
     n_iterations: int,
     n_episodes: int,
     alpha: float,
     n_samplers: int = 1,
     **kwargs,
-) -> BasePolicy:
+) -> BasePyTorchPolicy:
     """
     Train a policy using stochastic gradient ascent on the policy gradient.
 
-    :param env_id: Gymnasium environment ID (e.g., CartPole-v1, MountainCar-v0).
-    :param policy: The policy to train. Must have get_parameters() and set_parameters() methods.
-    :param n_iterations: The number of policy updates to perform.
-    :param n_episodes: The number of episodes to sample during each policy update.
-    :param alpha: The initial step size to take in stochastic gradient ascent.
-    :param n_samplers: The number of samplers to used to sample from the environment.
-    :param kwargs: Additional keyword arguments to pass to the EpisodicSampler (e.g., is_slippery).
-    :return: The trained policy.
+    Args:
+        env_id: Gymnasium environment ID (e.g., CartPole-v1, MountainCar-v0).
+        policy: The policy to train. Must have get_parameters() and set_parameters() methods.
+        n_iterations: The number of policy updates to perform.
+        n_episodes: The number of episodes to sample during each policy update.
+        alpha: The initial step size to take in stochastic gradient ascent.
+        n_samplers: The number of samplers to used to sample from the environment.
+        kwargs: Additional keyword arguments to pass to the EpisodicSampler (e.g., is_slippery).
+
+    Returns:
+        The trained policy.
+
     """
-    statistics_collector = EpisocidPolicyGradientStatisticsCollector(policy)
+    statistics_collector = EpisocidPolicyGradientStatisticsCollector(env_id)
+    optimizer = SGD(policy.get_parameters(), lr=alpha)
 
     if n_samplers > 1:
         if not ray.is_initialized():
@@ -64,16 +77,23 @@ def train_policy_gradient(
         )
 
     for n in range(n_iterations):
-        statistics = sampler.sample()
-        policy_gradient = np.average(np.array(statistics.episode_gradient), axis=1)
-        policy.set_parameters(policy.get_parameters() + (alpha / (n + 1)) * policy_gradient)
+        with no_grad():
+            statistics = sampler.sample()
+
+        optimizer.zero_grad()
+        log_probabilities = policy.calculate_log_probabilities(
+            observations=statistics.observations,
+            actions=statistics.actions,
+        )
+        loss = -sum(log_probabilities * tensor(statistics.total_expected_rewards))
+        loss.backward()
+        optimizer.step()
 
         if n % 10 == 0:
             logger.info('Policy update: %s', n)
             logger.info('Average total episodic reward: %s', np.average(statistics.total_reward))
-            logger.info('Policy gradient magnitude: %s', np.sum(np.abs(policy_gradient)))
 
         sampler.reset()
-        sampler.update_policy(policy)
+        sampler.update(state_dict=policy.get_state())
 
     return policy
