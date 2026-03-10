@@ -9,6 +9,8 @@ from hypothesis import strategies as st
 from tfrlrl.features.onehot import OneHotFeatureFunction
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
+from tfrlrl.sampling.episodic_sampler import EpisodicSampler
+from tfrlrl.sampling.statistics_collection import EpisocidPolicyGradientStatisticsCollector
 from tfrlrl.training_algorithms.sgd import train_policy_gradient
 
 
@@ -121,6 +123,39 @@ class TestTrainPolicyGradient:
         updated_parameters = list(policy.get_parameters())
         parameter_diff = original_paramters[0].detach().numpy() - updated_parameters[0].detach().numpy()
         assert np.sum(np.abs(parameter_diff)) > 0
+
+    def test_frozen_lake_regression_test(self):
+        """Perform a regression test to ensure that a policy can still be optimised on FrozenLake."""
+        env_id = 'FrozenLake-v1'
+        n_iterations = 100
+        n_episodes = 100
+        alpha = 1.0
+
+        env = gym.make(env_id)
+
+        feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+        policy = LinearSoftMax(env_id, feature_fn)
+
+        trained_policy = train_policy_gradient(
+            env_id=env_id,
+            policy=policy,
+            n_iterations=n_iterations,
+            n_episodes=n_episodes,
+            alpha=alpha,
+            is_slippery=False,
+        )
+
+        statistics_collector = EpisocidPolicyGradientStatisticsCollector(env_id)
+        sampler = EpisodicSampler(
+            env_id=env_id,
+            n_episodes=n_episodes,
+            policy=trained_policy,
+            statistics_collector=statistics_collector,
+            is_slippery=False,
+        )
+
+        statistics = sampler.sample()
+        assert np.average(statistics.total_reward) > 0.8
 
     @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1', 'InvertedPendulum-v5'])

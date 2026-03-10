@@ -16,11 +16,6 @@ class BaseStatisticsCollector(ABC):
         """Reset the statistics in the collector."""
         ...
 
-    # @abstractmethod
-    # def update(self) -> None:
-    #     """Update the statistics collector."""
-    #     ...
-
     @abstractmethod
     def collect_step_statistics(self, sample) -> None:
         """Collect statistics from a sample step."""
