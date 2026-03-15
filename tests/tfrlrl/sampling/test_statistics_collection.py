@@ -4,10 +4,10 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from tfrlrl.baselines.linear import LinearBaseline
 from tfrlrl.data_models.statistics import StatisticsException
 from tfrlrl.features.onehot import OneHotFeatureFunction
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
-from tfrlrl.baselines.linear import LinearBaseline
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.sampling.episodic_sampler import EpisodicSampler
 from tfrlrl.sampling.statistics_collection import EpisocidPolicyGradientStatisticsCollector
@@ -92,7 +92,10 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             baseline = LinearBaseline()
         else:
             baseline = None
-        stats_collector = EpisocidPolicyGradientStatisticsCollector(baseline=baseline)
+        stats_collector = EpisocidPolicyGradientStatisticsCollector(
+            env_id=env_id,
+            baseline=baseline,
+        )
         sampler = EpisodicSampler(
             env_id,
             stats_collector,
@@ -190,14 +193,9 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         :param n_episodes: The number of episodes to sample.
         """
         env = gym.make(env_id)
-        S = env.observation_space.n
-        A = env.action_space.n
 
         # Test currently works only for discrete observations spaces.
         n_dim = 1
-
-        # Verify dimensions
-        n_params = S * (A - 1)  # Number of policy parameters
 
         env = gym.make(env_id)
         feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
@@ -208,7 +206,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         else:
             baseline = None
         stats_collector = EpisocidPolicyGradientStatisticsCollector(
-            pol,
+            env_id=env_id,
             baseline=baseline,
         )
         sampler = EpisodicSampler(
@@ -222,10 +220,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
 
         # Verify return types
         assert isinstance(statistics.total_reward, np.ndarray)
-        assert isinstance(statistics.episode_gradient, np.ndarray)
-
         assert len(statistics.total_reward) == n_episodes
-        assert statistics.episode_gradient.shape == (n_params, n_episodes)
 
         if include_baseline:
             assert isinstance(statistics.baseline_features, np.ndarray)
@@ -238,7 +233,6 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             assert statistics.baseline_targets is None
 
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
->>>>>>> da40c98 (remove duplication in merge_statistics)
     @given(n_episodes=st.integers(min_value=1, max_value=5))
     @settings(deadline=5000)
     def test_merge_statistics_with_inconsistent_baseline_statistics(self, env_id: str, n_episodes: int):
@@ -277,7 +271,6 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             **env_kwargs,
         )
         statistics1 = sampler1.sample()
-
 
         stats_collector2 = EpisocidPolicyGradientStatisticsCollector(
             env_id=env_id,

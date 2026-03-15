@@ -1,14 +1,13 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 
 from tfrlrl.baselines.linear import Baseline
 from tfrlrl.data_models.statistics import BaseStatistics
 from tfrlrl.data_models.step import construct_step_dataclasses
-from tfrlrl.data_models.statistics import BaseStatistics
 from tfrlrl.sampling.utils import merge_optional_statistics
 
 logger = logging.getLogger(__name__)
@@ -62,20 +61,24 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
     Attributes:
         steps_cls: A dataclass for aggregating a collection of steps.
         steps: The collection of steps collected to date.
+        baseline: An instance of a baseline class, if one was given during class construction.
 
     """
 
-    def __init__(self, env_id: str):
+    def __init__(self, env_id: str, baseline: Optional[Baseline] = None):
         """
         Initialise the policy-gradients statistics collector.
 
         Args:
             env_id: The I.D. of the environment from which to collect statistics.
+            baseline: If given, an instance of the baseline class, which will be used for
+            variance reduction when estimating policy gradients.
 
         """
         _, _, self.steps_cls = construct_step_dataclasses(
             env_id,
         )
+        self.baseline = baseline
         self.steps = []
 
     def reset(self) -> None:
