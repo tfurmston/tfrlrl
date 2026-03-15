@@ -25,9 +25,11 @@ class TestLinearBaseline:
         - 3 features for time step polynomial (t/100, (t/100)^2, (t/100)^3)
         - 1 constant feature (ones)
 
-        :param env_id: The Gymnasium environment ID.
-        :param obs_dim: The dimensionality of the observation space.
-        :param n_steps: The number of time steps.
+        Args:
+            env_id: The Gymnasium environment ID.
+            obs_dim: The dimensionality of the observation space.
+            n_steps: The number of time steps.
+
         """
         baseline = LinearBaseline()
 
@@ -57,9 +59,11 @@ class TestLinearBaseline:
         This test verifies that extreme observation values are properly clipped before
         being included in the feature matrix.
 
-        :param n_steps: The number of time steps.
-        :param obs_dim: The dimensionality of the observation space.
-        :param seed: Random seed for reproducibility.
+        Args:
+            n_steps: The number of time steps.
+            obs_dim: The dimensionality of the observation space.
+            seed: Random seed for reproducibility.
+
         """
         np.random.seed(seed)
         baseline = LinearBaseline()
@@ -97,7 +101,9 @@ class TestLinearBaseline:
         - Column 2*obs_dim + 2: (t/100)^3
         - Column 2*obs_dim + 3: 1.0 (constant)
 
-        :param obs_dim: The dimensionality of the observation space.
+        Args:
+            obs_dim: The dimensionality of the observation space.
+
         """
         baseline = LinearBaseline()
 
@@ -164,8 +170,10 @@ class TestLinearBaseline:
         This integration test verifies that the feature calculation works correctly
         with actual environment observations and time steps.
 
-        :param env_id: The Gymnasium environment ID to sample from.
-        :param n_steps: The number of steps to sample from the environment.
+        Args:
+            env_id: The Gymnasium environment ID to sample from.
+            n_steps: The number of steps to sample from the environment.
+
         """
         baseline = LinearBaseline()
         env = gym.make(env_id)
@@ -226,9 +234,12 @@ class TestLinearBaseline:
         with actual environment observations and time steps, both before and after
         setting coefficients.
 
-        :param env_id: The Gymnasium environment ID to sample from.
-        :param n_steps: The number of steps to sample from the environment.
-        :param coeffs: The coefficients of the baseline.
+
+        Args:
+            env_id: The Gymnasium environment ID to sample from.
+            n_steps: The number of steps to sample from the environment.
+            coeffs: The coefficients of the baseline.
+
         """
         env = gym.make(env_id)
 

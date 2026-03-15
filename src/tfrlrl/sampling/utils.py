@@ -12,11 +12,17 @@ def merge_optional_statistics(
     """
     Merge the optional statistic from the given list of statistics and merge them.
 
-    :param statistics: A list of statistics from which to retrieve an optional statistics and merge them.
-    :param attribute: The (optional) statistic from the statistics class that is to be retrieved and merged.
-    :param concatenate_axis: The axis along which to merge the statistic.
-    :return: The merged statistics or None.
-    :raises: This function raises a StatisticsException exception if some, but not all, of the statistics are present.
+    Args:
+        statistics: A list of statistics from which to retrieve an optional statistics and merge them.
+        attribute: The (optional) statistic from the statistics class that is to be retrieved and merged.
+        concatenate_axis: The axis along which to merge the statistic.
+
+    Returns:
+        The merged statistics or None.
+
+    Raises:
+        This function raises a StatisticsException exception if some, but not all, of the statistics are present.
+
     """
     attributes = [getattr(x, attribute) for x in statistics]
     if any([x is None for x in attributes]) and any([x is not None for x in attributes]):

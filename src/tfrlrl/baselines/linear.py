@@ -35,8 +35,13 @@ class LinearBaseline(Baseline):
         """
         Calculate baseline features for the given observations.
 
-        param: observation_matrix: An [n_obs, n_steps] NumPy matrix of observations.
-        param: time_steps: An [n_steps] NumPy matrix of the time steps corresponding to the given observations.
+        Args:
+            observation_matrix: An [n_obs, n_steps] NumPy matrix of observations.
+            time_steps: An [n_steps] NumPy matrix of the time steps corresponding to the given observations.
+
+        Returns:
+            A NumPy array containing the baseline features for the given observations.
+
         """
         o = np.clip(observation_matrix, -10, 10)
         al = time_steps.reshape(1, -1) / 100.0
@@ -48,10 +53,15 @@ class LinearBaseline(Baseline):
         """
         Calculate the baseline for the given examples.
 
-        param: observation_matrix: An [n_obs, n_steps] NumPy matrix of observations.
-        param: time_steps: An [n_steps] NumPy matrix of the time steps corresponding to the given observations.
-        param: feature_matrix: A pre-calculated [2 * n_obs + 4, n_steps] feature matrix. If provided the features
-        will not be calculated again.
+        Args:
+            observation_matrix: An [n_obs, n_steps] NumPy matrix of observations.
+            time_steps: An [n_steps] NumPy matrix of the time steps corresponding to the given observations.
+            feature_matrix: A pre-calculated [2 * n_obs + 4, n_steps] feature matrix. If provided the features
+            will not be calculated again.
+
+        Returns:
+            The baselines for the given observations.
+
         """
         if self._coeffs is None:
             return np.zeros(time_steps.shape[0])
@@ -63,9 +73,11 @@ class LinearBaseline(Baseline):
         """
         Fit the baseline on the given examples.
 
-        param: feature_matrix: A pre-calculated [2 * n_obs + 4, n_steps] feature matrix. If provided the features
-        will not be calculated again.
-        param: regressand: A pre-calculated [n_steps] vector of the regressand.
+        Args:
+            feature_matrix: A pre-calculated [2 * n_obs + 4, n_steps] feature matrix. If provided the features
+            will not be calculated again.
+            regressand: A pre-calculated [n_steps] vector of the regressand.
+
         """
         reg_coeff = self._reg_coeff
         for _ in range(5):
