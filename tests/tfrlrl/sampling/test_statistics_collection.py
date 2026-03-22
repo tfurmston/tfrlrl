@@ -4,6 +4,8 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from tfrlrl.baselines.linear import LinearBaseline
+from tfrlrl.data_models.statistics import StatisticsException
 from tfrlrl.features.onehot import OneHotFeatureFunction
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
@@ -53,10 +55,23 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         assert len(stats_collector.steps) == 0
         assert stats_collector.steps == []
 
-    @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+    @pytest.mark.parametrize(
+        'env_id, include_baseline',
+        [
+            (
+                'FrozenLake-v1',
+                False,
+            ),
+        ],
+    )
     @given(n_episodes=st.integers(min_value=1, max_value=5))
     @settings(deadline=5000)
-    def test_aggregate_statistics_return_types_and_dimensions(self, env_id: str, n_episodes: int):
+    def test_aggregate_statistics_return_types_and_dimensions(
+        self,
+        env_id: str,
+        include_baseline: bool,
+        n_episodes: int,
+    ):
         """
         Test that aggregate_statistics returns two numpy arrays with expected dimensions.
 
@@ -66,13 +81,21 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         Args:
             env_id: The Gym environment ID to be used in testing.
             n_episodes: The number of episodes to sample.
+            include_baseline: A Boolean indicating whether to include a baseline class in the statistics collection.
 
         """
         env = gym.make(env_id)
         feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
         policy = LinearSoftMax(env_id, feature_fn)
 
-        stats_collector = EpisocidPolicyGradientStatisticsCollector(env_id)
+        if include_baseline:
+            baseline = LinearBaseline(env_id=env_id)
+        else:
+            baseline = None
+        stats_collector = EpisocidPolicyGradientStatisticsCollector(
+            env_id=env_id,
+            baseline=baseline,
+        )
         sampler = EpisodicSampler(
             env_id,
             stats_collector,
@@ -91,29 +114,56 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             assert statistics.observations.shape[-1] == statistics.actions.shape[-1]
             assert statistics.observations.shape[-1] == statistics.total_expected_rewards.shape[-1]
 
-    @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+    @pytest.mark.parametrize(
+        'env_id, include_baseline',
+        [
+            (
+                'FrozenLake-v1',
+                False,
+            ),
+            (
+                'InvertedPendulum-v5',
+                True,
+            ),
+        ],
+    )
     @given(n_episodes=st.integers(min_value=2, max_value=5))
     @settings(deadline=5000)
-    def test_reset_and_reuse(self, env_id: str, n_episodes: int):
+    def test_reset_and_reuse(self, env_id: str, include_baseline: bool, n_episodes: int):
         """
         Test that after reset, the collector can be reused for new episodes.
 
         Args:
             env_id: The Gym environment ID to be used in testing.
+            include_baseline: A Boolean indicating whether to include a baseline class in the statistics collection.
             n_episodes: The number of episodes to sample in each iteration.
 
         """
         env = gym.make(env_id)
-        feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
-        policy = LinearSoftMax(env_id, feature_fn)
 
-        stats_collector = EpisocidPolicyGradientStatisticsCollector(env_id)
+        if env_id == 'InvertedPendulum-v5':
+            policy = DenseNetworkPolicy(
+                env_id=env_id,
+                hidden_space_dims=[16, 32],
+            )
+        else:
+            feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+            policy = LinearSoftMax(env_id, feature_fn)
+
+        if include_baseline:
+            baseline = LinearBaseline(env_id=env_id)
+        else:
+            baseline = None
+
+        stats_collector = EpisocidPolicyGradientStatisticsCollector(
+            env_id,
+            baseline=baseline,
+        )
         sampler = EpisodicSampler(
             env_id,
             stats_collector,
             n_episodes=n_episodes,
             policy=policy,
-            is_slippery=False,
         )
 
         # First collection
@@ -129,15 +179,94 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         assert len(statistics1) == n_episodes
         assert len(statistics2) == n_episodes
 
-    @pytest.mark.parametrize('env_id', ['FrozenLake-v1', 'InvertedPendulum-v5'])
+    @pytest.mark.parametrize(
+        'env_id, include_baseline',
+        [
+            (
+                'FrozenLake-v1',
+                False,
+            ),
+            (
+                'InvertedPendulum-v5',
+                True,
+            ),
+        ],
+    )
     @given(n_episodes=st.integers(min_value=1, max_value=5))
     @settings(deadline=5000)
-    def test_merge_statistics(self, env_id: str, n_episodes: int):
+    def test_merge_statistics(self, env_id: str, include_baseline: bool, n_episodes: int):
         """
-        Test that merge_statistics returns two numpy arrays with expected dimensions.
+        Test that merge_statistics returns statistics with expected dimensions.
 
         Args:
             env_id: The Gym environment ID to be used in testing.
+            include_baseline: A Boolean indicating whether to include a baseline class in the statistics collection.
+            n_episodes: The number of episodes to sample.
+
+        """
+        env = gym.make(env_id)
+
+        if env_id == 'InvertedPendulum-v5':
+            n_dim = 4
+
+            policy = DenseNetworkPolicy(
+                env_id=env_id,
+                hidden_space_dims=[16, 32],
+            )
+        else:
+            feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+            policy = LinearSoftMax(env_id, feature_fn)
+
+        if include_baseline:
+            baseline = LinearBaseline(env_id=env_id)
+        else:
+            baseline = None
+        stats_collector = EpisocidPolicyGradientStatisticsCollector(
+            env_id=env_id,
+            baseline=baseline,
+        )
+        sampler = EpisodicSampler(
+            env_id,
+            stats_collector,
+            n_episodes=n_episodes,
+            policy=policy,
+        )
+        statistics = sampler.sample()
+
+        # Verify return types
+        assert isinstance(statistics.total_reward, np.ndarray)
+        assert len(statistics.total_reward) == n_episodes
+
+        if include_baseline:
+            assert isinstance(statistics.baseline_features, np.ndarray)
+            assert isinstance(statistics.baseline_targets, np.ndarray)
+
+            assert statistics.baseline_features.shape[0] == (2 * n_dim) + 4
+            assert statistics.baseline_features.shape[1] == statistics.baseline_targets.shape[0]
+        else:
+            assert statistics.baseline_features is None
+            assert statistics.baseline_targets is None
+
+    @pytest.mark.parametrize(
+        'env_id, include_baseline',
+        [
+            (
+                'InvertedPendulum-v5',
+                True,
+            ),
+        ],
+    )
+    @given(n_episodes=st.integers(min_value=1, max_value=5))
+    @settings(deadline=5000)
+    def test_merge_statistics_with_inconsistent_baseline_statistics(
+        self, env_id: str, include_baseline: bool, n_episodes: int
+    ):
+        """
+        Test that merge_statistics raises an error when merging inconsistent baseline statistics.
+
+        Args:
+            env_id: The Gym environment ID to be used in testing.
+            include_baseline: A Boolean indicating whether to include a baseline class in the statistics collection.
             n_episodes: The number of episodes to sample.
 
         """
@@ -155,26 +284,35 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             policy = LinearSoftMax(env_id, feature_fn)
             env_kwargs = {'is_slippery': False}
 
-        stats_collector = EpisocidPolicyGradientStatisticsCollector(env_id)
-        sampler = EpisodicSampler(
+        if include_baseline:
+            baseline = LinearBaseline(env_id=env_id)
+        else:
+            baseline = None
+
+        stats_collector1 = EpisocidPolicyGradientStatisticsCollector(
+            env_id=env_id,
+            baseline=baseline,
+        )
+        sampler1 = EpisodicSampler(
             env_id,
-            stats_collector,
+            stats_collector1,
             n_episodes=n_episodes,
             policy=policy,
             **env_kwargs,
         )
-        statistics = sampler.sample()
+        statistics1 = sampler1.sample()
 
-        # Verify return types
-        assert isinstance(statistics.total_reward, np.ndarray)
-        assert isinstance(statistics.observations, np.ndarray)
-        assert isinstance(statistics.actions, np.ndarray)
-        assert isinstance(statistics.total_expected_rewards, np.ndarray)
+        stats_collector2 = EpisocidPolicyGradientStatisticsCollector(
+            env_id=env_id,
+        )
+        sampler2 = EpisodicSampler(
+            env_id,
+            stats_collector2,
+            n_episodes=n_episodes,
+            policy=policy,
+            **env_kwargs,
+        )
+        statistics2 = sampler2.sample()
 
-        assert len(statistics.total_reward) == n_episodes
-        assert statistics.observations.shape[-1] == statistics.actions.shape[-1]
-        assert statistics.observations.shape[-1] == statistics.total_expected_rewards.shape[-1]
-
-        assert len(statistics.observations.shape) == 2
-        assert len(statistics.actions.shape) == 2
-        assert len(statistics.total_expected_rewards.shape) == 1
+        with pytest.raises(StatisticsException):
+            EpisocidPolicyGradientStatisticsCollector.merge_statistics([statistics1, statistics2])
