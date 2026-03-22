@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import ray
 
@@ -64,15 +64,22 @@ class EpisodicSampler:
         self._statistics_collector.reset()
         self._n_episodes_taken = 0
 
-    def update(self, **kwargs) -> None:
+    def update(self, policy_state_dict: Dict[str, Any], baseline_state_dict: Optional[Dict[str, Any]] = None) -> None:
         """
         Update the the sampler, e.g., the policy used for action selection.
 
         Args:
-            kwargs: The keyword arguments to be passed to the sampler update.
+            policy_state_dict: The state dictionary of the policy.
+            baseline_state_dict: The state dictionary of the baseline.
 
         """
-        self._sampler.update(**kwargs)
+        self._sampler.update(
+            policy_state_dict=policy_state_dict,
+        )
+        if baseline_state_dict is not None:
+            self._statistics_collector.update(
+                baseline_state_dict=baseline_state_dict,
+            )
 
     def sample(self) -> BaseStatistics:
         """Sample all episodes from the sampler and merge the statistics."""
@@ -138,15 +145,24 @@ class RayEpisodicSampler:
         """Reset all samplers."""
         ray.get([env.reset.remote() for env in self.samplers])
 
-    def update(self, **kwargs) -> None:
+    def update(self, policy_state_dict: Dict[str, Any], baseline_state_dict: Optional[Dict[str, Any]] = None) -> None:
         """
         Update the the sampler, e.g., the policy used for action selection.
 
         Args:
-            kwargs: Keyword arguments to be passed to the sampler updated.
+            policy_state_dict: The state dictionary of the policy.
+            baseline_state_dict: The state dictionary of the baseline.
 
         """
-        ray.get([env.update.remote(**kwargs) for env in self.samplers])
+        ray.get(
+            [
+                env.update.remote(
+                    policy_state_dict=policy_state_dict,
+                    baseline_state_dict=baseline_state_dict,
+                )
+                for env in self.samplers
+            ]
+        )
 
     def sample(self) -> BaseStatistics:
         """Sample all episodes from the sampler and merge the statistics."""

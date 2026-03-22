@@ -121,6 +121,10 @@ class TestEpisocidPolicyGradientStatisticsCollector:
                 'FrozenLake-v1',
                 False,
             ),
+            (
+                'InvertedPendulum-v5',
+                True,
+            ),
         ],
     )
     @given(n_episodes=st.integers(min_value=2, max_value=5))
@@ -136,8 +140,15 @@ class TestEpisocidPolicyGradientStatisticsCollector:
 
         """
         env = gym.make(env_id)
-        feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
-        policy = LinearSoftMax(env_id, feature_fn)
+
+        if env_id == 'InvertedPendulum-v5':
+            policy = DenseNetworkPolicy(
+                env_id=env_id,
+                hidden_space_dims=[16, 32],
+            )
+        else:
+            feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+            policy = LinearSoftMax(env_id, feature_fn)
 
         if include_baseline:
             baseline = LinearBaseline()
@@ -153,7 +164,6 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             stats_collector,
             n_episodes=n_episodes,
             policy=policy,
-            is_slippery=False,
         )
 
         # First collection
@@ -177,7 +187,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
                 False,
             ),
             (
-                'FrozenLake-v1',
+                'InvertedPendulum-v5',
                 True,
             ),
         ],
@@ -194,12 +204,16 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         """
         env = gym.make(env_id)
 
-        # Test currently works only for discrete observations spaces.
-        n_dim = 1
+        if env_id == 'InvertedPendulum-v5':
+            n_dim = 4
 
-        env = gym.make(env_id)
-        feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
-        pol = LinearSoftMax(env_id, feature_fn)
+            policy = DenseNetworkPolicy(
+                env_id=env_id,
+                hidden_space_dims=[16, 32],
+            )
+        else:
+            feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+            policy = LinearSoftMax(env_id, feature_fn)
 
         if include_baseline:
             baseline = LinearBaseline()
@@ -213,8 +227,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             env_id,
             stats_collector,
             n_episodes=n_episodes,
-            policy=pol,
-            is_slippery=False,
+            policy=policy,
         )
         statistics = sampler.sample()
 

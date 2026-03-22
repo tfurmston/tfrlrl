@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -11,31 +11,6 @@ from tfrlrl.data_models.step import construct_step_dataclasses
 from tfrlrl.sampling.utils import merge_optional_statistics
 
 logger = logging.getLogger(__name__)
-
-
-class BaseStatisticsCollector(ABC):
-    """Base class for collecting statistics during sampling."""
-
-    @abstractmethod
-    def reset(self):
-        """Reset the statistics in the collector."""
-        ...
-
-    @abstractmethod
-    def collect_step_statistics(self, sample) -> None:
-        """Collect statistics from a sample step."""
-        ...
-
-    @abstractmethod
-    def aggregate_statistics(self) -> BaseStatistics:
-        """Aggregate the statistics collected by the collector."""
-        ...
-
-    @classmethod
-    @abstractmethod
-    def merge_statistics(cls) -> BaseStatistics:
-        """Merge the statistics collected by different aggregations of statistics collector(s)."""
-        ...
 
 
 @dataclass
@@ -50,6 +25,82 @@ class EpisodePolicyGradientStatistics(BaseStatistics):
     baseline_targets: np.ndarray = None
 
 
+class BaseStatisticsCollector(ABC):
+    """
+    Base class for collecting statistics during sampling.
+
+    Attributes:
+        steps_cls: A dataclass for aggregating a collection of steps.
+        baseline: An instance of a baseline class, if one was given during class construction.
+
+    """
+
+    def __init__(self, env_id: str, baseline: Optional[Baseline] = None):
+        """
+        Initialise the base statistics collector.
+
+        Args:
+            env_id: The I.D. of the environment from which to collect statistics.
+            baseline: If given, an instance of the baseline class, which will be used for
+            variance reduction when estimating policy gradients.
+
+        """
+        _, _, self.steps_cls = construct_step_dataclasses(
+            env_id,
+        )
+        self.baseline = baseline
+
+    def update(self, baseline_state_dict: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Update the the statistic collector, e.g., the baseline calculations.
+
+        Args:
+            baseline_state_dict: The state dictionary of the baseline.
+
+        """
+        if baseline_state_dict is not None:
+            self.baseline.update(state_dict=baseline_state_dict)
+
+    @abstractmethod
+    def reset(self) -> None:
+        """Reset the statistics in the collector."""
+        ...
+
+    @abstractmethod
+    def collect_step_statistics(self, sample) -> None:
+        """
+        Collect statistics for the given step sample.
+
+        This function collects the statistics for the given step sample.
+
+        Args:
+            sample: The step sample from which to calculate the statistics.
+
+        """
+        ...
+
+    @abstractmethod
+    def aggregate_statistics(self) -> BaseStatistics:
+        """
+        Aggregate the statistics collected to date.
+
+        This function calculates the total future rewards of the observed examples. If a baseline
+        is specified, then the baselines will be calculated and subtracted from the total future
+        rewards.
+
+        Returns:
+            An instance of the EpisodePolicyGradientStatistics dataclass.
+
+        """
+        ...
+
+    @classmethod
+    @abstractmethod
+    def merge_statistics(cls, statistics: List[BaseStatistics]) -> BaseStatistics:
+        """Merge the statistics collected by different aggregations of statistics collector(s)."""
+        ...
+
+
 class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
     """
     Statistics collector for episodic-level statistics collection.
@@ -60,8 +111,8 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
 
     Attributes:
         steps_cls: A dataclass for aggregating a collection of steps.
-        steps: The collection of steps collected to date.
         baseline: An instance of a baseline class, if one was given during class construction.
+        steps: The collection of steps collected to date.
 
     """
 
@@ -75,10 +126,10 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
             variance reduction when estimating policy gradients.
 
         """
-        _, _, self.steps_cls = construct_step_dataclasses(
-            env_id,
+        super().__init__(
+            env_id=env_id,
+            baseline=baseline,
         )
-        self.baseline = baseline
         self.steps = []
 
     def reset(self) -> None:
@@ -101,8 +152,9 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
         """
         Aggregate the statistics collected to date.
 
-        This function calculates the policy gradient from the collected episode. It then returns this
-        gradient and the rewards.
+        This function calculates the total future rewards of the observed examples. If a baseline
+        is specified, then the baselines will be calculated and subtracted from the total future
+        rewards.
 
         Returns:
             An instance of the EpisodePolicyGradientStatistics dataclass.

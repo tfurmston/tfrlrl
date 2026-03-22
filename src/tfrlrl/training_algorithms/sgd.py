@@ -1,6 +1,7 @@
 """Stochastic Gradient Descent training algorithm."""
 
 import logging
+from typing import Optional
 
 import numpy as np
 import ray
@@ -14,6 +15,7 @@ from torch.optim import (
 )
 
 from tfrlrl import settings
+from tfrlrl.baselines.linear import Baseline
 from tfrlrl.policies.base import BasePyTorchPolicy
 from tfrlrl.sampling.episodic_sampler import (
     EpisodicSampler,
@@ -31,6 +33,7 @@ def train_policy_gradient(
     n_episodes: int,
     alpha: float,
     n_samplers: int = 1,
+    baseline: Optional[Baseline] = None,
     **kwargs,
 ) -> BasePyTorchPolicy:
     """
@@ -43,13 +46,17 @@ def train_policy_gradient(
         n_episodes: The number of episodes to sample during each policy update.
         alpha: The initial step size to take in stochastic gradient ascent.
         n_samplers: The number of samplers to used to sample from the environment.
+        baseline: An instance of a baseline class, if one is given.
         kwargs: Additional keyword arguments to pass to the EpisodicSampler (e.g., is_slippery).
 
     Returns:
         The trained policy.
 
     """
-    statistics_collector = EpisocidPolicyGradientStatisticsCollector(env_id)
+    statistics_collector = EpisocidPolicyGradientStatisticsCollector(
+        env_id,
+        baseline=baseline,
+    )
     optimizer = SGD(policy.get_parameters(), lr=alpha)
 
     if n_samplers > 1:
@@ -93,7 +100,13 @@ def train_policy_gradient(
             logger.info('Policy update: %s', n)
             logger.info('Average total episodic reward: %s', np.average(statistics.total_reward))
 
+        if baseline:
+            baseline.fit(statistics.baseline_features, statistics.baseline_targets)
+
         sampler.reset()
-        sampler.update(state_dict=policy.get_state())
+        sampler.update(
+            policy_state_dict=policy.get_state(),
+            baseline_state_dict=baseline.get_state() if baseline else None,
+        )
 
     return policy

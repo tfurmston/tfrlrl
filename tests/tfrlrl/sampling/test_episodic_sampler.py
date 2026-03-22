@@ -133,7 +133,7 @@ class TestEpisodicSampler:
                 assert isinstance(step.info, dict)
 
         sampler.reset()
-        sampler.update(state_dict=policy.get_state())
+        sampler.update(policy_state_dict=policy.get_state())
 
         statistics = list(sampler)
         assert len(statistics) == n_episodes

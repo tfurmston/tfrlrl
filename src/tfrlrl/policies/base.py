@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Generator, Tuple, Union
+from typing import Any, Dict, Generator, Tuple, Union
 
 import gymnasium as gym
 from numpy.typing import ArrayLike
@@ -39,12 +39,12 @@ class BasePolicy(ABC):
         ...
 
     @abstractmethod
-    def update(self, **kwargs) -> None:
+    def update(self, state_dict: Dict[str, Any]) -> None:
         """
         Update the policy using the keyword arguments provided.
 
         Args:
-            kwargs: Keyward arguments passed to the policy update.
+            state_dict: The state dictionary for the policy.
 
         """
         ...
@@ -90,11 +90,15 @@ class UniformActionSamplingPolicy(BasePolicy):
         """
         return self._env.action_space.sample()
 
-    def update(self, **kwargs) -> None:
+    def update(self, _: Dict[str, Any]) -> None:
         """
         Update the policy.
 
         This is a dummy function, as there is nothing to update in this policy.
+
+        Args:
+            state_dict: The state dictionary for the policy.
+
         """
         pass
 
@@ -155,13 +159,12 @@ class BasePyTorchPolicy(BasePolicy):
         """
         self.network.load_state_dict(state_dict)
 
-    def update(self, state_dict, **kwargs) -> None:
+    def update(self, state_dict) -> None:
         """
         Update the policy.
 
         Args:
             state_dict: The state dictionary to be assigned to the policy's Pytorch network.
-            kwargs: Optional keyword-arguments for the policy update.
 
         """
         self.set_state(state_dict)

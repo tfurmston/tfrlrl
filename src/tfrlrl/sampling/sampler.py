@@ -1,5 +1,5 @@
 import uuid
-from typing import Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import gymnasium as gym
 from numpy.typing import NDArray
@@ -81,12 +81,14 @@ class Sampler:
         if self._n_steps_taken is not None:
             self._n_steps_taken = 0
 
-    def update(self, **kwargs) -> None:
+    def update(self, policy_state_dict: Dict[str, Any]) -> None:
         """
         Update the sampler, e.g. the policy used for action selection.
 
         Args:
-            kwargs: Keyword arguments passed to the policy update.
+            policy_state_dict: The state dictionary for the policy.
 
         """
-        self._policy.update(**kwargs)
+        self._policy.update(
+            state_dict=policy_state_dict,
+        )

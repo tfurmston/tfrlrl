@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -17,6 +18,48 @@ class Baseline:
         """Fit the baseline on the given examples."""
         ...
 
+    @abstractmethod
+    def get_state(self) -> dict[str, Any]:
+        """
+        Get the state dictionary of the baseline clase.
+
+        Return the state dictionary of the baseline. This follows the same terminology as PyTorch, though baselines
+        as not implemented through PyTorch. This is just a convention. The state dictionary returned by this function
+        should contain the information necessary to reinstantiate the baseline class.
+
+        Returns:
+            The current state dictionary of the baseline class.
+
+        """
+        ...
+
+    @abstractmethod
+    def set_state(self, state_dict: dict[str, Any]) -> None:
+        """
+        Set the state dictionary of the baseline clase.
+
+        Set the state dictionary of the baseline. This follows the same terminology as PyTorch, though baselines
+        as not implemented through PyTorch. This is just a convention. The state dictionary returned by this function
+        should contain the information necessary to reinstantiate the baseline class.
+
+        Args:
+            state_dict: The state dictionary to be assigned to the baseline.
+
+        """
+        ...
+
+    @abstractmethod
+    def update(self, state_dict, **kwargs) -> None:
+        """
+        Update the baseline.
+
+        Args:
+            state_dict: The state dictionary to be assigned to the baseline.
+            kwargs: Optional keyword-arguments for the policy update.
+
+        """
+        ...
+
 
 class LinearBaseline(Baseline):
     """
@@ -28,8 +71,53 @@ class LinearBaseline(Baseline):
 
     def __init__(self, reg_coeff=1e-5, coeffs: npt.ArrayLike = None):
         """Class constructor."""
-        self.reg_coeff = reg_coeff
+        self._reg_coeff = reg_coeff
         self._coeffs = coeffs
+
+    def get_state(self) -> dict[str, Any]:
+        """
+        Get the state dictionary of the baseline clase.
+
+        Return the state dictionary of the baseline. This follows the same terminology as PyTorch, though baselines
+        as not implemented through PyTorch. This is just a convention. The state dictionary returned by this function
+        should contain the information necessary to reinstantiate the baseline class.
+
+        Returns:
+            The current state dictionary of the baseline class.
+
+        """
+        return {
+            'reg_coeff': self._reg_coeff,
+            'coeffs': self._coeffs,
+        }
+
+    @abstractmethod
+    def set_state(self, state_dict: dict[str, Any]) -> None:
+        """
+        Set the state dictionary of the baseline clase.
+
+        Set the state dictionary of the baseline. This follows the same terminology as PyTorch, though baselines
+        as not implemented through PyTorch. This is just a convention. The state dictionary returned by this function
+        should contain the information necessary to reinstantiate the baseline class.
+
+        Args:
+            state_dict: The state dictionary to be assigned to the baseline.
+
+        """
+        self._reg_coeff = state_dict['reg_coeff']
+        self._coeffs = state_dict['coeffs']
+
+    @abstractmethod
+    def update(self, state_dict, **kwargs) -> None:
+        """
+        Update the baseline.
+
+        Args:
+            state_dict: The state dictionary to be assigned to the baseline.
+            kwargs: Optional keyword-arguments for the policy update.
+
+        """
+        self.set_state(state_dict)
 
     def calculate_features(self, observation_matrix: npt.ArrayLike, time_steps: npt.ArrayLike) -> npt.ArrayLike:
         """
@@ -82,7 +170,7 @@ class LinearBaseline(Baseline):
         reg_coeff = self._reg_coeff
         for _ in range(5):
             self._coeffs = np.linalg.lstsq(
-                np.dot(feature_matrix, feature_matrix.T) + reg_coeff * np.identity(feature_matrix.shape[1]),
+                np.dot(feature_matrix, feature_matrix.T) + reg_coeff * np.identity(feature_matrix.shape[0]),
                 np.dot(feature_matrix, regressand.T),
             )[0]
             if not np.any(np.isnan(self._coeffs)):
