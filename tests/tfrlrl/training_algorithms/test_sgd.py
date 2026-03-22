@@ -72,7 +72,7 @@ class TestTrainPolicyGradient:
             policy = LinearSoftMax(env_id, feature_fn)
 
         if use_baseline:
-            baseline = LinearBaseline()
+            baseline = LinearBaseline(env_id=env_id)
         else:
             baseline = None
 
@@ -183,7 +183,23 @@ class TestTrainPolicyGradient:
         assert np.average(statistics.total_reward) > 0.8
 
     @pytest.mark.slow
-    @pytest.mark.parametrize('env_id', ['FrozenLake-v1', 'InvertedPendulum-v5'])
+    @pytest.mark.parametrize(
+        'env_id, use_baseline',
+        [
+            (
+                'FrozenLake-v1',
+                False,
+            ),
+            (
+                'InvertedPendulum-v5',
+                False,
+            ),
+            (
+                'InvertedPendulum-v5',
+                True,
+            ),
+        ],
+    )
     @given(
         n_iterations=st.integers(min_value=2, max_value=5),
         n_episodes=st.integers(min_value=10, max_value=20),
@@ -193,6 +209,7 @@ class TestTrainPolicyGradient:
     def test_ray_train_policy_gradient_returns_policy(
         self,
         env_id: str,
+        use_baseline: bool,
         n_iterations: int,
         n_episodes: int,
         alpha: float,
@@ -203,6 +220,7 @@ class TestTrainPolicyGradient:
 
         Args:
             env_id: The Gym environment ID to be used in training.
+            use_baseline: A Boolean indicating whether to use a linear baseline.
             n_iterations: The number of policy updates to perform.
             n_episodes: The number of episodes to sample during each policy update.
             alpha: The initial step size for stochastic gradient ascent.
@@ -220,6 +238,11 @@ class TestTrainPolicyGradient:
             feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
             policy = LinearSoftMax(env_id, feature_fn)
 
+        if use_baseline:
+            baseline = LinearBaseline(env_id=env_id)
+        else:
+            baseline = None
+
         # Train the policy
         trained_policy = train_policy_gradient(
             env_id=env_id,
@@ -228,6 +251,7 @@ class TestTrainPolicyGradient:
             n_episodes=n_episodes,
             alpha=alpha,
             n_samplers=n_samplers,
+            baseline=baseline,
         )
 
         # Verify that a policy is returned

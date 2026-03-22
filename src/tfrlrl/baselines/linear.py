@@ -1,12 +1,36 @@
 from abc import abstractmethod
 from typing import Any
 
+import gymnasium as gym
 import numpy as np
 import numpy.typing as npt
 
 
+class BaselineException(Exception):
+    """Custom exception to encompass errors raised by the baselines."""
+
+    pass
+
+
 class Baseline:
     """A base class for baseline algorithms, which are used to reduce the variance of policy graident methods."""
+
+    def __init__(self, env_id: str):
+        """
+        Initialise the base baseline class.
+
+        Args:
+            env_id: The I.D. of the environment from which to collect statistics.
+
+        """
+        env = gym.make(env_id)
+        if not self.valid_environment(env):
+            raise BaselineException('Can not use baseline class on environment: (%s, %s)', type(self).__name__, env_id)
+
+    @abstractmethod
+    def valid_environment(self, env: gym.Env) -> bool:
+        """Determine whether the baseline class can be used in the given environment."""
+        ...
 
     @abstractmethod
     def calculate_baseline(self, observation_matrix: npt.ArrayLike, time_steps: npt.ArrayLike) -> npt.ArrayLike:
@@ -29,8 +53,8 @@ class Baseline:
         Fit the baseline on the given examples.
 
         Args:
-            feature_matrix: A pre-calculated [2 * n_obs + 4, n_steps] feature matrix. If provided the features
-            will not be calculated again.
+            feature_matrix: A pre-calculated [n_steps,  n_f] feature matrix, in which n_f is the number of features in
+            the baseline.
             regressand: A pre-calculated [n_steps] vector of the regressand.
 
         """
@@ -67,13 +91,12 @@ class Baseline:
         ...
 
     @abstractmethod
-    def update(self, state_dict, **kwargs) -> None:
+    def update(self, state_dict) -> None:
         """
         Update the baseline.
 
         Args:
             state_dict: The state dictionary to be assigned to the baseline.
-            kwargs: Optional keyword-arguments for the policy update.
 
         """
         ...
@@ -83,12 +106,19 @@ class LinearBaseline(Baseline):
     """
     A linear baseline class.
 
-    This class uses a linear function for the baseline calculation. It uses the same features are given in
-    ......
+    This class uses a linear function for the baseline calculation. It uses the same features are given in the paper,
+    Benchmarking Deep Reinforcement Learning for Continuous Control by Yan Duan et. al. (See section 2 of the appendix
+     of the paper.) In particular, the features of the linear predictor are of the form:
+
+        baseline(o) = (o, o^^2, 0.01 * t, (0.01 * t)^2, (0.01 * t)^3, 1)
+
+    in which o is the observation, t is the time step and o^^2 should be read as the element-wise product.
+
     """
 
-    def __init__(self, reg_coeff=1e-5, coeffs: npt.ArrayLike = None):
+    def __init__(self, env_id: str, reg_coeff=1e-5, coeffs: npt.ArrayLike = None):
         """Class constructor."""
+        super().__init__(env_id=env_id)
         self._reg_coeff = reg_coeff
         self._coeffs = coeffs
 
@@ -126,13 +156,17 @@ class LinearBaseline(Baseline):
         self._coeffs = state_dict['coeffs']
 
     @abstractmethod
-    def update(self, state_dict, **kwargs) -> None:
+    def valid_environment(self, env: gym.Env) -> bool:
+        """Determine whether the baseline class can be used in the given environment."""
+        return isinstance(env.observation_space, gym.spaces.Box)
+
+    @abstractmethod
+    def update(self, state_dict) -> None:
         """
         Update the baseline.
 
         Args:
             state_dict: The state dictionary to be assigned to the baseline.
-            kwargs: Optional keyword-arguments for the policy update.
 
         """
         self.set_state(state_dict)
@@ -180,8 +214,7 @@ class LinearBaseline(Baseline):
         Fit the baseline on the given examples.
 
         Args:
-            feature_matrix: A pre-calculated [2 * n_obs + 4, n_steps] feature matrix. If provided the features
-            will not be calculated again.
+            feature_matrix: A pre-calculated [2 * n_obs + 4, n_steps] feature matrix.
             regressand: A pre-calculated [n_steps] vector of the regressand.
 
         """

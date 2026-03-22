@@ -89,7 +89,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         policy = LinearSoftMax(env_id, feature_fn)
 
         if include_baseline:
-            baseline = LinearBaseline()
+            baseline = LinearBaseline(env_id=env_id)
         else:
             baseline = None
         stats_collector = EpisocidPolicyGradientStatisticsCollector(
@@ -151,7 +151,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             policy = LinearSoftMax(env_id, feature_fn)
 
         if include_baseline:
-            baseline = LinearBaseline()
+            baseline = LinearBaseline(env_id=env_id)
         else:
             baseline = None
 
@@ -198,9 +198,11 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         """
         Test that merge_statistics returns statistics with expected dimensions.
 
-        :param env_id: The Gym environment ID to be used in testing.
-        :param include_baseline: A Boolean indicating whether to include a baseline class in the statistics collection.
-        :param n_episodes: The number of episodes to sample.
+        Args:
+            env_id: The Gym environment ID to be used in testing.
+            include_baseline: A Boolean indicating whether to include a baseline class in the statistics collection.
+            n_episodes: The number of episodes to sample.
+
         """
         env = gym.make(env_id)
 
@@ -216,7 +218,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             policy = LinearSoftMax(env_id, feature_fn)
 
         if include_baseline:
-            baseline = LinearBaseline()
+            baseline = LinearBaseline(env_id=env_id)
         else:
             baseline = None
         stats_collector = EpisocidPolicyGradientStatisticsCollector(
@@ -245,15 +247,26 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             assert statistics.baseline_features is None
             assert statistics.baseline_targets is None
 
-    @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+    @pytest.mark.parametrize(
+        'env_id, include_baseline',
+        [
+            (
+                'InvertedPendulum-v5',
+                True,
+            ),
+        ],
+    )
     @given(n_episodes=st.integers(min_value=1, max_value=5))
     @settings(deadline=5000)
-    def test_merge_statistics_with_inconsistent_baseline_statistics(self, env_id: str, n_episodes: int):
+    def test_merge_statistics_with_inconsistent_baseline_statistics(
+        self, env_id: str, include_baseline: bool, n_episodes: int
+    ):
         """
         Test that merge_statistics raises an error when merging inconsistent baseline statistics.
 
         Args:
             env_id: The Gym environment ID to be used in testing.
+            include_baseline: A Boolean indicating whether to include a baseline class in the statistics collection.
             n_episodes: The number of episodes to sample.
 
         """
@@ -271,7 +284,11 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             policy = LinearSoftMax(env_id, feature_fn)
             env_kwargs = {'is_slippery': False}
 
-        baseline = LinearBaseline()
+        if include_baseline:
+            baseline = LinearBaseline(env_id=env_id)
+        else:
+            baseline = None
+
         stats_collector1 = EpisocidPolicyGradientStatisticsCollector(
             env_id=env_id,
             baseline=baseline,

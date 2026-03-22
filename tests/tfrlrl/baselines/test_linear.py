@@ -31,7 +31,7 @@ class TestLinearBaseline:
             n_steps: The number of time steps.
 
         """
-        baseline = LinearBaseline()
+        baseline = LinearBaseline(env_id)
 
         # Create random observations with correct shape
         observation_matrix = np.random.randn(obs_dim, n_steps)
@@ -46,13 +46,14 @@ class TestLinearBaseline:
             f'Feature matrix shape {features.shape} does not match expected shape {expected_shape}'
         )
 
+    @pytest.mark.parametrize('env_id', ['CartPole-v1', 'MountainCar-v0'])
     @given(
         n_steps=st.integers(min_value=5, max_value=50),
         obs_dim=st.integers(min_value=1, max_value=10),
         seed=st.integers(min_value=0, max_value=10000),
     )
     @settings(deadline=2000)
-    def test_calculate_features_observation_clipping(self, n_steps: int, obs_dim: int, seed: int):
+    def test_calculate_features_observation_clipping(self, env_id: str, n_steps: int, obs_dim: int, seed: int):
         """
         Test that observations are clipped to the range [-10, 10] in the feature calculation.
 
@@ -60,13 +61,14 @@ class TestLinearBaseline:
         being included in the feature matrix.
 
         Args:
+            env_id: The Gymnasium environment ID used for baseline initialisation.
             n_steps: The number of time steps.
             obs_dim: The dimensionality of the observation space.
             seed: Random seed for reproducibility.
 
         """
         np.random.seed(seed)
-        baseline = LinearBaseline()
+        baseline = LinearBaseline(env_id)
 
         # Create observations with values outside [-10, 10] range
         observation_matrix = np.random.uniform(low=-100, high=100, size=(obs_dim, n_steps))
@@ -89,9 +91,10 @@ class TestLinearBaseline:
         assert np.all(observation_squared_features >= 0), 'Some squared observation features are negative'
         assert np.all(observation_squared_features <= 100), 'Some squared observation features are above 100'
 
+    @pytest.mark.parametrize('env_id', ['CartPole-v1', 'MountainCar-v0'])
     @given(obs_dim=st.integers(min_value=1, max_value=10))
     @settings(deadline=2000)
-    def test_calculate_features_time_step_normalization(self, obs_dim: int):
+    def test_calculate_features_time_step_normalization(self, env_id: str, obs_dim: int):
         """
         Test that time steps are correctly normalized by 100.0 in the feature calculation.
 
@@ -102,10 +105,11 @@ class TestLinearBaseline:
         - Column 2*obs_dim + 3: 1.0 (constant)
 
         Args:
+            env_id: The Gymnasium environment ID used for baseline initialisation.
             obs_dim: The dimensionality of the observation space.
 
         """
-        baseline = LinearBaseline()
+        baseline = LinearBaseline(env_id)
 
         # Create specific time steps to test normalization
         time_steps = np.array([0, 50, 100, 200])
@@ -175,7 +179,7 @@ class TestLinearBaseline:
             n_steps: The number of steps to sample from the environment.
 
         """
-        baseline = LinearBaseline()
+        baseline = LinearBaseline(env_id)
         env = gym.make(env_id)
 
         # Determine observation dimension based on environment
@@ -254,7 +258,7 @@ class TestLinearBaseline:
         feature_dim = 2 * obs_dim + 4
         if coeffs == 'random':
             coeffs = np.random.randn(feature_dim)
-        baseline = LinearBaseline(coeffs=coeffs)
+        baseline = LinearBaseline(env_id, coeffs=coeffs)
 
         # Sample steps from the environment
         sampler = Sampler(env_id, n_steps=n_steps)
