@@ -9,13 +9,31 @@ class Baseline:
     """A base class for baseline algorithms, which are used to reduce the variance of policy graident methods."""
 
     @abstractmethod
-    def calculate_baseline(self):
-        """Calculate the baseline for the given examples."""
+    def calculate_baseline(self, observation_matrix: npt.ArrayLike, time_steps: npt.ArrayLike) -> npt.ArrayLike:
+        """
+        Calculate the baseline for the given examples.
+
+        Args:
+            observation_matrix: An [n_obs, n_steps] NumPy matrix of observations.
+            time_steps: An [n_steps] NumPy matrix of the time steps corresponding to the given observations.
+
+        Returns:
+            The baselines for the given observations.
+
+        """
         ...
 
     @abstractmethod
-    def fit(self):
-        """Fit the baseline on the given examples."""
+    def fit(self, feature_matrix: npt.ArrayLike, regressand: npt.ArrayLike) -> None:
+        """
+        Fit the baseline on the given examples.
+
+        Args:
+            feature_matrix: A pre-calculated [2 * n_obs + 4, n_steps] feature matrix. If provided the features
+            will not be calculated again.
+            regressand: A pre-calculated [n_steps] vector of the regressand.
+
+        """
         ...
 
     @abstractmethod
