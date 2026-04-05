@@ -17,12 +17,12 @@ logger = logging.getLogger(__name__)
 class EpisodePolicyGradientStatistics(BaseStatistics):
     """Dataclass for the statistics collected in episodic policy gradients."""
 
-    total_reward: float
+    total_reward: np.ndarray
     observations: np.ndarray
     actions: np.ndarray
     total_expected_rewards: np.ndarray
-    baseline_features: np.ndarray = None
-    baseline_targets: np.ndarray = None
+    baseline_features: Optional[np.ndarray] = None
+    baseline_targets: Optional[np.ndarray] = None
 
 
 class BaseStatisticsCollector(ABC):
@@ -58,7 +58,7 @@ class BaseStatisticsCollector(ABC):
             baseline_state_dict: The state dictionary of the baseline.
 
         """
-        if baseline_state_dict is not None:
+        if self.baseline is not None and baseline_state_dict is not None:
             self.baseline.update(state_dict=baseline_state_dict)
 
     @abstractmethod

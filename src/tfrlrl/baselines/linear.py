@@ -1,9 +1,8 @@
 from abc import abstractmethod
-from typing import Any
+from typing import Any, Optional
 
 import gymnasium as gym
 import numpy as np
-import numpy.typing as npt
 
 
 class BaselineException(Exception):
@@ -33,7 +32,7 @@ class Baseline:
         ...
 
     @abstractmethod
-    def calculate_baseline(self, observation_matrix: npt.ArrayLike, time_steps: npt.ArrayLike) -> npt.ArrayLike:
+    def calculate_baseline(self, observation_matrix: np.ndarray, time_steps: np.ndarray) -> np.ndarray:
         """
         Calculate the baseline for the given examples.
 
@@ -48,7 +47,7 @@ class Baseline:
         ...
 
     @abstractmethod
-    def fit(self, feature_matrix: npt.ArrayLike, regressand: npt.ArrayLike) -> None:
+    def fit(self, feature_matrix: np.ndarray, regressand: np.ndarray) -> None:
         """
         Fit the baseline on the given examples.
 
@@ -116,7 +115,7 @@ class LinearBaseline(Baseline):
 
     """
 
-    def __init__(self, env_id: str, reg_coeff=1e-5, coeffs: npt.ArrayLike = None):
+    def __init__(self, env_id: str, reg_coeff=1e-5, coeffs: Optional[np.ndarray] = None):
         """Class constructor."""
         super().__init__(env_id=env_id)
         self._reg_coeff = reg_coeff
@@ -171,7 +170,7 @@ class LinearBaseline(Baseline):
         """
         self.set_state(state_dict)
 
-    def calculate_features(self, observation_matrix: npt.ArrayLike, time_steps: npt.ArrayLike) -> npt.ArrayLike:
+    def calculate_features(self, observation_matrix: np.ndarray, time_steps: np.ndarray) -> np.ndarray:
         """
         Calculate baseline features for the given observations.
 
@@ -188,8 +187,8 @@ class LinearBaseline(Baseline):
         return np.concatenate([o, o**2, al, al**2, al**3, np.ones((1, time_steps.shape[0]))], axis=0)
 
     def calculate_baseline(
-        self, observation_matrix: npt.ArrayLike, time_steps: npt.ArrayLike, feature_matrix: npt.ArrayLike = None
-    ) -> npt.ArrayLike:
+        self, observation_matrix: np.ndarray, time_steps: np.ndarray, feature_matrix: Optional[np.ndarray] = None
+    ) -> np.ndarray:
         """
         Calculate the baseline for the given examples.
 
@@ -209,7 +208,7 @@ class LinearBaseline(Baseline):
             feature_matrix = self.calculate_features(observation_matrix, time_steps)
         return np.dot(self._coeffs, feature_matrix)
 
-    def fit(self, feature_matrix: npt.ArrayLike, regressand: npt.ArrayLike) -> None:
+    def fit(self, feature_matrix: np.ndarray, regressand: np.ndarray) -> None:
         """
         Fit the baseline on the given examples.
 

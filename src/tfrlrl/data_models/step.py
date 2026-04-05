@@ -4,7 +4,7 @@ from typing import Callable, List, Tuple, Type
 import gymnasium as gym
 import numpy as np
 
-from tfrlrl.data_models.base import (
+from tfrlrl.data_models.base import (  # type: ignore
     BooleanDescriptor,
     DictDescriptor,
     IntDescriptor,

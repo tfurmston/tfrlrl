@@ -16,7 +16,7 @@ class Sampler:
     class provides iterable support, see https://docs.python.org/3/library/stdtypes.html#typeiter.
     """
 
-    def __init__(self, env_id: str, n_steps: int = None, policy: Optional[BasePolicy] = None, **kwargs):
+    def __init__(self, env_id: str, n_steps: Optional[int] = None, policy: Optional[BasePolicy] = None, **kwargs):
         """
         Initialise instance of Sampler, which entails initialising the environment and setting member variables.
 

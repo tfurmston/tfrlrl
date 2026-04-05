@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any, Union
 
 import numpy as np
 
@@ -32,7 +33,7 @@ class Validator(ABC):
 class StringDescriptor(Validator):
     """A Descriptor validator class that validates the value is a string."""
 
-    def validate(self, value):
+    def validate(self, value: Any):
         """Validate that value is a string."""
         if not isinstance(value, str):
             raise TypeError(f'Expected {value!r} to be a string')
@@ -41,7 +42,7 @@ class StringDescriptor(Validator):
 class IntDescriptor(Validator):
     """A Descriptor validator class that validates the value is an integer."""
 
-    def validate(self, value):
+    def validate(self, value: Any):
         """Validate that value is an integer."""
         if not isinstance(value, (int, np.integer)):
             raise TypeError(f'Expected {value!r} to be an integer')
@@ -50,7 +51,7 @@ class IntDescriptor(Validator):
 class FloatDescriptor(Validator):
     """A Descriptor validator class that validates the value is a float."""
 
-    def validate(self, value):
+    def validate(self, value: Any):
         """Validate that value is a float."""
         if not isinstance(value, float):
             raise TypeError(f'Expected {value!r} to be a float')
@@ -59,7 +60,7 @@ class FloatDescriptor(Validator):
 class IntFloatDescriptor(Validator):
     """A Descriptor validator class that validates the value is an integer or a float."""
 
-    def validate(self, value):
+    def validate(self, value: Any):
         """Validate that value is an integer."""
         if not isinstance(value, (int, np.integer, float)):
             raise TypeError(f'Expected {value!r} to be an integer or a float')
@@ -68,7 +69,7 @@ class IntFloatDescriptor(Validator):
 class BooleanDescriptor(Validator):
     """A Descriptor validator class that validates the value is a Boolean."""
 
-    def validate(self, value):
+    def validate(self, value: Any):
         """Validate that value is a Boolean."""
         if not isinstance(value, bool):
             raise TypeError(f'Expected {value!r} to be a Boolean')
@@ -77,7 +78,7 @@ class BooleanDescriptor(Validator):
 class DictDescriptor(Validator):
     """A Descriptor validator class that validates the value is a dictionary."""
 
-    def validate(self, value):
+    def validate(self, value: Any):
         """Validate that value is a dictionary."""
         if not isinstance(value, dict):
             raise TypeError(f'Expected {value!r} to be a dictionary')
@@ -104,16 +105,16 @@ class NumpyArrayDescriptor(Validator):
 
         """
         if allow_numeric:
-            self.allowed_instances = (np.ndarray, int, float)
+            self.allowed_instances: tuple[type, ...] = (np.ndarray, int, float)
         else:
             self.allowed_instances = (np.ndarray,)
 
-    def validate(self, value):
+    def validate(self, value: Any):
         """Validate that value is an NumPy ndarray."""
         if not isinstance(value, self.allowed_instances):
             raise TypeError(f'Expected {value!r} to be on instance of {self.allowed_instances}')
 
-    def _preprocess_value(self, x):
+    def _preprocess_value(self, x: Union[np.ndarray, int, float]):
         """Convert to NumPy array in case of floats or ints."""
         return (
             x if isinstance(x, np.ndarray) else x * np.ones(1, dtype=np.float64 if isinstance(x, float) else np.int64)
@@ -134,6 +135,6 @@ class NumpyArrayExpandedDescriptor(NumpyArrayDescriptor):
         """
         super().__init__(allow_numeric=allow_numeric)
 
-    def _preprocess_value(self, x):
+    def _preprocess_value(self, x: Union[np.ndarray, int, float]):
         """Add a new axis to the end of the raw observation vector."""
         return super()._preprocess_value(x)[:, np.newaxis]

@@ -31,7 +31,7 @@ class OneHotFeatureFunction(FeatureFunction):
         self.A = A
 
         self.f = np.zeros([S * (A - 1), S * A])
-        inds = np.delete(np.arange(S * A), np.arange(S * A, step=A))
+        inds = np.delete(np.arange(S * A), np.arange(start=0, stop=S * A, step=A))
         self.f[:, inds] = np.eye(S * (A - 1))
 
     @property
