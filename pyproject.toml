@@ -62,9 +62,15 @@ ignore = ["D100", "D104", "D203", "D212", "Q000", "Q003"]
 quote-style = "single"
 
 [tool.mypy]
-mypy_path = 'src'
+mypy_path = "src"
 explicit_package_bases = true
 exclude = [
-    'tfrlrl/sampling/',
-    'tfrlrl/training_algorithms/'
+    "tfrlrl/sampling/",
+    "tfrlrl/training_algorithms/"
 ]
+
+[[tool.mypy.overrides]]
+module = [
+    "dynaconf",
+]
+ignore_missing_imports = true
