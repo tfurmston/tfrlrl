@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from tfrlrl.data_models.base import NumpyArrayDescriptor  # type: ignore
+from tfrlrl.data_models.base import NumpyArrayDescriptor
 
 
 @dataclass

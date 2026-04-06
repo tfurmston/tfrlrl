@@ -4,7 +4,7 @@ from typing import Callable, List, Tuple, Type
 import gymnasium as gym
 import numpy as np
 
-from tfrlrl.data_models.base import (  # type: ignore
+from tfrlrl.data_models.base import (
     BooleanDescriptor,
     DictDescriptor,
     IntDescriptor,
@@ -97,24 +97,18 @@ def construct_step_dataclass(env_id: str, expand_observations: bool, expand_next
         The dataclass representing a step in the given environment.
 
     """
-    if expand_observations:
-        obs_tuple = ('observation', NumpyArrayExpandedDescriptor, NumpyArrayExpandedDescriptor())
-    else:
-        obs_tuple = ('observation', NumpyArrayDescriptor, NumpyArrayDescriptor())
-
-    if expand_next_observations:
-        next_obs_tuple = ('next_observation', NumpyArrayExpandedDescriptor, NumpyArrayExpandedDescriptor())
-    else:
-        next_obs_tuple = ('next_observation', NumpyArrayDescriptor, NumpyArrayDescriptor())
-
     return make_dataclass(
         'Step',
         [
             ('env_id', StringDescriptor, StringDescriptor()),
             ('time_step', IntDescriptor, IntDescriptor()),
-            obs_tuple,
+            ('observation', NumpyArrayExpandedDescriptor, NumpyArrayExpandedDescriptor())
+            if expand_observations
+            else ('observation', NumpyArrayDescriptor, NumpyArrayDescriptor()),
             construct_action_space_definition(env_id),
-            next_obs_tuple,
+            ('next_observation', NumpyArrayExpandedDescriptor, NumpyArrayExpandedDescriptor())
+            if expand_next_observations
+            else ('next_observation', NumpyArrayDescriptor, NumpyArrayDescriptor()),
             ('reward', IntFloatDescriptor, IntFloatDescriptor()),
             ('info', DictDescriptor, DictDescriptor()),
             ('done', BooleanDescriptor, BooleanDescriptor()),

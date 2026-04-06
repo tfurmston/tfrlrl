@@ -1,7 +1,7 @@
 """Stochastic Gradient Descent training algorithm."""
 
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 import ray
@@ -66,7 +66,7 @@ def train_policy_gradient(
                 ignore_reinit_error=True,
             )
             logger.info('Ray initialized for %s CPUs', settings.ray_cpu)
-        sampler = RayEpisodicSampler(
+        sampler: Union[RayEpisodicSampler, EpisodicSampler] = RayEpisodicSampler(
             n_samplers=n_samplers,
             env_id=env_id,
             n_episodes=n_episodes,

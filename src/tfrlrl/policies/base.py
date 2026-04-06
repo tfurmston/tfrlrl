@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterator, Tuple, Union
+from typing import Any, Dict, Iterator, Union
 
 import gymnasium as gym
 import numpy as np
@@ -24,7 +24,7 @@ class BasePolicy(ABC):
     """
 
     @abstractmethod
-    def generate_action(self, observation: np.ndarray) -> Tuple[Union[int, float, np.ndarray]]:
+    def generate_action(self, observation: np.ndarray) -> Union[int, float, np.ndarray]:
         """
         Generate an action for the given state observation.
 
@@ -77,7 +77,7 @@ class UniformActionSamplingPolicy(BasePolicy):
         if not isinstance(self._env.action_space, gym.spaces.Discrete):
             raise PolicyException('The UniformActionSamplingPolicy is applicable to discrete action spaces only.')
 
-    def generate_action(self, observation: np.ndarray) -> Tuple[Union[int, float, np.ndarray]]:
+    def generate_action(self, observation: np.ndarray) -> Union[int, float, np.ndarray]:
         """
         Generate a random action uniformly sampled from the discrete action space.
 

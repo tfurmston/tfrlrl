@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 
@@ -96,7 +96,7 @@ class BaseStatisticsCollector(ABC):
 
     @classmethod
     @abstractmethod
-    def merge_statistics(cls, statistics: List[BaseStatistics]) -> BaseStatistics:
+    def merge_statistics(cls, statistics: Sequence[BaseStatistics]) -> BaseStatistics:
         """Merge the statistics collected by different aggregations of statistics collector(s)."""
         ...
 
@@ -185,7 +185,7 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
         )
 
     @classmethod
-    def merge_statistics(cls, statistics: List[EpisodePolicyGradientStatistics]) -> EpisodePolicyGradientStatistics:
+    def merge_statistics(cls, statistics: Sequence[EpisodePolicyGradientStatistics]) -> EpisodePolicyGradientStatistics:
         """
         Merge statistics across different episodes.
 

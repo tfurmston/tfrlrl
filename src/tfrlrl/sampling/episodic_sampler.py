@@ -20,7 +20,7 @@ class EpisodicSampler:
         self,
         env_id: str,
         statistics_collector: BaseStatisticsCollector,
-        n_episodes: int = None,
+        n_episodes: Optional[int] = None,
         policy: Optional[BasePolicy] = None,
         **kwargs,
     ):
@@ -100,8 +100,8 @@ class RayEpisodicSampler:
         self,
         n_samplers: int,
         env_id: str,
-        statistics_collector: Optional[BaseStatisticsCollector],
-        n_episodes: int = None,
+        statistics_collector: BaseStatisticsCollector,
+        n_episodes: Optional[int] = None,
         policy: Optional[BasePolicy] = None,
         **kwargs,
     ):
@@ -124,7 +124,7 @@ class RayEpisodicSampler:
             RemoteEpisodicSampler.remote(
                 env_id=env_id,
                 statistics_collector=statistics_collector,
-                n_episodes=n_episodes // n_samplers,
+                n_episodes=n_episodes // n_samplers if n_episodes else None,
                 policy=policy,
                 **kwargs,
             )

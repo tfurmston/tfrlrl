@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from typing import Union
 
 import gymnasium as gym
 import numpy as np
@@ -119,7 +120,7 @@ class LinearSoftMax(BasePyTorchPolicy):
         """
         return Categorical(probs=self.network(self.construct_network_input(observations)).squeeze())
 
-    def generate_action(self, observation: np.ndarray) -> int:
+    def generate_action(self, observation: np.ndarray) -> Union[int, float, np.ndarray]:
         """
         Generate an action by sampling from the softmax probability distribution.
 
