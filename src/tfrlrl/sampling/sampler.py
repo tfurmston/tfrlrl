@@ -1,10 +1,9 @@
 import uuid
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional
 
 import gymnasium as gym
-from numpy.typing import NDArray
 
-from tfrlrl.data_models.step import construct_step_dataclasses
+from tfrlrl.data_models.step import StepProtocol, construct_step_dataclasses
 from tfrlrl.policies.base import BasePolicy, UniformActionSamplingPolicy
 
 
@@ -37,14 +36,14 @@ class Sampler:
         self._n_steps = n_steps
         self._n_steps_taken = 0
         self._n_env_steps_taken = 0
-        self.step = None
+        self.step: Optional[StepProtocol] = None
         self._policy = policy if policy is not None else UniformActionSamplingPolicy(env_id)
 
     def __iter__(self):
         """Ensure that the Sampler class supports the iterable protocol."""
         return self
 
-    def __next__(self) -> Tuple[str, int, NDArray, Union[int, float, NDArray], NDArray, float, bool, Dict]:
+    def __next__(self) -> StepProtocol:
         """Return the next item in the sampler iterator. If this is not possible, raise a StopIteration exception."""
         if self._n_steps is not None and self._n_steps_taken >= self._n_steps:
             raise StopIteration
