@@ -13,6 +13,9 @@ install-dev:
 check-style:
 	poetry run ruff check
 
+check-typing:
+	poetry run mypy src/tfrlrl
+
 format:
 	poetry run ruff format
 
@@ -33,6 +36,9 @@ docker-build-dev:
 
 docker-check-style: docker-build-dev
 	docker run $(DOCKER_DEVELOPMENT_NAME):$(DOCKER_TAG) /bin/bash -c 'make check-style'
+
+docker-check-typing: docker-build-dev
+	docker run $(DOCKER_DEVELOPMENT_NAME):$(DOCKER_TAG) /bin/bash -c 'make check-typing'
 
 docker-test: docker-build-dev
 	docker run $(DOCKER_DEVELOPMENT_NAME):$(DOCKER_TAG) /bin/bash -c 'make test'

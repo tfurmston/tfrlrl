@@ -15,6 +15,9 @@ jobs:
     - name: Style Checks
       run: |
         make docker-check-style
+    - name: Typing Checks
+      run: |
+        make docker-check-typing
     - name: Test with pytest
       run: |
         make docker-test-coverage

@@ -129,6 +129,9 @@ poetry run pytest tests/tfrlrl/sampling/test_sampler.py
 # Run linting
 make check-style
 
+# Run type checking
+make check-typing
+
 # Auto-format codebase
 make format
 ```

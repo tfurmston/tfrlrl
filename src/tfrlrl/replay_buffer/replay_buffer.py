@@ -21,14 +21,19 @@ class ReplayBuffer:
     def __init__(self, env_id: str, buffer_size: int = 100):
         """Initialise experience replay buffer."""
         env = gym.make(env_id)
-        self._observations = np.ndarray(
+        if env.observation_space.shape is None:
+            raise ReplayBufferException(
+                'Unable to construct replay buffer for environment with unspecified observation shape.'
+            )
+
+        self._observations: np.ndarray = np.ndarray(
             env.observation_space.shape + (buffer_size,),
         )
-        self._next_observations = np.ndarray(
+        self._next_observations: np.ndarray = np.ndarray(
             env.observation_space.shape + (buffer_size,),
         )
         if isinstance(env.action_space, gym.spaces.Discrete):
-            self._actions = np.ndarray(
+            self._actions: np.ndarray = np.ndarray(
                 (1, buffer_size),
             )
         elif isinstance(env.action_space, gym.spaces.Box):
@@ -37,10 +42,10 @@ class ReplayBuffer:
             )
         else:
             raise ReplayBufferException('Action space must be Discrete or Box.')
-        self._rewards = np.ndarray(
+        self._rewards: np.ndarray = np.ndarray(
             (1, buffer_size),
         )
-        self._dones = np.ndarray(
+        self._dones: np.ndarray = np.ndarray(
             (1, buffer_size),
         )
 

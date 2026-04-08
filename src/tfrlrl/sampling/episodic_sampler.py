@@ -1,14 +1,13 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Generic, Optional
 
 import ray
 
-from tfrlrl.data_models.statistics import BaseStatistics
 from tfrlrl.policies.base import BasePolicy
 from tfrlrl.sampling.sampler import Sampler
-from tfrlrl.sampling.statistics_collection import BaseStatisticsCollector
+from tfrlrl.sampling.statistics_collection import BaseStatisticsCollector, T_Stats
 
 
-class EpisodicSampler:
+class EpisodicSampler(Generic[T_Stats]):
     """
     Class that provides functionality to sample episodes from a given Gym environment.
 
@@ -19,8 +18,8 @@ class EpisodicSampler:
     def __init__(
         self,
         env_id: str,
-        statistics_collector: BaseStatisticsCollector,
-        n_episodes: int = None,
+        statistics_collector: BaseStatisticsCollector[T_Stats],
+        n_episodes: Optional[int] = None,
         policy: Optional[BasePolicy] = None,
         **kwargs,
     ):
@@ -46,7 +45,7 @@ class EpisodicSampler:
         """Ensure that the EpisodicSampler class supports the iterable protocol."""
         return self
 
-    def __next__(self) -> BaseStatistics:
+    def __next__(self) -> T_Stats:
         """Return the next item in the sampler iterator. If this is not possible, raise a StopIteration exception."""
         if self._n_episodes is not None and self._n_episodes_taken >= self._n_episodes:
             raise StopIteration
@@ -81,7 +80,7 @@ class EpisodicSampler:
                 baseline_state_dict=baseline_state_dict,
             )
 
-    def sample(self) -> BaseStatistics:
+    def sample(self) -> T_Stats:
         """Sample all episodes from the sampler and merge the statistics."""
         return self._statistics_collector.merge_statistics([x for x in self])
 
@@ -89,7 +88,7 @@ class EpisodicSampler:
 RemoteEpisodicSampler = ray.remote(EpisodicSampler)
 
 
-class RayEpisodicSampler:
+class RayEpisodicSampler(Generic[T_Stats]):
     """
     Class that provides functionality to sample episodes from a given Gym environment in a parallel manner.
 
@@ -100,8 +99,8 @@ class RayEpisodicSampler:
         self,
         n_samplers: int,
         env_id: str,
-        statistics_collector: Optional[BaseStatisticsCollector],
-        n_episodes: int = None,
+        statistics_collector: BaseStatisticsCollector[T_Stats],
+        n_episodes: Optional[int] = None,
         policy: Optional[BasePolicy] = None,
         **kwargs,
     ):
@@ -124,7 +123,7 @@ class RayEpisodicSampler:
             RemoteEpisodicSampler.remote(
                 env_id=env_id,
                 statistics_collector=statistics_collector,
-                n_episodes=n_episodes // n_samplers,
+                n_episodes=n_episodes // n_samplers if n_episodes else None,
                 policy=policy,
                 **kwargs,
             )
@@ -135,15 +134,15 @@ class RayEpisodicSampler:
         """Ensure that the RayEpisodicSampler class supports the iterable protocol."""
         return self
 
-    def __next__(self) -> BaseStatistics:
+    def __next__(self) -> T_Stats:
         """Return the next item in the sampler iterator. If this is not possible, raise a StopIteration exception."""
         return self.statistics_collector.merge_statistics(
-            ray.get([sampler.__next__.remote() for sampler in self.samplers])
+            ray.get([sampler.__next__.remote() for sampler in self.samplers])  # type: ignore[union-attr]
         )
 
     def reset(self) -> None:
         """Reset all samplers."""
-        ray.get([env.reset.remote() for env in self.samplers])
+        ray.get([env.reset.remote() for env in self.samplers])  # type: ignore[union-attr]
 
     def update(self, policy_state_dict: Dict[str, Any], baseline_state_dict: Optional[Dict[str, Any]] = None) -> None:
         """
@@ -156,7 +155,7 @@ class RayEpisodicSampler:
         """
         ray.get(
             [
-                env.update.remote(
+                env.update.remote(  # type: ignore[union-attr]
                     policy_state_dict=policy_state_dict,
                     baseline_state_dict=baseline_state_dict,
                 )
@@ -164,8 +163,8 @@ class RayEpisodicSampler:
             ]
         )
 
-    def sample(self) -> BaseStatistics:
+    def sample(self) -> T_Stats:
         """Sample all episodes from the sampler and merge the statistics."""
         return self.statistics_collector.merge_statistics(
-            ray.get([sampler.sample.remote() for sampler in self.samplers])
+            ray.get([sampler.sample.remote() for sampler in self.samplers])  # type: ignore[union-attr]
         )

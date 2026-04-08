@@ -1,8 +1,8 @@
 from collections import OrderedDict
-from typing import List
+from typing import List, Union
 
 import gymnasium as gym
-import numpy.typing as npt
+import numpy as np
 from torch import (
     Tensor,
     exp,
@@ -98,7 +98,7 @@ class DenseNetworkPolicy(BasePyTorchPolicy):
 
         self.eps = 1e-6
 
-    def generate_action(self, observation: npt.ArrayLike) -> npt.ArrayLike:
+    def generate_action(self, observation: np.ndarray) -> Union[int, float, np.ndarray]:
         """
         Generate a random action sampled from the policy.
 
@@ -117,7 +117,7 @@ class DenseNetworkPolicy(BasePyTorchPolicy):
         dist = Normal(action_mean + self.eps, action_stddev + self.eps)
         return dist.sample().numpy()
 
-    def calculate_log_probabilities(self, observations: npt.NDArray, actions: npt.NDArray) -> Tensor:
+    def calculate_log_probabilities(self, observations: np.ndarray, actions: np.ndarray) -> Tensor:
         """
         Calculate the log-probailities of the for the given (observation, action) pairs.
 

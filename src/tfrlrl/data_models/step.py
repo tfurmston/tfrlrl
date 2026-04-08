@@ -1,8 +1,9 @@
 from dataclasses import InitVar, make_dataclass
-from typing import Callable, List, Tuple, Type
+from typing import Any, Callable, Dict, List, Protocol, Tuple, Type, Union
 
 import gymnasium as gym
 import numpy as np
+from numpy.typing import NDArray
 
 from tfrlrl.data_models.base import (
     BooleanDescriptor,
@@ -14,6 +15,19 @@ from tfrlrl.data_models.base import (
     StringDescriptor,
     Validator,
 )
+
+
+class StepProtocol(Protocol):
+    """Protocol describing the interface of a dynamically-generated Step dataclass."""
+
+    env_id: str
+    time_step: int
+    observation: NDArray
+    action: Union[int, NDArray]
+    next_observation: NDArray
+    reward: Union[int, float]
+    done: bool
+    info: Dict[Any, Any]
 
 
 class StepDataclassException(Exception):
@@ -97,24 +111,18 @@ def construct_step_dataclass(env_id: str, expand_observations: bool, expand_next
         The dataclass representing a step in the given environment.
 
     """
-    if expand_observations:
-        obs_tuple = ('observation', NumpyArrayExpandedDescriptor, NumpyArrayExpandedDescriptor())
-    else:
-        obs_tuple = ('observation', NumpyArrayDescriptor, NumpyArrayDescriptor())
-
-    if expand_next_observations:
-        next_obs_tuple = ('next_observation', NumpyArrayExpandedDescriptor, NumpyArrayExpandedDescriptor())
-    else:
-        next_obs_tuple = ('next_observation', NumpyArrayDescriptor, NumpyArrayDescriptor())
-
     return make_dataclass(
         'Step',
         [
             ('env_id', StringDescriptor, StringDescriptor()),
             ('time_step', IntDescriptor, IntDescriptor()),
-            obs_tuple,
+            ('observation', NumpyArrayExpandedDescriptor, NumpyArrayExpandedDescriptor())
+            if expand_observations
+            else ('observation', NumpyArrayDescriptor, NumpyArrayDescriptor()),
             construct_action_space_definition(env_id),
-            next_obs_tuple,
+            ('next_observation', NumpyArrayExpandedDescriptor, NumpyArrayExpandedDescriptor())
+            if expand_next_observations
+            else ('next_observation', NumpyArrayDescriptor, NumpyArrayDescriptor()),
             ('reward', IntFloatDescriptor, IntFloatDescriptor()),
             ('info', DictDescriptor, DictDescriptor()),
             ('done', BooleanDescriptor, BooleanDescriptor()),

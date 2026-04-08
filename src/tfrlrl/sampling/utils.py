@@ -1,14 +1,13 @@
-from typing import List
+from typing import Sequence, Union
 
 import numpy as np
-import numpy.typing as npt
 
 from tfrlrl.data_models.statistics import BaseStatistics, StatisticsException
 
 
 def merge_optional_statistics(
-    statistics: List[BaseStatistics], attribute: str, concatenate_axis: int = 0
-) -> npt.ArrayLike:
+    statistics: Sequence[BaseStatistics], attribute: str, concatenate_axis: int = 0
+) -> Union[np.ndarray, None]:
     """
     Merge the optional statistic from the given list of statistics and merge them.
 
@@ -28,7 +27,5 @@ def merge_optional_statistics(
     if any([x is None for x in attributes]) and any([x is not None for x in attributes]):
         raise StatisticsException('All baseline features should either be None or a NumPy array.')
     if all([x is not None for x in attributes]):
-        attributes = np.concatenate(attributes, axis=concatenate_axis)
-    else:
-        attributes = None
-    return attributes
+        return np.concatenate(attributes, axis=concatenate_axis)
+    return None
