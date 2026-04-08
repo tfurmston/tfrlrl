@@ -30,7 +30,7 @@ ENV POETRY_VERSION=2.1.1
 RUN curl -sSL https://install.python-poetry.org | python
 
 WORKDIR /app
-COPY ./poetry.lock ./pyproject.toml ./
+COPY ./poetry.lock ./pyproject.toml ./README.md ./
 RUN poetry install --without dev
 
 FROM builder-base as development
