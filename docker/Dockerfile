@@ -26,7 +26,7 @@ RUN apt-get update \
     libglfw3-dev
 
 # Install Poetry - Respects $POETRY_VERSION & $POERTRY_POETRY_HOME
-ENV POETRY_VERSION=1.3.2
+ENV POETRY_VERSION=2.1.1
 RUN curl -sSL https://install.python-poetry.org | python
 
 WORKDIR /app
