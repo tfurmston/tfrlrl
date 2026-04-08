@@ -32,6 +32,21 @@ class Baseline:
         ...
 
     @abstractmethod
+    def calculate_features(self, observation_matrix: np.ndarray, time_steps: np.ndarray) -> np.ndarray:
+        """
+        Calculate baseline features for the given observations.
+
+        Args:
+            observation_matrix: An [n_obs, n_steps] NumPy matrix of observations.
+            time_steps: An [n_steps] NumPy matrix of the time steps corresponding to the given observations.
+
+        Returns:
+            A NumPy array containing the baseline features for the given observations.
+
+        """
+        ...
+
+    @abstractmethod
     def calculate_baseline(
         self,
         observation_matrix: np.ndarray,

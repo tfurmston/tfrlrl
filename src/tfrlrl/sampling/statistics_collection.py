@@ -1,20 +1,23 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Generic, List, Optional, Sequence, TypeVar
 
 import numpy as np
 
 from tfrlrl.baselines.linear import Baseline
 from tfrlrl.data_models.statistics import BaseStatistics
-from tfrlrl.data_models.step import construct_step_dataclasses
+from tfrlrl.data_models.step import StepProtocol, construct_step_dataclasses
 from tfrlrl.sampling.utils import merge_optional_statistics
 
 logger = logging.getLogger(__name__)
 
 
+T_Stats = TypeVar('T_Stats', bound=BaseStatistics)
+
+
 @dataclass
-class EpisodePolicyGradientStatistics(BaseStatistics):
+class EpisodePolicyGradientStatistics(BaseStatistics, Generic[T_Stats]):
     """Dataclass for the statistics collected in episodic policy gradients."""
 
     total_reward: np.ndarray
@@ -25,7 +28,7 @@ class EpisodePolicyGradientStatistics(BaseStatistics):
     baseline_targets: Optional[np.ndarray] = None
 
 
-class BaseStatisticsCollector(ABC):
+class BaseStatisticsCollector(ABC, Generic[T_Stats]):
     """
     Base class for collecting statistics during sampling.
 
@@ -80,7 +83,7 @@ class BaseStatisticsCollector(ABC):
         ...
 
     @abstractmethod
-    def aggregate_statistics(self) -> BaseStatistics:
+    def aggregate_statistics(self) -> T_Stats:
         """
         Aggregate the statistics collected to date.
 
@@ -96,12 +99,12 @@ class BaseStatisticsCollector(ABC):
 
     @classmethod
     @abstractmethod
-    def merge_statistics(cls, statistics: Sequence[BaseStatistics]) -> BaseStatistics:
+    def merge_statistics(cls, statistics: Sequence[T_Stats]) -> T_Stats:
         """Merge the statistics collected by different aggregations of statistics collector(s)."""
         ...
 
 
-class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
+class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector[EpisodePolicyGradientStatistics]):
     """
     Statistics collector for episodic-level statistics collection.
 
@@ -130,7 +133,7 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector):
             env_id=env_id,
             baseline=baseline,
         )
-        self.steps = []
+        self.steps: List[StepProtocol] = []
 
     def reset(self) -> None:
         """Reset the collected statistics to empty lists."""

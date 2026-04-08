@@ -64,10 +64,6 @@ quote-style = "single"
 [tool.mypy]
 mypy_path = "src"
 explicit_package_bases = true
-exclude = [
-    "tfrlrl/sampling/",
-    "tfrlrl/training_algorithms/"
-]
 
 [[tool.mypy.overrides]]
 module = [
