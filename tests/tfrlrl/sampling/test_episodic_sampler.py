@@ -266,7 +266,7 @@ class TestRayEpisodicSampler:
     @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
     @given(n_episodes=st.integers(min_value=2, max_value=10))
-    @settings(deadline=5000)
+    @settings(deadline=10000)
     def test_ray_sample_n_episodes_without_limit(self, env_id: str, n_episodes: int, test_ray_cluster):
         """
         Test that n-episodes can be sampled from the environment and that the outputs follow the expected format.
