@@ -1,7 +1,7 @@
 # A multi-stage docker build for the Python project, which takes much of its format from
 # https://github.com/michaeloliverx/python-poetry-docker-example
 
-FROM python:3.12-slim as python-base
+FROM python:3.13-slim as python-base
 
 ENV PYTHONBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
