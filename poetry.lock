@@ -180,7 +180,6 @@ files = [
 
 [package.dependencies]
 frozenlist = ">=1.1.0"
-typing-extensions = {version = ">=4.2", markers = "python_version < \"3.13\""}
 
 [[package]]
 name = "ale-py"
@@ -2764,7 +2763,6 @@ files = [
 [package.dependencies]
 attrs = ">=22.2.0"
 rpds-py = ">=0.7.0"
-typing-extensions = {version = ">=4.4.0", markers = "python_version < \"3.13\""}
 
 [[package]]
 name = "requests"
@@ -3459,5 +3457,5 @@ type = ["pytest-mypy"]
 
 [metadata]
 lock-version = "2.1"
-python-versions = "~3.12"
-content-hash = "fd8568296676cf9367ea27f8a57fc5201680dafd5bcd5695cdfc20194a78a479"
+python-versions = "~3.13"
+content-hash = "fbecdda9217a25ce37e2587d90e036cda212ef84111a8529f5594cddb36c0c2d"
