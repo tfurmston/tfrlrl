@@ -11,7 +11,7 @@ repository = "https://github.com/tfurmston/tfrlrl"
 generate-setup-file = false
 
 [tool.poetry.dependencies]
-python = "~3.10"
+python = "~3.13"
 ray = "^2.0.0"
 numpy = "^2.0.0"
 gymnasium = {version = "^1.1.0", extras = ["atari", "accept-rom-license", "mujoco"] }

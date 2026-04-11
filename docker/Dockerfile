@@ -1,7 +1,7 @@
 # A multi-stage docker build for the Python project, which takes much of its format from
 # https://github.com/michaeloliverx/python-poetry-docker-example
 
-FROM python:3.10-slim as python-base
+FROM python:3.13-slim as python-base
 
 ENV PYTHONBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -26,12 +26,12 @@ RUN apt-get update \
     libglfw3-dev
 
 # Install Poetry - Respects $POETRY_VERSION & $POERTRY_POETRY_HOME
-ENV POETRY_VERSION=1.3.2
+ENV POETRY_VERSION=2.1.1
 RUN curl -sSL https://install.python-poetry.org | python
 
 WORKDIR /app
 COPY ./poetry.lock ./pyproject.toml ./
-RUN poetry install --without dev
+RUN poetry install --no-root --without dev
 
 FROM builder-base as development
 

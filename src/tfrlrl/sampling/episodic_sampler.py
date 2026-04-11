@@ -1,13 +1,14 @@
-from typing import Any, Dict, Generic, Optional
+from typing import Any, Dict, Optional
 
 import ray
 
+from tfrlrl.data_models.statistics import BaseStatistics
 from tfrlrl.policies.base import BasePolicy
 from tfrlrl.sampling.sampler import Sampler
-from tfrlrl.sampling.statistics_collection import BaseStatisticsCollector, T_Stats
+from tfrlrl.sampling.statistics_collection import BaseStatisticsCollector
 
 
-class EpisodicSampler(Generic[T_Stats]):
+class EpisodicSampler[T: BaseStatistics]:
     """
     Class that provides functionality to sample episodes from a given Gym environment.
 
@@ -18,7 +19,7 @@ class EpisodicSampler(Generic[T_Stats]):
     def __init__(
         self,
         env_id: str,
-        statistics_collector: BaseStatisticsCollector[T_Stats],
+        statistics_collector: BaseStatisticsCollector[T],
         n_episodes: Optional[int] = None,
         policy: Optional[BasePolicy] = None,
         **kwargs,
@@ -45,7 +46,7 @@ class EpisodicSampler(Generic[T_Stats]):
         """Ensure that the EpisodicSampler class supports the iterable protocol."""
         return self
 
-    def __next__(self) -> T_Stats:
+    def __next__(self) -> T:
         """Return the next item in the sampler iterator. If this is not possible, raise a StopIteration exception."""
         if self._n_episodes is not None and self._n_episodes_taken >= self._n_episodes:
             raise StopIteration
@@ -80,7 +81,7 @@ class EpisodicSampler(Generic[T_Stats]):
                 baseline_state_dict=baseline_state_dict,
             )
 
-    def sample(self) -> T_Stats:
+    def sample(self) -> T:
         """Sample all episodes from the sampler and merge the statistics."""
         return self._statistics_collector.merge_statistics([x for x in self])
 
@@ -88,7 +89,7 @@ class EpisodicSampler(Generic[T_Stats]):
 RemoteEpisodicSampler = ray.remote(EpisodicSampler)
 
 
-class RayEpisodicSampler(Generic[T_Stats]):
+class RayEpisodicSampler[T: BaseStatistics]:
     """
     Class that provides functionality to sample episodes from a given Gym environment in a parallel manner.
 
@@ -99,7 +100,7 @@ class RayEpisodicSampler(Generic[T_Stats]):
         self,
         n_samplers: int,
         env_id: str,
-        statistics_collector: BaseStatisticsCollector[T_Stats],
+        statistics_collector: BaseStatisticsCollector[T],
         n_episodes: Optional[int] = None,
         policy: Optional[BasePolicy] = None,
         **kwargs,
@@ -134,7 +135,7 @@ class RayEpisodicSampler(Generic[T_Stats]):
         """Ensure that the RayEpisodicSampler class supports the iterable protocol."""
         return self
 
-    def __next__(self) -> T_Stats:
+    def __next__(self) -> T:
         """Return the next item in the sampler iterator. If this is not possible, raise a StopIteration exception."""
         return self.statistics_collector.merge_statistics(
             ray.get([sampler.__next__.remote() for sampler in self.samplers])  # type: ignore[union-attr]
@@ -163,7 +164,7 @@ class RayEpisodicSampler(Generic[T_Stats]):
             ]
         )
 
-    def sample(self) -> T_Stats:
+    def sample(self) -> T:
         """Sample all episodes from the sampler and merge the statistics."""
         return self.statistics_collector.merge_statistics(
             ray.get([sampler.sample.remote() for sampler in self.samplers])  # type: ignore[union-attr]

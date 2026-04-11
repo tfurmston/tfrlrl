@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, Generic, List, Optional, Sequence, TypeVar
+from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
 
@@ -13,11 +13,8 @@ from tfrlrl.sampling.utils import merge_optional_statistics
 logger = logging.getLogger(__name__)
 
 
-T_Stats = TypeVar('T_Stats', bound=BaseStatistics)
-
-
 @dataclass
-class EpisodePolicyGradientStatistics(BaseStatistics, Generic[T_Stats]):
+class EpisodePolicyGradientStatistics(BaseStatistics):
     """Dataclass for the statistics collected in episodic policy gradients."""
 
     total_reward: np.ndarray
@@ -28,7 +25,7 @@ class EpisodePolicyGradientStatistics(BaseStatistics, Generic[T_Stats]):
     baseline_targets: Optional[np.ndarray] = None
 
 
-class BaseStatisticsCollector(ABC, Generic[T_Stats]):
+class BaseStatisticsCollector[T: BaseStatistics](ABC):
     """
     Base class for collecting statistics during sampling.
 
@@ -83,7 +80,7 @@ class BaseStatisticsCollector(ABC, Generic[T_Stats]):
         ...
 
     @abstractmethod
-    def aggregate_statistics(self) -> T_Stats:
+    def aggregate_statistics(self) -> T:
         """
         Aggregate the statistics collected to date.
 
@@ -99,7 +96,7 @@ class BaseStatisticsCollector(ABC, Generic[T_Stats]):
 
     @classmethod
     @abstractmethod
-    def merge_statistics(cls, statistics: Sequence[T_Stats]) -> T_Stats:
+    def merge_statistics(cls, statistics: Sequence[T]) -> T:
         """Merge the statistics collected by different aggregations of statistics collector(s)."""
         ...
 

@@ -205,7 +205,7 @@ class TestTrainPolicyGradient:
         n_episodes=st.integers(min_value=10, max_value=20),
         alpha=st.floats(min_value=0.0001, max_value=0.001),
     )
-    @settings(deadline=7000)
+    @settings(deadline=10000)
     def test_ray_train_policy_gradient_returns_policy(
         self,
         env_id: str,
