@@ -6,7 +6,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from torch.optim import (
-    AdamW,
+    SGD,
 )
 
 from tfrlrl.baselines.linear import LinearBaseline
@@ -79,7 +79,7 @@ class TestTrainPolicyGradient:
         else:
             baseline = None
 
-        optimizer = AdamW(policy.get_parameters(), lr=alpha)
+        optimizer = SGD(policy.get_parameters(), lr=alpha)
 
         # Train the policy
         trained_policy = train_policy_gradient(
@@ -132,7 +132,7 @@ class TestTrainPolicyGradient:
 
         original_paramters = copy.deepcopy(list(policy.get_parameters()))
 
-        optimizer = AdamW(policy.get_parameters(), lr=alpha)
+        optimizer = SGD(policy.get_parameters(), lr=alpha)
 
         # Train the policy - We set reward_schedule to ensure the policy is updated.
         trained_policy = train_policy_gradient(
@@ -168,7 +168,7 @@ class TestTrainPolicyGradient:
         feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
         policy = LinearSoftMax(env_id, feature_fn)
 
-        optimizer = AdamW(policy.get_parameters(), lr=alpha)
+        optimizer = SGD(policy.get_parameters(), lr=alpha)
 
         trained_policy = train_policy_gradient(
             env_id=env_id,
@@ -252,7 +252,7 @@ class TestTrainPolicyGradient:
         else:
             baseline = None
 
-        optimizer = AdamW(policy.get_parameters(), lr=alpha)
+        optimizer = SGD(policy.get_parameters(), lr=alpha)
 
         # Train the policy
         trained_policy = train_policy_gradient(
