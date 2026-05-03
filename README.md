@@ -102,6 +102,10 @@ The library uses Dynaconf for configuration management. Settings can be controll
 - `LOG_LEVEL`: Logging level (DEBUG, INFO, WARN, ERROR)
 - `ENV`: Default Gymnasium environment ID
 
+## Experiments
+
+The `experiments` folder contains a range of experiments using this library. At present, it consists of a single simple example using the REINFORCE algorithm to train the inverted pendulum environment. In due course, it is intended to be a growing set of experiments of algorithms on different environments. 
+
 ## Development Guidelines
 
 This project is configured through [Poetry](https://python-poetry.org/). To install Poetry follow the instructions [here](https://python-poetry.org/docs/#installation).
