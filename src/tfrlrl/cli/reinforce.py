@@ -10,7 +10,7 @@ from torch.optim import (
 from tfrlrl.features.onehot import OneHotFeatureFunction
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
-from tfrlrl.training_algorithms.sgd import train_policy_gradient
+from tfrlrl.training_algorithms.reinforce import train_policy_gradient
 
 logging.basicConfig(format='%(asctime)s %(message)s', force=True)
 logger = logging.getLogger(__name__)

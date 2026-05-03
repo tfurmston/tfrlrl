@@ -4,7 +4,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from tfrlrl.cli.sgd import main, parse_args
+from tfrlrl.cli.reinforce import main, parse_args
 
 
 class TestParseArgs:

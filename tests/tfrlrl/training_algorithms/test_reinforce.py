@@ -15,7 +15,7 @@ from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.sampling.episodic_sampler import EpisodicSampler
 from tfrlrl.sampling.statistics_collection import EpisocidPolicyGradientStatisticsCollector
-from tfrlrl.training_algorithms.sgd import train_policy_gradient
+from tfrlrl.training_algorithms.reinforce import train_policy_gradient
 
 
 class TestTrainPolicyGradient:
