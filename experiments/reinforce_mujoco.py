@@ -85,6 +85,7 @@ def main(args=None):
             n_episodes=n_episodes,
             optimizer=optimizer,
             n_samplers=n_samplers,
+            n_iteration_logging=1000,
         )
 
         construct_video_evaluation(

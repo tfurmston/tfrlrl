@@ -38,14 +38,14 @@ def construct_video_evaluation(
 
     for episode_num in range(n_episodes):
         obs, _ = env.reset()
-        episode_reward = 0
+        episode_reward: float = 0.0
         step_count = 0
 
         episode_over = False
         while not episode_over:
             action = policy.generate_action(obs)
             obs, reward, terminated, truncated, _ = env.step(action)
-            episode_reward += reward
+            episode_reward += float(reward)
             step_count += 1
             episode_over = terminated or truncated
 

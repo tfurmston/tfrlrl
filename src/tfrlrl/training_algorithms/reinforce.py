@@ -34,6 +34,7 @@ def train_policy_gradient(
     optimizer: Optimizer,
     n_samplers: int = 1,
     baseline: Optional[Baseline] = None,
+    n_iteration_logging: int = 10,
     **kwargs,
 ) -> BasePyTorchPolicy:
     """
@@ -47,6 +48,7 @@ def train_policy_gradient(
         optimizer: An instance of a PyTorch optimizer class that will be used to optimise the policy.
         n_samplers: The number of samplers to used to sample from the environment.
         baseline: An instance of a baseline class, if one is given.
+        n_iteration_logging: The number of algorithm iterations between logging algorithm performance.
         kwargs: Additional keyword arguments to pass to the EpisodicSampler (e.g., is_slippery).
 
     Returns:
@@ -95,7 +97,7 @@ def train_policy_gradient(
         loss.backward()
         optimizer.step()
 
-        if n % 1000 == 0:
+        if n % n_iteration_logging == 0:
             logger.info('Policy update: %s', n)
             logger.info('Average total episodic reward: %s', np.average(statistics.total_reward))
 
