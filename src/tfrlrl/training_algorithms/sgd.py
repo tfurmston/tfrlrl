@@ -11,7 +11,7 @@ from torch import (
     tensor,
 )
 from torch.optim import (
-    SGD,
+    Optimizer,
 )
 
 from tfrlrl import settings
@@ -31,7 +31,7 @@ def train_policy_gradient(
     policy: BasePyTorchPolicy,
     n_iterations: int,
     n_episodes: int,
-    alpha: float,
+    optimizer: Optimizer,
     n_samplers: int = 1,
     baseline: Optional[Baseline] = None,
     **kwargs,
@@ -44,7 +44,7 @@ def train_policy_gradient(
         policy: The policy to train. Must have get_parameters() and set_parameters() methods.
         n_iterations: The number of policy updates to perform.
         n_episodes: The number of episodes to sample during each policy update.
-        alpha: The initial step size to take in stochastic gradient ascent.
+        optimizer: An instance of a PyTorch optimizer class that will be used to optimise the policy.
         n_samplers: The number of samplers to used to sample from the environment.
         baseline: An instance of a baseline class, if one is given.
         kwargs: Additional keyword arguments to pass to the EpisodicSampler (e.g., is_slippery).
@@ -57,7 +57,6 @@ def train_policy_gradient(
         env_id,
         baseline=baseline,
     )
-    optimizer = SGD(policy.get_parameters(), lr=alpha)
 
     if n_samplers > 1:
         if not ray.is_initialized():
@@ -96,7 +95,7 @@ def train_policy_gradient(
         loss.backward()
         optimizer.step()
 
-        if n % 10 == 0:
+        if n % 1000 == 0:
             logger.info('Policy update: %s', n)
             logger.info('Average total episodic reward: %s', np.average(statistics.total_reward))
 
