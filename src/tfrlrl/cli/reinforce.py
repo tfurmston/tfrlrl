@@ -3,11 +3,14 @@ import json
 import logging
 
 import gymnasium as gym
+from torch.optim import (
+    AdamW,
+)
 
 from tfrlrl.features.onehot import OneHotFeatureFunction
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
-from tfrlrl.training_algorithms.sgd import train_policy_gradient
+from tfrlrl.training_algorithms.reinforce import train_policy_gradient
 
 logging.basicConfig(format='%(asctime)s %(message)s', force=True)
 logger = logging.getLogger(__name__)
@@ -111,12 +114,14 @@ def main(args=None):
             hidden_space_dims=parsed_args.n_hidden,
         )
 
+    optimizer = AdamW(policy.get_parameters(), lr=parsed_args.alpha)
+
     train_policy_gradient(
         env_id=parsed_args.env_id,
         policy=policy,
         n_iterations=parsed_args.n_iterations,
         n_episodes=parsed_args.n_episodes,
-        alpha=parsed_args.alpha,
+        optimizer=optimizer,
         n_samplers=parsed_args.n_samplers,
         **env_kwargs,
     )

@@ -5,6 +5,9 @@ import numpy as np
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
+from torch.optim import (
+    SGD,
+)
 
 from tfrlrl.baselines.linear import LinearBaseline
 from tfrlrl.features.onehot import OneHotFeatureFunction
@@ -12,7 +15,7 @@ from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.sampling.episodic_sampler import EpisodicSampler
 from tfrlrl.sampling.statistics_collection import EpisocidPolicyGradientStatisticsCollector
-from tfrlrl.training_algorithms.sgd import train_policy_gradient
+from tfrlrl.training_algorithms.reinforce import train_policy_gradient
 
 
 class TestTrainPolicyGradient:
@@ -76,13 +79,15 @@ class TestTrainPolicyGradient:
         else:
             baseline = None
 
+        optimizer = SGD(policy.get_parameters(), lr=alpha)
+
         # Train the policy
         trained_policy = train_policy_gradient(
             env_id=env_id,
             policy=policy,
             n_iterations=n_iterations,
             n_episodes=n_episodes,
-            alpha=alpha,
+            optimizer=optimizer,
             baseline=baseline,
         )
 
@@ -127,13 +132,15 @@ class TestTrainPolicyGradient:
 
         original_paramters = copy.deepcopy(list(policy.get_parameters()))
 
+        optimizer = SGD(policy.get_parameters(), lr=alpha)
+
         # Train the policy - We set reward_schedule to ensure the policy is updated.
         trained_policy = train_policy_gradient(
             env_id=env_id,
             policy=policy,
             n_iterations=n_iterations,
             n_episodes=n_episodes,
-            alpha=alpha,
+            optimizer=optimizer,
             is_slippery=False,
             reward_schedule=(1, 1, 1),
         )
@@ -161,12 +168,14 @@ class TestTrainPolicyGradient:
         feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
         policy = LinearSoftMax(env_id, feature_fn)
 
+        optimizer = SGD(policy.get_parameters(), lr=alpha)
+
         trained_policy = train_policy_gradient(
             env_id=env_id,
             policy=policy,
             n_iterations=n_iterations,
             n_episodes=n_episodes,
-            alpha=alpha,
+            optimizer=optimizer,
             is_slippery=False,
         )
 
@@ -243,13 +252,15 @@ class TestTrainPolicyGradient:
         else:
             baseline = None
 
+        optimizer = SGD(policy.get_parameters(), lr=alpha)
+
         # Train the policy
         trained_policy = train_policy_gradient(
             env_id=env_id,
             policy=policy,
             n_iterations=n_iterations,
             n_episodes=n_episodes,
-            alpha=alpha,
+            optimizer=optimizer,
             n_samplers=n_samplers,
             baseline=baseline,
         )
