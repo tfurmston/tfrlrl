@@ -68,6 +68,26 @@ class TestParseArgs:
                     'policy_class': 'linear',
                 },
             ),
+            (
+                [
+                    '--env-id',
+                    'FrozenLake-v1',
+                    '--policy-class',
+                    'linear',
+                    '--reward-model',
+                    'discounted',
+                    '--gamma',
+                    '0.95',
+                ],
+                {
+                    'env_id': 'FrozenLake-v1',
+                    'n_iterations': 100,
+                    'n_episodes': 100,
+                    'alpha': 100.0,
+                    'env_kwargs': '{}',
+                    'policy_class': 'linear',
+                },
+            ),
         ],
     )
     def test_parse_args(self, args, expected):
@@ -78,6 +98,31 @@ class TestParseArgs:
         assert parsed.n_episodes == expected['n_episodes']
         assert parsed.alpha == expected['alpha']
         assert parsed.env_kwargs == expected['env_kwargs']
+
+    def test_parse_args_reward_model_has_default(self):
+        """Test that --reward-model has a default so it can be omitted."""
+        parsed = parse_args(['--env-id', 'FrozenLake-v1', '--policy-class', 'linear'])
+        assert parsed.reward_model is not None
+
+    def test_parse_args_discounted_reward_model(self):
+        """Test that discounted reward model flag and gamma are parsed correctly."""
+        parsed = parse_args([
+            '--env-id', 'FrozenLake-v1',
+            '--policy-class', 'linear',
+            '--reward-model', 'discounted',
+            '--gamma', '0.95',
+        ])
+        assert parsed.reward_model == 'discounted'
+        assert parsed.gamma == 0.95
+
+    def test_parse_args_invalid_reward_model(self):
+        """Test that an invalid reward model raises SystemExit."""
+        with pytest.raises(SystemExit):
+            parse_args([
+                '--env-id', 'FrozenLake-v1',
+                '--policy-class', 'linear',
+                '--reward-model', 'invalid-model',
+            ])
 
     def test_parse_args_missing_required(self):
         """Test that missing required arguments raises SystemExit."""
@@ -216,6 +261,63 @@ class TestMain:
         exit_code = main(args)
 
         assert exit_code is None or exit_code == 0
+
+    @pytest.mark.parametrize(
+        'env_id, policy_class',
+        [
+            ('FrozenLake-v1', 'linear'),
+        ],
+    )
+    def test_main_with_discounted_reward_model(self, env_id: str, policy_class: str):
+        """
+        Test main function with discounted reward model.
+
+        Args:
+            env_id: The Gym environment ID to be used in training.
+            policy_class: The policy class to use in SGD.
+
+        """
+        args = [
+            '--env-id',
+            env_id,
+            '--policy-class',
+            policy_class,
+            '--n-iterations',
+            '2',
+            '--n-episodes',
+            '5',
+            '--alpha',
+            '1.0',
+            '--reward-model',
+            'discounted',
+            '--gamma',
+            '0.95',
+        ]
+
+        exit_code = main(args)
+
+        assert exit_code is None or exit_code == 0
+
+    def test_main_discounted_without_gamma_returns_error(self):
+        """Test that using discounted reward model without --gamma returns exit code 1."""
+        args = [
+            '--env-id',
+            'FrozenLake-v1',
+            '--policy-class',
+            'linear',
+            '--n-iterations',
+            '2',
+            '--n-episodes',
+            '5',
+            '--alpha',
+            '1.0',
+            '--reward-model',
+            'discounted',
+        ]
+
+        exit_code = main(args)
+
+        assert exit_code == 1
 
     @pytest.mark.parametrize(
         'malformed_json',
