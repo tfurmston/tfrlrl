@@ -7,6 +7,7 @@ from torch.optim import (
     AdamW,
 )
 
+from tfrlrl.data_models.reward_models import AverageEpisodicReward, DiscountedReward
 from tfrlrl.features.onehot import OneHotFeatureFunction
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
@@ -77,6 +78,19 @@ def parse_args(args=None):
         default=[16, 32],
         help='The number of hidden dimensions to use in a dense policy network.',
     )
+    parser.add_argument(
+        '--reward-model',
+        type=str,
+        default='average-episodic',
+        choices=['average-episodic', 'discounted'],
+        help='Reward model to use when computing returns.',
+    )
+    parser.add_argument(
+        '--gamma',
+        type=float,
+        default=0.99,
+        help='Discount factor (only used when --reward-model=discounted).',
+    )
     return parser.parse_args(args)
 
 
@@ -116,6 +130,11 @@ def main(args=None):
 
     optimizer = AdamW(policy.get_parameters(), lr=parsed_args.alpha)
 
+    if parsed_args.reward_model == 'discounted':
+        reward_model = DiscountedReward(gamma=parsed_args.gamma)
+    else:
+        reward_model = AverageEpisodicReward()
+
     train_policy_gradient(
         env_id=parsed_args.env_id,
         policy=policy,
@@ -123,5 +142,6 @@ def main(args=None):
         n_episodes=parsed_args.n_episodes,
         optimizer=optimizer,
         n_samplers=parsed_args.n_samplers,
+        reward_model=reward_model,
         **env_kwargs,
     )

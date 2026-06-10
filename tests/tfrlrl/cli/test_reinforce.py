@@ -33,6 +33,8 @@ class TestParseArgs:
                     'alpha': 1.0,
                     'env_kwargs': '{}',
                     'policy_class': 'dense',
+                    'reward_model': 'average-episodic',
+                    'gamma': 0.99,
                 },
             ),
             (
@@ -44,6 +46,8 @@ class TestParseArgs:
                     'alpha': 100.0,
                     'env_kwargs': '{"is_slippery": false}',
                     'policy_class': 'dense',
+                    'reward_model': 'average-episodic',
+                    'gamma': 0.99,
                 },
             ),
             (
@@ -66,6 +70,30 @@ class TestParseArgs:
                     'alpha': 1.0,
                     'env_kwargs': '{}',
                     'policy_class': 'linear',
+                    'reward_model': 'average-episodic',
+                    'gamma': 0.99,
+                },
+            ),
+            (
+                [
+                    '--env-id',
+                    'FrozenLake-v1',
+                    '--policy-class',
+                    'linear',
+                    '--reward-model',
+                    'discounted',
+                    '--gamma',
+                    '0.95',
+                ],
+                {
+                    'env_id': 'FrozenLake-v1',
+                    'n_iterations': 100,
+                    'n_episodes': 100,
+                    'alpha': 100.0,
+                    'env_kwargs': '{}',
+                    'policy_class': 'linear',
+                    'reward_model': 'discounted',
+                    'gamma': 0.95,
                 },
             ),
         ],
@@ -78,11 +106,18 @@ class TestParseArgs:
         assert parsed.n_episodes == expected['n_episodes']
         assert parsed.alpha == expected['alpha']
         assert parsed.env_kwargs == expected['env_kwargs']
+        assert parsed.reward_model == expected['reward_model']
+        assert parsed.gamma == expected['gamma']
 
     def test_parse_args_missing_required(self):
         """Test that missing required arguments raises SystemExit."""
         with pytest.raises(SystemExit):
             parse_args(['--n-iterations', '10'])
+
+    def test_parse_args_invalid_reward_model(self):
+        """Test that an invalid reward model choice raises SystemExit."""
+        with pytest.raises(SystemExit):
+            parse_args(['--env-id', 'FrozenLake-v1', '--policy-class', 'linear', '--reward-model', 'invalid'])
 
 
 class TestMain:
@@ -211,6 +246,45 @@ class TestMain:
             '5',
             '--alpha',
             '1.0',
+        ]
+
+        exit_code = main(args)
+
+        assert exit_code is None or exit_code == 0
+
+    @pytest.mark.parametrize(
+        'env_id, policy_class, reward_model, gamma',
+        [
+            ('FrozenLake-v1', 'linear', 'discounted', '0.95'),
+            ('FrozenLake-v1', 'linear', 'average-episodic', '0.99'),
+        ],
+    )
+    def test_main_with_reward_model(self, env_id: str, policy_class: str, reward_model: str, gamma: str):
+        """
+        Test main function with different reward model options.
+
+        Args:
+            env_id: The Gym environment ID to be used in training.
+            policy_class: The policy class to use in SGD.
+            reward_model: The reward model to use.
+            gamma: The discount factor.
+
+        """
+        args = [
+            '--env-id',
+            env_id,
+            '--policy-class',
+            policy_class,
+            '--n-iterations',
+            '2',
+            '--n-episodes',
+            '5',
+            '--alpha',
+            '1.0',
+            '--reward-model',
+            reward_model,
+            '--gamma',
+            gamma,
         ]
 
         exit_code = main(args)
