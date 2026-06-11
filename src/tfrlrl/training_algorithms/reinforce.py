@@ -16,6 +16,7 @@ from torch.optim import (
 
 from tfrlrl import settings
 from tfrlrl.baselines.linear import Baseline
+from tfrlrl.data_models.reward_models import AverageEpisodicReward, DiscountedReward
 from tfrlrl.policies.base import BasePyTorchPolicy
 from tfrlrl.sampling.episodic_sampler import (
     EpisodicSampler,
@@ -34,6 +35,7 @@ def train_policy_gradient(
     optimizer: Optimizer,
     n_samplers: int = 1,
     baseline: Optional[Baseline] = None,
+    reward_model: Optional[Union[AverageEpisodicReward, DiscountedReward]] = None,
     n_iteration_logging: int = 10,
     **kwargs,
 ) -> BasePyTorchPolicy:
@@ -48,6 +50,8 @@ def train_policy_gradient(
         optimizer: An instance of a PyTorch optimizer class that will be used to optimise the policy.
         n_samplers: The number of samplers to used to sample from the environment.
         baseline: An instance of a baseline class, if one is given.
+        reward_model: The reward model to use when computing total expected rewards. Defaults to
+        AverageEpisodicReward if not specified.
         n_iteration_logging: The number of algorithm iterations between logging algorithm performance.
         kwargs: Additional keyword arguments to pass to the EpisodicSampler (e.g., is_slippery).
 
@@ -58,6 +62,7 @@ def train_policy_gradient(
     statistics_collector = EpisocidPolicyGradientStatisticsCollector(
         env_id,
         baseline=baseline,
+        reward_model=reward_model,
     )
 
     if n_samplers > 1:

@@ -1,11 +1,12 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 
 from tfrlrl.baselines.linear import Baseline
+from tfrlrl.data_models.reward_models import AverageEpisodicReward, DiscountedReward
 from tfrlrl.data_models.statistics import BaseStatistics
 from tfrlrl.data_models.step import StepProtocol, construct_step_dataclasses
 from tfrlrl.sampling.utils import merge_optional_statistics
@@ -116,7 +117,12 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector[EpisodeP
 
     """
 
-    def __init__(self, env_id: str, baseline: Optional[Baseline] = None):
+    def __init__(
+        self,
+        env_id: str,
+        baseline: Optional[Baseline] = None,
+        reward_model: Optional[Union[AverageEpisodicReward, DiscountedReward]] = None,
+    ):
         """
         Initialise the policy-gradients statistics collector.
 
@@ -124,12 +130,15 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector[EpisodeP
             env_id: The I.D. of the environment from which to collect statistics.
             baseline: If given, an instance of the baseline class, which will be used for
             variance reduction when estimating policy gradients.
+            reward_model: The reward model to use when computing total expected rewards. Defaults
+            to AverageEpisodicReward if not specified.
 
         """
         super().__init__(
             env_id=env_id,
             baseline=baseline,
         )
+        self.reward_model = reward_model if reward_model is not None else AverageEpisodicReward()
         self.steps: List[StepProtocol] = []
 
     def reset(self) -> None:
@@ -163,7 +172,7 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector[EpisodeP
         steps = self.steps_cls(sample_steps=self.steps)
 
         T = steps.rewards.size
-        total_expected_rewards = np.matmul(steps.rewards, np.tril(np.ones(T))) / T
+        total_expected_rewards = self.reward_model.compute(steps.rewards)
 
         baseline_features = None
         if self.baseline is not None:

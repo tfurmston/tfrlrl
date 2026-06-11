@@ -5,6 +5,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from tfrlrl.baselines.linear import LinearBaseline
+from tfrlrl.data_models.reward_models import AverageEpisodicReward, DiscountedReward
 from tfrlrl.data_models.statistics import StatisticsException
 from tfrlrl.features.onehot import OneHotFeatureFunction
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
@@ -316,3 +317,42 @@ class TestEpisocidPolicyGradientStatisticsCollector:
 
         with pytest.raises(StatisticsException):
             EpisocidPolicyGradientStatisticsCollector.merge_statistics([statistics1, statistics2])
+
+    @pytest.mark.parametrize(
+        'env_id, reward_model',
+        [
+            ('FrozenLake-v1', AverageEpisodicReward()),
+            ('FrozenLake-v1', DiscountedReward(gamma=0.99)),
+        ],
+    )
+    @given(n_episodes=st.integers(min_value=1, max_value=3))
+    @settings(deadline=5000)
+    def test_aggregate_statistics_with_reward_models(self, env_id: str, reward_model, n_episodes: int):
+        """
+        Test that aggregate_statistics works correctly with different reward models.
+
+        Args:
+            env_id: The Gym environment ID to be used in testing.
+            reward_model: The reward model to use.
+            n_episodes: The number of episodes to sample.
+
+        """
+        env = gym.make(env_id)
+        feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+        policy = LinearSoftMax(env_id, feature_fn)
+
+        stats_collector = EpisocidPolicyGradientStatisticsCollector(
+            env_id=env_id,
+            reward_model=reward_model,
+        )
+        sampler = EpisodicSampler(
+            env_id,
+            stats_collector,
+            n_episodes=n_episodes,
+            policy=policy,
+            is_slippery=False,
+        )
+
+        for statistics in sampler:
+            assert isinstance(statistics.total_expected_rewards, np.ndarray)
+            assert statistics.total_expected_rewards.shape[-1] == statistics.observations.shape[-1]
