@@ -7,6 +7,7 @@ from torch.optim import (
     AdamW,
 )
 
+from tfrlrl.data_models.reward_models import AverageEpisodicReward, DiscountedReward
 from tfrlrl.features.onehot import OneHotFeatureFunction
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
@@ -77,6 +78,19 @@ def parse_args(args=None):
         default=[16, 32],
         help='The number of hidden dimensions to use in a dense policy network.',
     )
+    parser.add_argument(
+        '--reward-model',
+        type=str,
+        default='average-episodic',
+        choices=['average-episodic', 'discounted'],
+        help='Reward model to use when computing returns.',
+    )
+    parser.add_argument(
+        '--gamma',
+        type=float,
+        default=None,
+        help='Discount factor for the discounted reward model, must be in (0, 1). Required when --reward-model=discounted.',
+    )
     return parser.parse_args(args)
 
 
@@ -102,6 +116,18 @@ def main(args=None):
     if env_kwargs is not None:
         logger.info('Environment Arguments: %s', env_kwargs)
 
+    if parsed_args.reward_model == 'discounted':
+        if parsed_args.gamma is None:
+            logger.error('--gamma is required when --reward-model=discounted')
+            return 1
+        try:
+            reward_model = DiscountedReward(gamma=parsed_args.gamma)
+        except (TypeError, ValueError) as e:
+            logger.error('Invalid --gamma value: %s', e)
+            return 1
+    else:
+        reward_model = AverageEpisodicReward()
+
     if parsed_args.policy_class == 'linear':
         logger.info('Using a linear policy with a one-hot feature encoding.')
         env = gym.make(parsed_args.env_id)
@@ -123,5 +149,6 @@ def main(args=None):
         n_episodes=parsed_args.n_episodes,
         optimizer=optimizer,
         n_samplers=parsed_args.n_samplers,
+        reward_model=reward_model,
         **env_kwargs,
     )
