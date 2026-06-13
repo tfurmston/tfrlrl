@@ -97,7 +97,16 @@ class TestParseArgs:
                 'average-episodic',
             ),
             (
-                ['--env-id', 'FrozenLake-v1', '--policy-class', 'dense', '--reward-model', 'discounted', '--gamma', '0.95'],
+                [
+                    '--env-id',
+                    'FrozenLake-v1',
+                    '--policy-class',
+                    'dense',
+                    '--reward-model',
+                    'discounted',
+                    '--gamma',
+                    '0.95',
+                ],
                 'discounted',
             ),
         ],

@@ -89,7 +89,8 @@ def parse_args(args=None):
         '--gamma',
         type=float,
         default=None,
-        help='Discount factor for the discounted reward model, must be in (0, 1). Required when --reward-model=discounted.',
+        help='Discount factor for the discounted reward model, must be in (0, 1). '
+        'Required when --reward-model=discounted.',
     )
     return parser.parse_args(args)
 
