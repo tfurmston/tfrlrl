@@ -92,7 +92,10 @@ def parse_args(args=None):
         help='Discount factor for the discounted reward model, must be in (0, 1). '
         'Required when --reward-model=discounted.',
     )
-    return parser.parse_args(args)
+    parsed = parser.parse_args(args)
+    if parsed.reward_model == 'discounted' and parsed.gamma is None:
+        parser.error('--gamma is required when --reward-model=discounted')
+    return parsed
 
 
 def main(args=None):
@@ -118,9 +121,6 @@ def main(args=None):
         logger.info('Environment Arguments: %s', env_kwargs)
 
     if parsed_args.reward_model == 'discounted':
-        if parsed_args.gamma is None:
-            logger.error('--gamma is required when --reward-model=discounted')
-            return 1
         try:
             reward_model = DiscountedReward(gamma=parsed_args.gamma)
         except (TypeError, ValueError) as e:

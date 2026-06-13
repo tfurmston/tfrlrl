@@ -282,7 +282,7 @@ class TestMain:
         assert exit_code is None or exit_code == 0
 
     def test_main_discounted_reward_model_requires_gamma(self):
-        """Test that using --reward-model=discounted without --gamma returns exit code 1."""
+        """Test that using --reward-model=discounted without --gamma exits with code 2."""
         args = [
             '--env-id',
             'FrozenLake-v1',
@@ -297,8 +297,9 @@ class TestMain:
             '--reward-model',
             'discounted',
         ]
-        exit_code = main(args)
-        assert exit_code == 1
+        with pytest.raises(SystemExit) as exc_info:
+            main(args)
+        assert exc_info.value.code == 2
 
     def test_main_discounted_reward_model_invalid_gamma(self):
         """Test that an invalid --gamma value (e.g. >= 1.0) returns exit code 1."""
