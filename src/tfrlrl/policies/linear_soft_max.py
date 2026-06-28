@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import Union
+from typing import Callable, Dict, Tuple, Union
 
 import gymnasium as gym
 import numpy as np
@@ -9,6 +9,7 @@ from torch import (
     tensor,
 )
 from torch.distributions.multinomial import Categorical
+from torch.func import functional_call
 
 from tfrlrl.features.base import FeatureFunction
 from tfrlrl.policies.base import (
@@ -146,3 +147,30 @@ class LinearSoftMax(BasePyTorchPolicy):
 
         """
         return self.calculate_action_distribution(observations).log_prob(tensor(actions))
+
+    def make_log_prob_fn(self, observations: np.ndarray, actions: np.ndarray) -> Tuple[Callable[[Dict], Tensor], Dict]:
+        """
+        Construct a PyTorch functional to calculate the log-probabilities of the given state-action pairs.
+
+        Construct a PyTorch functional that takes the policy parameters as inputs and returns the log-probabilites
+        of the given state-action pairs. This functional can be used in various functionality, such as in the
+        construction of the Jacboian of the policy.
+
+        Args:
+            observations: A NumPy array of the observations for which to calculate the log-probabilities.
+            actions: A NumPy array of the actions for which to calculate the log-probabilities (of the corresponding
+            observations).
+
+        Returns:
+            A tuple consisting of a function that takes the policy parameters as inputs and returns the
+            log-probabilities of the given state-action pairs and a dictionary of policy parameters.
+
+        """
+        params = dict(self.network.named_parameters())
+
+        def log_prob_fn(params):
+            network_input = self.construct_network_input(observations)
+            probs = functional_call(self.network, params, (network_input,)).squeeze()
+            return Categorical(probs=probs).log_prob(tensor(actions))
+
+        return log_prob_fn, params

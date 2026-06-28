@@ -172,3 +172,113 @@ def test_calculate_log_probabilities_from_dense_network_policy_multiple_observat
         assert log_probabilities.shape == (n_observations, 1)
     else:
         assert log_probabilities.shape == (n_observations,)
+
+
+@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+def test_calculate_log_probabilities_from_functional_single_observation(env_id):
+    """
+    Test make_log_prob_fn with a single observation with a DenseNetworkPolicy.
+
+    Args:
+        env_id: The environment I.D. from which to sample episodes.
+
+    """
+    env = gym.make(env_id)
+
+    hidden_space_dims = [16, 32]
+    policy = DenseNetworkPolicy(
+        env_id=env_id,
+        hidden_space_dims=hidden_space_dims,
+    )
+
+    observation = env.observation_space.sample()[..., np.newaxis]
+    action = env.action_space.sample()
+    log_probability = (
+        policy.calculate_log_probabilities(
+            observation,
+            action,
+        )
+        .detach()
+        .numpy()
+    )
+    log_prob_fn, params = policy.make_log_prob_fn(
+        observation,
+        action,
+    )
+    log_probability_from_functional = log_prob_fn(params).detach().numpy()
+    np.testing.assert_allclose(
+        log_probability,
+        log_probability_from_functional,
+        rtol=1e-6,
+        atol=1e-9,
+    )
+
+
+@pytest.mark.parametrize(
+    'env_id, extend_actions',
+    [
+        (
+            'InvertedPendulum-v5',
+            True,
+        ),
+        (
+            'InvertedPendulum-v5',
+            False,
+        ),
+    ],
+)
+@given(
+    n_observations=st.integers(min_value=1, max_value=20),
+)
+@settings(deadline=None)
+def test_calculate_log_probabilities_from_functional_multiple_observations(env_id, n_observations, extend_actions):
+    """
+    Test make_log_prob_fn with multiple observations with a DenseNetworkPolicy.
+
+    Args:
+        env_id: The environment I.D. from which to sample episodes.
+        n_observations: The number of observations to sample.
+        extend_actions: A Boolean indicating whether to extend the diemsions of the actions.
+
+    """
+    env = gym.make(env_id)
+
+    hidden_space_dims = [16, 32]
+    policy = DenseNetworkPolicy(
+        env_id=env_id,
+        hidden_space_dims=hidden_space_dims,
+    )
+
+    observations = np.concatenate(
+        [env.observation_space.sample()[..., np.newaxis] for _ in range(n_observations)],
+        axis=1,
+    )
+    if extend_actions:
+        actions = np.concatenate(
+            [env.action_space.sample()[..., np.newaxis] for _ in range(n_observations)],
+            axis=1,
+        )
+    else:
+        actions = np.concatenate(
+            [env.action_space.sample() for _ in range(n_observations)],
+        )
+
+    log_probabilities = (
+        policy.calculate_log_probabilities(
+            observations,
+            actions,
+        )
+        .detach()
+        .numpy()
+    )
+    log_prob_fn, params = policy.make_log_prob_fn(
+        observations,
+        actions,
+    )
+    log_probability_from_functional = log_prob_fn(params).detach().numpy()
+    np.testing.assert_allclose(
+        log_probabilities,
+        log_probability_from_functional,
+        rtol=1e-6,
+        atol=1e-9,
+    )

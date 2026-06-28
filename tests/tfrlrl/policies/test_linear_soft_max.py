@@ -254,6 +254,80 @@ def test_linear_softmax_policy_log_probabilities(env_id: str, n_observations: in
     seed=st.integers(min_value=0, max_value=10000),
 )
 @settings(deadline=None)
+def test_make_log_prob_fn_single_observation(env_id: str, observation: int, action: int, seed: int):
+    """
+    Test make_log_prob_fn returns function that can be used to calculate log-probability of given state-action pair.
+
+    Args:
+        env_id: The Gymnasium environment ID with a discrete action space.
+        observation: A valid observation (state) from the environment.
+        action: A valid action from the environment.
+        seed: Random seed for generating softmax parameters.
+
+    """
+    env = gym.make(env_id)
+    np.random.seed(seed)
+    feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+    policy = LinearSoftMax(env_id, feature_fn)
+
+    action = np.array([action])
+    observation = np.array([observation])
+
+    log_probability = policy.calculate_log_probabilities(observation, action).detach().numpy()
+    log_prob_fn, params = policy.make_log_prob_fn(observation, action)
+    log_probability_from_functional = log_prob_fn(params).detach().numpy()
+    np.testing.assert_allclose(
+        log_probability,
+        log_probability_from_functional,
+        rtol=1e-6,
+        atol=1e-9,
+    )
+
+
+@pytest.mark.parametrize('env_id', ['CliffWalking-v1'])
+@given(
+    n_observations=st.integers(min_value=2, max_value=100),
+    seed=st.integers(min_value=0, max_value=10000),
+)
+@settings(deadline=None)
+def test_make_log_prob_fn_multiple_observations(env_id: str, n_observations: int, seed: int):
+    """
+    Test make_log_prob_fn returns function that can be used to calculate log-probabilities of given state-action pairs.
+
+    Args:
+        env_id: The Gymnasium environment ID with a discrete action space.
+        n_observations: The number of observations for which to calculate the log-probabilities.
+        seed: Random seed for generating softmax parameters.
+
+    """
+    env = gym.make(env_id)
+    np.random.seed(seed)
+    feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+    policy = LinearSoftMax(env_id, feature_fn)
+
+    observations = np.random.randint(low=0, high=47, size=(1, n_observations))
+    actions = np.random.randint(low=0, high=3, size=(1, n_observations))
+
+    log_probabilities = policy.calculate_log_probabilities(observations, actions).detach().numpy()
+    log_prob_fn, params = policy.make_log_prob_fn(observations, actions)
+    log_probability_from_functional = log_prob_fn(params).detach().numpy()
+
+    for n in range(n_observations):
+        np.testing.assert_allclose(
+            log_probabilities[0, n],
+            log_probability_from_functional[0, n],
+            rtol=1e-6,
+            atol=1e-9,
+        )
+
+
+@pytest.mark.parametrize('env_id', ['CliffWalking-v1'])
+@given(
+    observation=st.integers(min_value=0, max_value=47),
+    action=st.integers(min_value=0, max_value=3),
+    seed=st.integers(min_value=0, max_value=10000),
+)
+@settings(deadline=None)
 def test_linear_softmax_policy_log_probabilities_derivatives(env_id: str, observation: int, action: int, seed: int):
     """
     Test calculation of the derivativres of the log-probabilities of the policy.

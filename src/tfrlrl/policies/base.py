@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterator, Union
+from typing import Any, Callable, Dict, Iterator, Tuple, Union
 
 import gymnasium as gym
 import numpy as np
@@ -184,6 +184,27 @@ class BasePyTorchPolicy(BasePolicy):
 
         Returns:
             A PyTorch Tensor containing the log-probabilities of the given (observation, action) pairs.
+
+        """
+        ...
+
+    @abstractmethod
+    def make_log_prob_fn(self, observations: np.ndarray, actions: np.ndarray) -> Tuple[Callable[[Dict], Tensor], Dict]:
+        """
+        Construct a PyTorch functional to calculate the log-probabilities of the given state-action pairs.
+
+        Construct a PyTorch functional that takes the policy parameters as inputs and returns the log-probabilites
+        of the given state-action pairs. This functional can be used in various functionality, such as in the
+        construction of the Jacboian of the policy.
+
+        Args:
+            observations: A NumPy array of the observations for which to calculate the log-probabilities.
+            actions: A NumPy array of the actions for which to calculate the log-probabilities (of the corresponding
+            observations).
+
+        Returns:
+            A tuple consisting of a function that takes the policy parameters as inputs and returns the
+            log-probabilities of the given state-action pairs and a dictionary of policy parameters.
 
         """
         ...
