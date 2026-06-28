@@ -7,6 +7,7 @@ from torch import (
     Tensor,
     nn,
 )
+from torch.func import jacfwd
 
 
 class PolicyException(Exception):
@@ -208,3 +209,23 @@ class BasePyTorchPolicy(BasePolicy):
 
         """
         ...
+
+    def calculate_jacobian(self, observations: np.ndarray, actions: np.ndarray) -> Dict[str, Tensor]:
+        """
+        Calculate the Jacobian of the log-probabilites at the given state-action pairs.
+
+        This function calculates the Jacobian of the log-probabilities of the policy for the given
+        state-action pairs. The Jacobian is given in the form of a dictionary, with the keys corresponding
+        to the different parameters of the policy (network).
+
+        Args:
+            observations: A NumPy array of the observations for which to calculate the log-probabilities.
+            actions: A NumPy array of the actions for which to calculate the log-probabilities (of the corresponding
+            observations).
+
+        Returns:
+            A dictionary mapping the parameter name to the (rows of the) Jacobian corresponding to that parameter.
+
+        """
+        log_prob_fn, params = self.make_log_prob_fn(observations, actions)
+        return jacfwd(log_prob_fn)(params)
