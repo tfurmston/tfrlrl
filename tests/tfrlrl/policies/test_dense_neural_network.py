@@ -171,7 +171,7 @@ def test_calculate_log_probabilities_from_dense_network_policy_multiple_observat
     )
 
     if extend_actions:
-        assert log_probabilities.shape == (n_observations, 1)
+        assert log_probabilities.shape == (1, n_observations)
     else:
         assert log_probabilities.shape == (n_observations,)
 

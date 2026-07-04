@@ -127,18 +127,15 @@ class DenseNetworkPolicy(BasePyTorchPolicy):
             actions: The actions taken in the given observation state.
 
         Returns:
-            A Tensor containing the log-probabilities of the policy for the given observation-action pairs.
+            A Tensor containing the log-probabilities of the policy for the given observation-action pairs. The shape
+            of the output is expected to be either (n_observation) or (1, n_observations).
 
         """
         action_means, action_stddevs = self.network(tensor(observations).T)
-        return (
-            Normal(
-                action_means[:, 0] + self.eps,
-                action_stddevs[:, 0] + self.eps,
-            )
-            .log_prob(tensor(actions))
-            .T
-        )
+        return Normal(
+            action_means[:, 0] + self.eps,
+            action_stddevs[:, 0] + self.eps,
+        ).log_prob(tensor(actions))
 
     def make_log_prob_fn(self, observations: np.ndarray, actions: np.ndarray) -> Tuple[Callable[[Dict], Tensor], Dict]:
         """
@@ -163,13 +160,9 @@ class DenseNetworkPolicy(BasePyTorchPolicy):
         def log_prob_fn(params):
             action_means, action_stddevs = functional_call(self.network, params, (tensor(observations).T,))
 
-            return (
-                Normal(
-                    action_means[:, 0] + self.eps,
-                    action_stddevs[:, 0] + self.eps,
-                )
-                .log_prob(tensor(actions))
-                .T
-            )
+            return Normal(
+                action_means[:, 0] + self.eps,
+                action_stddevs[:, 0] + self.eps,
+            ).log_prob(tensor(actions))
 
         return log_prob_fn, params

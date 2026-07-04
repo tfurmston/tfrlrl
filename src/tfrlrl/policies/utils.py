@@ -16,7 +16,8 @@ def flatten_tensor_dict(x: Dict[str, Tensor]) -> Tensor:
         x: The dictionary of tensors to be flattened.
 
     Returns:
-        The flattened tensor.
+        The flattened tensor. The flattened tensor will have a shape of (1, n_elems) in which n_elems
+        is the number of elements across the different tensors in the input dictionary.
 
     """
-    return cat([j.flatten(start_dim=1) for j in x.values()], dim=1)
+    return cat([j.flatten() for j in x.values()])[None, :]

@@ -184,7 +184,8 @@ class BasePyTorchPolicy(BasePolicy):
             observations).
 
         Returns:
-            A PyTorch Tensor containing the log-probabilities of the given (observation, action) pairs.
+            A PyTorch Tensor containing the log-probabilities of the given (observation, action) pairs. The shape of
+            the output is expected to be either (n_observation) or (1, n_observations).
 
         """
         ...

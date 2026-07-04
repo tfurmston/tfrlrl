@@ -143,7 +143,8 @@ class LinearSoftMax(BasePyTorchPolicy):
             actions: The actions taken in the given observation state.
 
         Returns:
-            return: The log-probabilities of the policy for the given observation-action pairs.
+            return: The log-probabilities of the policy for the given observation-action pairs. The shape of
+            the output is expected to be either (n_observation) or (1, n_observations).
 
         """
         return self.calculate_action_distribution(observations).log_prob(tensor(actions))

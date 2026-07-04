@@ -5,11 +5,7 @@ from typing import Callable, Optional, Union
 
 import numpy as np
 import ray
-from torch import (
-    no_grad,
-    sum,
-    tensor,
-)
+from torch import Tensor, no_grad, sum, tensor
 from torch.optim import (
     Optimizer,
 )
@@ -32,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 def calculate_steepest_gradient_direction(
     policy: BasePyTorchPolicy, statistics: BaseStatistics, optimizer: Optimizer
-) -> np.ndarray:
+) -> Tensor:
     """
     Calculate the direction of steepest gradient ascent of the policy.
 
@@ -46,7 +42,7 @@ def calculate_steepest_gradient_direction(
         optimizer: A PyTorch optimizer class that will be used to calculate the policy gradient.
 
     Returns:
-        A NumPy array containing the policy gradient.
+        A PyTorch tensor containing the policy gradient.
 
     """
     optimizer.zero_grad()
@@ -57,11 +53,9 @@ def calculate_steepest_gradient_direction(
     loss = -sum(log_probabilities * tensor(statistics.total_expected_rewards))
     loss.backward()
 
-    # TODO: Convert sgd to a NumPy array
-    sgd = flatten_tensor_dict(
+    return flatten_tensor_dict(
         {name: param.grad for name, param in policy.network.named_parameters()},
     )
-    return sgd
 
 
 def construct_fim_vector_product_fn(
