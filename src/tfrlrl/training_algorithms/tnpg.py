@@ -13,7 +13,6 @@ from torch.optim import (
 from tfrlrl import settings
 from tfrlrl.baselines.linear import Baseline
 from tfrlrl.data_models.reward_models import AverageEpisodicReward, DiscountedReward
-from tfrlrl.data_models.statistics import BaseStatistics
 from tfrlrl.optimisation.conjugate_gradients import calculate_conjugate_gradient
 from tfrlrl.policies.base import BasePyTorchPolicy
 from tfrlrl.policies.utils import flatten_tensor_dict
@@ -21,13 +20,16 @@ from tfrlrl.sampling.episodic_sampler import (
     EpisodicSampler,
     RayEpisodicSampler,
 )
-from tfrlrl.sampling.statistics_collection import EpisocidPolicyGradientStatisticsCollector
+from tfrlrl.sampling.statistics_collection import (
+    EpisocidPolicyGradientStatisticsCollector,
+    EpisodePolicyGradientStatistics,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def calculate_steepest_gradient_direction(
-    policy: BasePyTorchPolicy, statistics: BaseStatistics, optimizer: Optimizer
+    policy: BasePyTorchPolicy, statistics: EpisodePolicyGradientStatistics, optimizer: Optimizer
 ) -> Tensor:
     """
     Calculate the direction of steepest gradient ascent of the policy.
@@ -59,7 +61,7 @@ def calculate_steepest_gradient_direction(
 
 
 def construct_fim_vector_product_fn(
-    policy: BasePyTorchPolicy, statistics: BaseStatistics
+    policy: BasePyTorchPolicy, statistics: EpisodePolicyGradientStatistics
 ) -> Callable[[np.ndarray], np.ndarray]:
     """
     Construct function for calculating the product of the Fisher Information matrix with a vector.
@@ -84,10 +86,10 @@ def construct_fim_vector_product_fn(
         actions=statistics.actions,
     )
     # TODO: Convert Jacobian to a NumPy array
-    jacobian = flatten_tensor_dict(jacobian)
+    jacobian_matrix = flatten_tensor_dict(jacobian)
 
     def calculate_fim_vector_product(v: np.ndarray):
-        return np.matmul(jacobian.T, np.matmul(jacobian, v))
+        return np.matmul(jacobian_matrix.T, np.matmul(jacobian_matrix, v))
 
     return calculate_fim_vector_product
 
