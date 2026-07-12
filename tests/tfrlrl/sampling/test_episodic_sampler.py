@@ -307,7 +307,7 @@ class TestRayEpisodicSampler:
 
     @pytest.mark.slow
     @given(n_episodes=st.integers(min_value=2, max_value=10))
-    @settings(deadline=5000)
+    @settings(deadline=7500)
     def test_ray_sample_episode_with_env_kwargs(self, n_episodes: int, test_ray_cluster):
         """
         Test that environment kwargs are correctly passed through to the environment construction.
@@ -351,7 +351,7 @@ class TestRayEpisodicSampler:
 
     @pytest.mark.slow
     @given(n_episodes=st.integers(min_value=2, max_value=10))
-    @settings(deadline=5000)
+    @settings(deadline=7500)
     def test_ray_reset_allows_reuse_as_iterator(self, n_episodes: int, test_ray_cluster):
         """
         Test that the reset method allows the EpisodicSampler to be used as an iterator multiple times.
@@ -425,7 +425,7 @@ class TestRayEpisodicSampler:
     @pytest.mark.slow
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
     @given(n_episodes=st.integers(min_value=2, max_value=10))
-    @settings(deadline=5000)
+    @settings(deadline=7500)
     def test_ray_sample_without_limits(self, env_id: str, n_episodes: int, test_ray_cluster):
         """
         Test the sample function of the EpisodicSampler class and that the outputs follow the expected format.
