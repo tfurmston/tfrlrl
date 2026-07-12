@@ -42,10 +42,10 @@ def test_flatten_tensor_dict(env_id: str):
     indx = 0
     for _, param in policy.network.named_parameters():
         for p_indx in np.ndindex(param.shape):
-            assert param[p_indx] == flattend_tensor[0, indx]
+            assert param[p_indx] == flattend_tensor[indx]
             indx += 1
 
-    assert indx == flattend_tensor.shape[1]
+    assert indx == flattend_tensor.shape[0]
 
 
 @pytest.mark.parametrize(

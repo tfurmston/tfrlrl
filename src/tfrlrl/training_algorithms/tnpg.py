@@ -5,7 +5,7 @@ from typing import Callable, Optional, Union
 
 import numpy as np
 import ray
-from torch import Tensor, no_grad, sum, tensor
+from torch import no_grad, sum, tensor
 from torch.optim import (
     Optimizer,
 )
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 def calculate_steepest_gradient_direction(
     policy: BasePyTorchPolicy, statistics: EpisodePolicyGradientStatistics, optimizer: Optimizer
-) -> Tensor:
+) -> np.ndarray:
     """
     Calculate the direction of steepest gradient ascent of the policy.
 
@@ -44,7 +44,7 @@ def calculate_steepest_gradient_direction(
         optimizer: A PyTorch optimizer class that will be used to calculate the policy gradient.
 
     Returns:
-        A PyTorch tensor containing the policy gradient.
+        A NumPy array containing the policy gradient.
 
     """
     optimizer.zero_grad()
@@ -55,8 +55,12 @@ def calculate_steepest_gradient_direction(
     loss = -sum(log_probabilities * tensor(statistics.total_expected_rewards))
     loss.backward()
 
-    return flatten_tensor_dict(
-        {name: param.grad for name, param in policy.network.named_parameters()},
+    return (
+        flatten_tensor_dict(
+            {name: param.grad for name, param in policy.network.named_parameters() if param.grad is not None},
+        )
+        .detach()
+        .numpy()
     )
 
 
@@ -85,8 +89,19 @@ def construct_fim_vector_product_fn(
         observations=statistics.observations,
         actions=statistics.actions,
     )
-    # TODO: Convert Jacobian to a NumPy array
-    jacobian_matrix = flatten_tensor_dict(jacobian)
+    jacobian_matrix = (
+        flatten_tensor_dict(
+            jacobian,
+            dim=statistics.actions.ndim,
+        )
+        .detach()
+        .numpy()
+    )
+
+    if jacobian_matrix.ndim > 3 or (jacobian_matrix.ndim > 2 and jacobian_matrix.shape[0] > 1):
+        raise RuntimeError('Unsupported shape of Jacobian matrix: %s', jacobian_matrix.shape)
+    elif jacobian_matrix.ndim > 2:
+        jacobian_matrix = jacobian_matrix.squeeze()
 
     def calculate_fim_vector_product(v: np.ndarray):
         return np.matmul(jacobian_matrix.T, np.matmul(jacobian_matrix, v))

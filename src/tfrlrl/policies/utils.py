@@ -19,15 +19,13 @@ def flatten_tensor_dict(x: Dict[str, Tensor], dim: int = 0) -> Tensor:
     Returns:
         The flattened tensor. The flattened tensor will have the following shape:
                     (start_dims, n_elems / n_start_dim_elems).
-        start_dims is dimensions of the dimensions precceding, n_start_dim_elems is the number of
-        dimensions in the starting dimensions (or 1 when dim is zero) and  n_elems is the number of
-        elements across the different tensors in the input dictionary.
+        start_dims is the dimensions preceeding dim, which is empty when dim is zero, n_start_dim_elems
+        is the number of dimensions in the starting dimensions (or 1 when dim is zero) and  n_elems is
+        the number of elements across the different tensors in the input dictionary.
 
     Raises:
         RuntimeError: When the starting dimensions of the tensors in x, i.e. the dimensions less than
         dim, then a RuntimeError will be thrown by the call to cat.
 
     """
-    if dim == 0:
-        return cat([j.flatten(start_dim=dim) for j in x.values()], dim=dim)[None, :]
     return cat([j.flatten(start_dim=dim) for j in x.values()], dim=dim)
