@@ -54,7 +54,7 @@ def calculate_steepest_gradient_direction(
         observations=statistics.observations,
         actions=statistics.actions,
     )
-    loss = -sum(log_probabilities * tensor(statistics.total_expected_rewards))
+    loss = sum(log_probabilities * tensor(statistics.total_expected_rewards))
     loss.backward()
 
     return (

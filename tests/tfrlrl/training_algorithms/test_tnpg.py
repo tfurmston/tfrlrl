@@ -44,8 +44,8 @@ def test_calculate_steepest_gradient_direction(env_id: str, expected_shape: Tupl
     """
     Test that calculate_steepest_gradient_direction returns the correct policy gradient.
 
-    The steepest gradient direction is verified against central finite differences of the loss function
-    L(θ) = -sum_t log π_θ(a_t | s_t) * R_t with respect to each policy parameter element.
+    The steepest gradient direction is verified against central finite differences of the objective
+    J(θ) = sum_t log π_θ(a_t | s_t) * R_t with respect to each policy parameter element.
 
     Args:
         env_id: The Gymnasium environment ID with a discrete action space.
@@ -106,14 +106,14 @@ def test_calculate_steepest_gradient_direction(env_id: str, expected_shape: Tupl
             dict_plus[param_name][idx] += eps
             policy.set_state(dict_plus)
             log_probs_plus = policy.calculate_log_probabilities(statistics.observations, statistics.actions)
-            loss_plus = (-torch_sum(log_probs_plus * tensor(statistics.total_expected_rewards))).item()
+            objective_plus = torch_sum(log_probs_plus * tensor(statistics.total_expected_rewards)).item()
 
             dict_minus[param_name][idx] -= eps
             policy.set_state(dict_minus)
             log_probs_minus = policy.calculate_log_probabilities(statistics.observations, statistics.actions)
-            loss_minus = (-torch_sum(log_probs_minus * tensor(statistics.total_expected_rewards))).item()
+            objective_minus = torch_sum(log_probs_minus * tensor(statistics.total_expected_rewards)).item()
 
-            fd_grad[idx] = (loss_plus - loss_minus) / (2 * eps)
+            fd_grad[idx] = (objective_plus - objective_minus) / (2 * eps)
 
         fd_grad_parts.append(fd_grad.flatten())
 
