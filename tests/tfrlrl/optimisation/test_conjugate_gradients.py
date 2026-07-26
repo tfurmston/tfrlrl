@@ -98,6 +98,26 @@ def test_approximate_solution_with_n_iters_less_than_dimension(n_iters: int, see
     assert np.dot(e_approx, np.matmul(A, e_approx)) <= np.dot(e_init, np.matmul(A, e_init))
 
 
+def test_zero_b_returns_zero_vector_without_nans():
+    """
+    Test that calculate_conjugate_gradient returns a zero vector when b is exactly zero.
+
+    When b is the zero vector, x=0 already satisfies Ax=b, so the algorithm should return immediately
+    rather than dividing rdotr (which is 0) by p.T.dot(z) (also 0), which would produce NaNs.
+
+    """
+    n = 5
+    A = _make_spd_matrix(n)
+    b = np.zeros(n)
+
+    def mat_v_mult_fn(v):
+        return np.matmul(A, v)
+
+    x = calculate_conjugate_gradient(mat_v_mult_fn, b)
+
+    np.testing.assert_array_equal(x, np.zeros(n))
+
+
 @pytest.mark.parametrize(
     'b_shape',
     [

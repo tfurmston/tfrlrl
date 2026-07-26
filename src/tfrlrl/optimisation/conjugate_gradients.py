@@ -36,6 +36,9 @@ def calculate_conjugate_gradient(
     x = np.zeros_like(b)
     rdotr = np.inner(r, r)
 
+    if rdotr < tol:
+        return x
+
     for _ in range(n_iters):
         z = mat_v_mult_fn(p)
 

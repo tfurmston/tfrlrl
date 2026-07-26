@@ -285,11 +285,10 @@ def test_construct_fim_vector_product_fn_subsamples_state_action_pairs(monkeypat
 @pytest.mark.parametrize(
     'env_id, use_baseline',
     [
-        # TODO: Fix numerical errors in this test
-        # (
-        #     'FrozenLake-v1',
-        #     False,
-        # ),
+        (
+            'FrozenLake-v1',
+            False,
+        ),
         (
             'InvertedPendulum-v5',
             False,

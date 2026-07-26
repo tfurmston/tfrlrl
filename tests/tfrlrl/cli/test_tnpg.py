@@ -144,11 +144,10 @@ class TestMain:
                 'InvertedPendulum-v5',
                 'dense',
             ),
-            # TODO: Fix numerical errors in this test
-            # (
-            #     'FrozenLake-v1',
-            #     'linear',
-            # ),
+            (
+                'FrozenLake-v1',
+                'linear',
+            ),
         ],
     )
     @given(
@@ -192,12 +191,11 @@ class TestMain:
         'env_id, policy_class, env_kwargs',
         [
             ('InvertedPendulum-v5', 'dense', '{"reset_noise_scale": 0.001}'),
-            # TODO: Fix numerical errors in this test
-            # (
-            #     'FrozenLake-v1',
-            #     'linear',
-            #     '{"is_slippery": false}',
-            # ),
+            (
+                'FrozenLake-v1',
+                'linear',
+                '{"is_slippery": false}',
+            ),
         ],
     )
     def test_main_with_env_kwargs(self, env_id: str, policy_class: str, env_kwargs: str):
@@ -272,8 +270,7 @@ class TestMain:
     @pytest.mark.parametrize(
         'env_id, policy_class',
         [
-            # TODO: Fix numerical errors in this test
-            # ('FrozenLake-v1', 'linear'),
+            ('FrozenLake-v1', 'linear'),
         ],
     )
     def test_main_discounted_reward_model(self, env_id: str, policy_class: str):
