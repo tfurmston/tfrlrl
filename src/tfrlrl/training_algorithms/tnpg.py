@@ -67,7 +67,9 @@ def calculate_steepest_gradient_direction(
 
 
 def construct_fim_vector_product_fn(
-    policy: BasePyTorchPolicy, statistics: EpisodePolicyGradientStatistics
+    policy: BasePyTorchPolicy,
+    statistics: EpisodePolicyGradientStatistics,
+    n_samples_fim: Optional[int] = None,
 ) -> Callable[[np.ndarray], np.ndarray]:
     """
     Construct function for calculating the product of the Fisher Information matrix with a vector.
@@ -81,20 +83,33 @@ def construct_fim_vector_product_fn(
         policy: The policy for which the Fisher Infromation matrix is to be calculated.
         statistics: The statistics over which the expectation within the Fisher Information matrix calculation
         is to be performed.
+        n_samples_fim: The number of state-action pairs to randomly subsample (without replacement) from
+        statistics for use in the Fisher Information matrix calculation. When not given, or when it is at
+        least as large as the number of sampled state-action pairs, all of the state-action pairs in
+        statistics will be used.
 
     Returns:
         A callable that takes an input vector as an argument and returns the product of the Fisher Information
         matrix with that vector.
 
     """
+    observations = statistics.observations
+    actions = statistics.actions
+
+    n_steps = actions.shape[-1]
+    if n_samples_fim is not None and n_samples_fim < n_steps:
+        idx = np.random.default_rng().choice(n_steps, size=n_samples_fim, replace=False)
+        observations = observations[..., idx]
+        actions = actions[..., idx]
+
     jacobian = policy.calculate_jacobian(
-        observations=statistics.observations,
-        actions=statistics.actions,
+        observations=observations,
+        actions=actions,
     )
     jacobian_matrix = (
         flatten_tensor_dict(
             jacobian,
-            dim=statistics.actions.ndim,
+            dim=actions.ndim,
         )
         .detach()
         .numpy()
@@ -103,7 +118,7 @@ def construct_fim_vector_product_fn(
     if jacobian_matrix.ndim > 3 or (jacobian_matrix.ndim > 2 and jacobian_matrix.shape[0] > 1):
         raise RuntimeError('Unsupported shape of Jacobian matrix: %s', jacobian_matrix.shape)
     elif jacobian_matrix.ndim > 2:
-        jacobian_matrix = jacobian_matrix.squeeze()
+        jacobian_matrix = jacobian_matrix.squeeze(axis=0)
 
     def calculate_fim_vector_product(v: np.ndarray):
         return np.matmul(jacobian_matrix.T, np.matmul(jacobian_matrix, v))
@@ -122,6 +137,8 @@ def train_policy_gradient(
     baseline: Optional[Baseline] = None,
     reward_model: Optional[Union[AverageEpisodicReward, DiscountedReward]] = None,
     n_iteration_logging: int = 10,
+    n_iters_cg: Optional[int] = None,
+    n_samples_fim: Optional[int] = None,
     **kwargs,
 ) -> BasePyTorchPolicy:
     """
@@ -140,6 +157,10 @@ def train_policy_gradient(
         reward_model: The reward model to use when computing total expected rewards. Defaults to
         AverageEpisodicReward if not specified.
         n_iteration_logging: The number of algorithm iterations between logging algorithm performance.
+        n_iters_cg: The maximum number of conjugate-gradient iterations to perform when calculating the
+        truncated natural policy gradient direction. Defaults to the default of calculate_conjugate_gradient.
+        n_samples_fim: The number of state-action pairs to randomly subsample when calculating the Fisher
+        Information matrix-vector product. When not given, all sampled state-action pairs are used.
         kwargs: Additional keyword arguments to pass to the EpisodicSampler (e.g., is_slippery).
 
     Returns:
@@ -193,11 +214,11 @@ def train_policy_gradient(
             mat_v_mult_fn=construct_fim_vector_product_fn(
                 policy=policy,
                 statistics=statistics,
+                n_samples_fim=n_samples_fim,
             ),
             b=sgd,
-            n_iters=1,
+            n_iters=n_iters_cg,
         )
-        print(tngd)
         logger.debug('Update policy parameters.')
         tngd_dict = unflatten_tensor_dict(
             tensor(tngd),
