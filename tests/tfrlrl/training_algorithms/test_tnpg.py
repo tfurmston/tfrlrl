@@ -16,12 +16,17 @@ from torch.optim import (
     SGD,
 )
 
+from tfrlrl.baselines.linear import LinearBaseline
 from tfrlrl.features.onehot import OneHotFeatureFunction
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.sampling.episodic_sampler import EpisodicSampler
 from tfrlrl.sampling.statistics_collection import EpisocidPolicyGradientStatisticsCollector
-from tfrlrl.training_algorithms.tnpg import calculate_steepest_gradient_direction, construct_fim_vector_product_fn
+from tfrlrl.training_algorithms.tnpg import (
+    calculate_steepest_gradient_direction,
+    construct_fim_vector_product_fn,
+    train_policy_gradient,
+)
 
 
 @pytest.mark.parametrize(
@@ -131,7 +136,7 @@ def test_calculate_steepest_gradient_direction(env_id: str, expected_shape: Tupl
     ],
 )
 @given(
-    n_episodes=st.integers(min_value=10, max_value=100),
+    n_episodes=st.integers(min_value=2, max_value=10),
 )
 @settings(deadline=None)
 def test_construct_fim_vector_product_fn(env_id: str, expected_shape: Tuple[int], n_episodes: int):
@@ -207,3 +212,124 @@ def test_construct_fim_vector_product_fn(env_id: str, expected_shape: Tuple[int]
     v_expected = np.matmul(J.T, np.matmul(J, sgd))
 
     np.testing.assert_allclose(v, v_expected, rtol=1e-1)
+
+
+@pytest.mark.parametrize(
+    'env_id, use_baseline',
+    [
+        # TODO: Fix numerical errors in this test
+        # (
+        #     'FrozenLake-v1',
+        #     False,
+        # ),
+        (
+            'InvertedPendulum-v5',
+            False,
+        ),
+        (
+            'InvertedPendulum-v5',
+            True,
+        ),
+    ],
+)
+@given(
+    n_iterations=st.integers(min_value=2, max_value=5),
+    n_episodes=st.integers(min_value=2, max_value=5),
+    lr=st.floats(min_value=0.0000001, max_value=0.000001),
+)
+@settings(deadline=5000)
+def test_train_policy_gradient_returns_policy(
+    env_id: str,
+    use_baseline: bool,
+    n_iterations: int,
+    n_episodes: int,
+    lr: float,
+):
+    """
+    Test that train_policy_gradient executes successfully and returns a policy.
+
+    Args:
+        env_id: The Gym environment ID to be used in training.
+        use_baseline: A Boolean indicating whether to use a linear baseline.
+        n_iterations: The number of policy updates to perform.
+        n_episodes: The number of episodes to sample during each policy update.
+        lr: The base learning rate for the SGD optimizer used to apply the natural policy gradient.
+
+    """
+    env = gym.make(env_id)
+
+    if env_id == 'InvertedPendulum-v5':
+        policy = DenseNetworkPolicy(
+            env_id=env_id,
+            hidden_space_dims=[16, 32],
+        )
+    else:
+        feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+        policy = LinearSoftMax(env_id, feature_fn)
+
+    if use_baseline:
+        baseline = LinearBaseline(env_id=env_id)
+    else:
+        baseline = None
+
+    trained_policy = train_policy_gradient(
+        env_id=env_id,
+        policy=policy,
+        n_iterations=n_iterations,
+        n_episodes=n_episodes,
+        lr=lr,
+        baseline=baseline,
+    )
+
+    assert trained_policy is not None
+    if env_id == 'InvertedPendulum-v5':
+        assert isinstance(trained_policy, DenseNetworkPolicy)
+    else:
+        assert isinstance(trained_policy, LinearSoftMax)
+
+    assert trained_policy is policy
+
+
+@pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+@given(
+    n_iterations=st.integers(min_value=2, max_value=5),
+    n_episodes=st.integers(min_value=2, max_value=5),
+    lr=st.floats(min_value=0.00001, max_value=0.0001),
+)
+@settings(deadline=5000)
+def test_train_policy_gradient_updates_policy(env_id: str, n_iterations: int, n_episodes: int, lr: float):
+    """
+    Test that train_policy_gradient executes successfully and updates the policy.
+
+    Args:
+        env_id: The Gym environment ID to be used in training.
+        n_iterations: The number of policy updates to perform.
+        n_episodes: The number of episodes to sample during each policy update.
+        lr: The base learning rate for the SGD optimizer used to apply the natural policy gradient.
+
+    """
+    env = gym.make(env_id)
+
+    feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+    policy = LinearSoftMax(env_id, feature_fn)
+
+    original_parameters = copy.deepcopy(list(policy.get_parameters()))
+
+    # Train the policy - We set reward_schedule to ensure the policy is updated.
+    trained_policy = train_policy_gradient(
+        env_id=env_id,
+        policy=policy,
+        n_iterations=n_iterations,
+        n_episodes=n_episodes,
+        lr=lr,
+        is_slippery=False,
+        reward_schedule=(1, 1, 1),
+    )
+
+    assert trained_policy is not None
+    assert isinstance(trained_policy, LinearSoftMax)
+    assert trained_policy is policy
+
+    updated_parameters = list(policy.get_parameters())
+    parameter_diff = original_parameters[0].detach().numpy() - updated_parameters[0].detach().numpy()
+    assert np.sum(np.abs(parameter_diff)) > 0

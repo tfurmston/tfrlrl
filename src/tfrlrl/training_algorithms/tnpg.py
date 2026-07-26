@@ -195,9 +195,9 @@ def train_policy_gradient(
                 statistics=statistics,
             ),
             b=sgd,
-            n_iters=10,
+            n_iters=1,
         )
-
+        print(tngd)
         logger.debug('Update policy parameters.')
         tngd_dict = unflatten_tensor_dict(
             tensor(tngd),
