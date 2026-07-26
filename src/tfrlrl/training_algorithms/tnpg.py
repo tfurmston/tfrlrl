@@ -7,15 +7,17 @@ import numpy as np
 import ray
 from torch import no_grad, sum, tensor
 from torch.optim import (
+    SGD,
     Optimizer,
 )
+from torch.optim.lr_scheduler import LRScheduler
 
 from tfrlrl import settings
 from tfrlrl.baselines.linear import Baseline
 from tfrlrl.data_models.reward_models import AverageEpisodicReward, DiscountedReward
 from tfrlrl.optimisation.conjugate_gradients import calculate_conjugate_gradient
 from tfrlrl.policies.base import BasePyTorchPolicy
-from tfrlrl.policies.utils import flatten_tensor_dict
+from tfrlrl.policies.utils import flatten_tensor_dict, unflatten_tensor_dict
 from tfrlrl.sampling.episodic_sampler import (
     EpisodicSampler,
     RayEpisodicSampler,
@@ -114,7 +116,8 @@ def train_policy_gradient(
     policy: BasePyTorchPolicy,
     n_iterations: int,
     n_episodes: int,
-    optimizer: Optimizer,
+    lr: float,
+    lr_scheduler_fn: Optional[Callable[[Optimizer], LRScheduler]] = None,
     n_samplers: int = 1,
     baseline: Optional[Baseline] = None,
     reward_model: Optional[Union[AverageEpisodicReward, DiscountedReward]] = None,
@@ -122,14 +125,16 @@ def train_policy_gradient(
     **kwargs,
 ) -> BasePyTorchPolicy:
     """
-    Train a policy using stochastic gradient ascent on the policy gradient.
+    Train a policy using truncated natural policy gradient ascent.
 
     Args:
         env_id: Gymnasium environment ID (e.g., CartPole-v1, MountainCar-v0).
         policy: The policy to train. Must have get_parameters() and set_parameters() methods.
         n_iterations: The number of policy updates to perform.
         n_episodes: The number of episodes to sample during each policy update.
-        optimizer: An instance of a PyTorch optimizer class that will be used to optimise the policy.
+        lr: The base learning rate for the SGD optimizer used to apply the natural policy gradient.
+        lr_scheduler_fn: An optional factory that, given the SGD optimizer instantiated internally,
+        returns an LRScheduler wrapping it. When not given, the learning rate stays constant at lr.
         n_samplers: The number of samplers to used to sample from the environment.
         baseline: An instance of a baseline class, if one is given.
         reward_model: The reward model to use when computing total expected rewards. Defaults to
@@ -141,6 +146,9 @@ def train_policy_gradient(
         The trained policy.
 
     """
+    optimizer = SGD(policy.network.parameters(), lr=lr, maximize=True)
+    lr_scheduler = lr_scheduler_fn(optimizer) if lr_scheduler_fn is not None else None
+
     statistics_collector = EpisocidPolicyGradientStatisticsCollector(
         env_id,
         baseline=baseline,
@@ -175,13 +183,13 @@ def train_policy_gradient(
         with no_grad():
             statistics = sampler.sample()
 
+        logger.debug('Calculate truncated-natural policy gradient.')
         sgd = calculate_steepest_gradient_direction(
             policy=policy,
             statistics=statistics,
             optimizer=optimizer,
         )
-
-        calculate_conjugate_gradient(
+        tngd = calculate_conjugate_gradient(
             mat_v_mult_fn=construct_fim_vector_product_fn(
                 policy=policy,
                 statistics=statistics,
@@ -190,7 +198,17 @@ def train_policy_gradient(
             n_iters=10,
         )
 
-        # optimizer.step()
+        logger.debug('Update policy parameters.')
+        tngd_dict = unflatten_tensor_dict(
+            tensor(tngd),
+            reference={name: param for name, param in policy.network.named_parameters()},
+            dim=0,
+        )
+        for name, param in policy.network.named_parameters():
+            param.grad = tngd_dict[name]
+        optimizer.step()
+        if lr_scheduler is not None:
+            lr_scheduler.step()
 
         if n % n_iteration_logging == 0:
             logger.info('Policy update: %s', n)

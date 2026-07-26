@@ -29,3 +29,39 @@ def flatten_tensor_dict(x: Dict[str, Tensor], dim: int = 0) -> Tensor:
 
     """
     return cat([j.flatten(start_dim=dim) for j in x.values()], dim=dim)
+
+
+def unflatten_tensor_dict(x: Tensor, reference: Dict[str, Tensor], dim: int = 0) -> Dict[str, Tensor]:
+    """
+    Unflatten the given PyTorch tensor into a dictionary of PyTorch tensors.
+
+    This function is the inverse of flatten_tensor_dict. It takes a tensor produced by flattening
+    the tensors in reference along dim, e.g. via flatten_tensor_dict(reference, dim=dim), and splits
+    it back into a dictionary of tensors with the same keys, order and shapes as reference.
+
+    Args:
+        x: The tensor to be unflattened.
+        reference: A dictionary of tensors whose keys, order and shapes (from dim onwards) are used
+        to split and reshape x back into a dictionary of tensors.
+        dim: The starting dimension on which x was flattened and concatenated.
+
+    Returns:
+        A dictionary of tensors with the same keys, order and shapes as reference.
+
+    Raises:
+        RuntimeError: When the total size of x along dim does not match the sum of the flattened
+        sizes (from dim onwards) of the tensors in reference, a RuntimeError will be thrown by the
+        call to narrow.
+
+    """
+    leading_shape = x.shape[:dim]
+
+    unflattened = {}
+    start = 0
+    for name, ref_tensor in reference.items():
+        tail_shape = ref_tensor.shape[dim:]
+        n = tail_shape.numel()
+        unflattened[name] = x.narrow(dim, start, n).reshape(*leading_shape, *tail_shape)
+        start += n
+
+    return unflattened
