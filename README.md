@@ -89,6 +89,40 @@ poetry run tfrlrl-sgd --env-id FrozenLake-v1 --policy-class linear --n-iteration
 - `--policy-class`: The class of policy to use in the environment. Allowed values are `linear` and `dense`.
 - `--n-hidden`: The number of hidden dimensions to use in the case of a dense policy.
 
+### tfrlrl-tnpg
+
+Train a policy using truncated natural policy gradient ascent, i.e. the natural policy gradient direction is
+approximated via a truncated run of conjugate-gradients, rather than by inverting the Fisher Information matrix
+directly.
+
+**Basic Usage:**
+
+```bash
+# Perform truncated natural policy gradient ascent on the given environment
+poetry run tfrlrl-tnpg --env-id FrozenLake-v1 --policy-class linear --n-iterations 100
+
+# With environment-specific configuration
+poetry run tfrlrl-tnpg --env-id FrozenLake-v1 --policy-class linear --n-iterations 100 --env-kwargs '{"is_slippery": false}'
+
+# With custom hyperparameters
+poetry run tfrlrl-tnpg --env-id FrozenLake-v1 --policy-class linear --n-iterations 50 --n-episodes 200 --alpha 10.0 --n-iters-cg 10 --n-samples-fim 200
+```
+
+**Options:**
+
+- `--env-id`: Gymnasium environment ID (e.g., FrozenLake-v1)
+- `--n-iterations`: Total number of policy updates to perform (default: 100)
+- `--n-episodes`: Total number of episodes to sample during each policy update (default: 100)
+- `--alpha`: The base learning rate for the SGD optimizer used to apply the natural policy gradient (default: 100.0)
+- `--n-samplers`: The number of samplers to use during sampling (default: 1)
+- `--env-kwargs`: Environment-specific keyword arguments as a JSON string (default: `{}`). For example, `'{"is_slippery": false}'` for FrozenLake-v1
+- `--policy-class`: The class of policy to use in the environment. Allowed values are `linear` and `dense`.
+- `--n-hidden`: The number of hidden dimensions to use in the case of a dense policy.
+- `--reward-model`: The reward model to use when computing returns. Allowed values are `average-episodic` and `discounted` (default: `average-episodic`)
+- `--gamma`: Discount factor for the discounted reward model, must be in (0, 1). Required when `--reward-model=discounted`.
+- `--n-iters-cg`: The maximum number of conjugate-gradient iterations to perform when calculating the truncated natural policy gradient direction. Defaults to the default of `calculate_conjugate_gradient`.
+- `--n-samples-fim`: The number of state-action pairs to randomly subsample when calculating the Fisher Information matrix-vector product. When not given, all sampled state-action pairs are used.
+
 ## Configuration
 
 The library uses Dynaconf for configuration management. Settings can be controlled via:
