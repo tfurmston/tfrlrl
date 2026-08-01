@@ -135,6 +135,7 @@ Command-line interface tools for common tasks:
 - Tests should not be collected in classes, but written as individual functions. 
 - There is a strong preference to using PyTest parametrize to avoid re-writing duplicate test code to handle different test cases. 
 - The use of the notation, A @ v, should be avoided. An explicit np.matmul or np.dot should be used instead.  
+- Logging is configured once, globally, in `src/tfrlrl/__init__.py`. Modules elsewhere in the codebase should only call `logging.getLogger(__name__)` and rely on that central configuration, rather than calling `logging.basicConfig()` themselves.
 
 ## Testing Requirements
 

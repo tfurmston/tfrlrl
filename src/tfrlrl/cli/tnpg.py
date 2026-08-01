@@ -10,7 +10,6 @@ from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.training_algorithms.tnpg import train_policy_gradient
 
-logging.basicConfig(format='%(asctime)s %(message)s', force=True)
 logger = logging.getLogger(__name__)
 
 
