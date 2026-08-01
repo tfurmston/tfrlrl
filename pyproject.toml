@@ -34,6 +34,7 @@ mypy = "^1.20.0"
 [tool.poetry.scripts]
 tfrlrl-sample = "tfrlrl.cli.sample:main"
 tfrlrl-sgd = "tfrlrl.cli.sgd:main"
+tfrlrl-tnpg = "tfrlrl.cli.tnpg:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

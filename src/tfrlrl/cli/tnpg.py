@@ -3,28 +3,25 @@ import json
 import logging
 
 import gymnasium as gym
-from torch.optim import (
-    AdamW,
-)
 
 from tfrlrl.data_models.reward_models import AverageEpisodicReward, DiscountedReward
 from tfrlrl.features.onehot import OneHotFeatureFunction
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
-from tfrlrl.training_algorithms.reinforce import train_policy_gradient
+from tfrlrl.training_algorithms.tnpg import train_policy_gradient
 
 logger = logging.getLogger(__name__)
 
 
 def parse_args(args=None):
     """
-    Parse command line arguments for the sampling CLI.
+    Parse command line arguments for the truncated natural policy gradient CLI.
 
     :param args: Command line arguments to parse. If None, uses sys.argv.
     :return: Parsed arguments.
     """
     parser = argparse.ArgumentParser(
-        description='Sample steps from a Gymnasium environment',
+        description='Train a policy using truncated natural policy gradient ascent',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
@@ -49,7 +46,7 @@ def parse_args(args=None):
         '--alpha',
         type=float,
         default=100.0,
-        help='The initial step size to take in stochastic gradient ascent.',
+        help='The base learning rate for the SGD optimizer used to apply the natural policy gradient.',
     )
     parser.add_argument(
         '--n-samplers',
@@ -68,7 +65,7 @@ def parse_args(args=None):
         type=str,
         required=True,
         choices=['linear', 'dense'],
-        help='The type of policy class to use in the stochastic gradient algorithm.',
+        help='The type of policy class to use in the truncated natural policy gradient algorithm.',
     )
     parser.add_argument(
         '--n-hidden',
@@ -91,6 +88,20 @@ def parse_args(args=None):
         help='Discount factor for the discounted reward model, must be in (0, 1). '
         'Required when --reward-model=discounted.',
     )
+    parser.add_argument(
+        '--n-iters-cg',
+        type=int,
+        default=None,
+        help='The maximum number of conjugate-gradient iterations to perform when calculating the truncated '
+        'natural policy gradient direction. Defaults to the default of calculate_conjugate_gradient.',
+    )
+    parser.add_argument(
+        '--n-samples-fim',
+        type=int,
+        default=None,
+        help='The number of state-action pairs to randomly subsample when calculating the Fisher Information '
+        'matrix-vector product. When not given, all sampled state-action pairs are used.',
+    )
     parsed = parser.parse_args(args)
     if parsed.reward_model == 'discounted' and parsed.gamma is None:
         parser.error('--gamma is required when --reward-model=discounted')
@@ -99,7 +110,7 @@ def parse_args(args=None):
 
 def main(args=None):
     """
-    Entry point for the sampling CLI.
+    Entry point for the truncated natural policy gradient CLI.
 
     :param args: Command line arguments. If None, uses sys.argv.
     :return: Exit code (0 for success, 1 for failure).
@@ -140,15 +151,15 @@ def main(args=None):
             hidden_space_dims=parsed_args.n_hidden,
         )
 
-    optimizer = AdamW(policy.get_parameters(), lr=parsed_args.alpha)
-
     train_policy_gradient(
         env_id=parsed_args.env_id,
         policy=policy,
         n_iterations=parsed_args.n_iterations,
         n_episodes=parsed_args.n_episodes,
-        optimizer=optimizer,
+        lr=parsed_args.alpha,
         n_samplers=parsed_args.n_samplers,
         reward_model=reward_model,
+        n_iters_cg=parsed_args.n_iters_cg,
+        n_samples_fim=parsed_args.n_samples_fim,
         **env_kwargs,
     )

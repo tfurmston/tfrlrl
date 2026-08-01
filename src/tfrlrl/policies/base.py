@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterator, Union
+from typing import Any, Callable, Dict, Iterator, Tuple, Union
 
 import gymnasium as gym
 import numpy as np
@@ -7,6 +7,7 @@ from torch import (
     Tensor,
     nn,
 )
+from torch.func import jacfwd
 
 
 class PolicyException(Exception):
@@ -183,7 +184,49 @@ class BasePyTorchPolicy(BasePolicy):
             observations).
 
         Returns:
-            A PyTorch Tensor containing the log-probabilities of the given (observation, action) pairs.
+            A PyTorch Tensor containing the log-probabilities of the given (observation, action) pairs. The shape of
+            the output is expected to be either (n_observation) or (1, n_observations).
 
         """
         ...
+
+    @abstractmethod
+    def make_log_prob_fn(self, observations: np.ndarray, actions: np.ndarray) -> Tuple[Callable[[Dict], Tensor], Dict]:
+        """
+        Construct a PyTorch functional to calculate the log-probabilities of the given state-action pairs.
+
+        Construct a PyTorch functional that takes the policy parameters as inputs and returns the log-probabilites
+        of the given state-action pairs. This functional can be used in various functionality, such as in the
+        construction of the Jacboian of the policy.
+
+        Args:
+            observations: A NumPy array of the observations for which to calculate the log-probabilities.
+            actions: A NumPy array of the actions for which to calculate the log-probabilities (of the corresponding
+            observations).
+
+        Returns:
+            A tuple consisting of a function that takes the policy parameters as inputs and returns the
+            log-probabilities of the given state-action pairs and a dictionary of policy parameters.
+
+        """
+        ...
+
+    def calculate_jacobian(self, observations: np.ndarray, actions: np.ndarray) -> Dict[str, Tensor]:
+        """
+        Calculate the Jacobian of the log-probabilites at the given state-action pairs.
+
+        This function calculates the Jacobian of the log-probabilities of the policy for the given
+        state-action pairs. The Jacobian is given in the form of a dictionary, with the keys corresponding
+        to the different parameters of the policy (network).
+
+        Args:
+            observations: A NumPy array of the observations for which to calculate the log-probabilities.
+            actions: A NumPy array of the actions for which to calculate the log-probabilities (of the corresponding
+            observations).
+
+        Returns:
+            A dictionary mapping the parameter name to the (rows of the) Jacobian corresponding to that parameter.
+
+        """
+        log_prob_fn, params = self.make_log_prob_fn(observations, actions)
+        return jacfwd(log_prob_fn)(params)

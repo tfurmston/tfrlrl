@@ -118,13 +118,24 @@ Command-line interface tools for common tasks:
   - Inherits logging configuration from centralized settings (no --verbose flag)
 - Entry point registered as `tfrlrl-sample` console script in pyproject.toml
 
-## Code Style Requirements
+## Code Style \& Conventions 
+
+### Requirements
 
 - Maximum line length: 120 characters
 - Maximum complexity: 8 (flake8)
 - isort configuration: line_length=120, multi_line_output=3, include_trailing_comma=true
 - Docstrings required for classes and functions (excluding D100, D104)
-- Double quotes for strings (enforced by flake8-quotes)
+- Single quotes for strings (enforced by ruff)
+- Type checking enforced through MyPy
+
+### Conventions
+
+- The test-suite must follow the same structure as the main project. 
+- Tests should not be collected in classes, but written as individual functions. 
+- There is a strong preference to using PyTest parametrize to avoid re-writing duplicate test code to handle different test cases. 
+- The use of the notation, A @ v, should be avoided. An explicit np.matmul or np.dot should be used instead.  
+- Logging is configured once, globally, in `src/tfrlrl/__init__.py`. Modules elsewhere in the codebase should only call `logging.getLogger(__name__)` and rely on that central configuration, rather than calling `logging.basicConfig()` themselves.
 
 ## Testing Requirements
 
