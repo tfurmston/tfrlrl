@@ -33,7 +33,7 @@ from tfrlrl.training_algorithms.tnpg import (
     'env_id, expected_shape',
     [
         ('FrozenLake-v1', (49,)),
-        ('InvertedPendulum-v5', (690,)),
+        ('InvertedPendulum-v5', (658,)),
     ],
 )
 @given(
@@ -132,7 +132,7 @@ def test_calculate_steepest_gradient_direction(env_id: str, expected_shape: Tupl
     'env_id, expected_shape',
     [
         ('FrozenLake-v1', (49,)),
-        ('InvertedPendulum-v5', (50,)),
+        ('InvertedPendulum-v5', (46,)),
     ],
 )
 @given(

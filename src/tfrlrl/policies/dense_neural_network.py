@@ -40,7 +40,7 @@ class DenseNetworkPolicyConfig:
     """
 
     hidden_space_dims: List[int]
-    std_parameterisation: str = 'network'
+    std_parameterisation: str = 'global'
     init_std: float = 1.0
     learn_std: bool = True
 

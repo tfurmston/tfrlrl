@@ -77,7 +77,7 @@ def parse_args(args=None):
     parser.add_argument(
         '--std-parameterisation',
         type=str,
-        default='network',
+        default='global',
         choices=['network', 'global'],
         help="How the standard deviation of a dense policy is parameterised: 'network' for a standard deviation "
         "that is a function of the observation, or 'global' for a single state-independent learned vector.",
