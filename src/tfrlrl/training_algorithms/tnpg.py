@@ -207,6 +207,7 @@ def train_policy_gradient(
     """
     optimizer = SGD(policy.network.parameters(), lr=step_size_config.lr, maximize=True)
     lr_scheduler = step_size_config.lr_scheduler_fn(optimizer) if step_size_config.lr_scheduler_fn is not None else None
+    trust_region_config = step_size_config.trust_region_config
 
     statistics_collector = EpisocidPolicyGradientStatisticsCollector(
         env_id,
@@ -248,7 +249,6 @@ def train_policy_gradient(
             statistics=statistics,
             optimizer=optimizer,
         )
-        trust_region_config = step_size_config.trust_region_config
         cg_result = calculate_conjugate_gradient(
             mat_v_mult_fn=construct_fim_vector_product_fn(
                 policy=policy,

@@ -6,7 +6,14 @@ import numpy as np
 
 @dataclass
 class ConjugateGradientResult:
-    """The solution of the conjugate-gradient algorithm, together with the resulting quadratic form, x^T A x."""
+    """
+    The solution of the conjugate-gradient algorithm, together with the resulting quadratic form, x^T A x.
+
+    Args:
+        x: The (approximate) solution of Ax = b.
+        quadratic_form: The quadratic form, x^T A x.
+
+    """
 
     x: np.ndarray
     quadratic_form: float
