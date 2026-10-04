@@ -21,7 +21,23 @@ from tfrlrl.policies.base import BasePyTorchPolicy, PolicyException
 
 @dataclass
 class DenseNetworkPolicyConfig:
-    """Configuration parameters for DenseNetworkPolicy and its underlying DensePolicyNetwork."""
+    """
+    Configuration parameters for DenseNetworkPolicy and its underlying DensePolicyNetwork.
+
+    This class encapsulates the configuration of dense Gaussian policy networks, including the form of noise
+    to use in the Gaussian.
+
+    Args:
+        hidden_space_dims: A list on integers denoting the number of units in each layer.
+        std_parameterisation: The form of parameterisation for the standard deviation of the Gaussian. The options are:
+            - network: the noise to be state-dependent, by which we mean the output of a neural network with the
+            observation as input.
+            - global: a global vector, with the number of dimensions equal to the number of action, that is fixed
+            during similation.
+        init_std: The initialisation of the standard deviation. Only used when std_parameterisation is global.
+        learn_std: Whether the standard deviation is learnable. Only used when std_parameterisation is global.
+
+    """
 
     hidden_space_dims: List[int]
     std_parameterisation: str = 'network'
@@ -113,7 +129,23 @@ class DensePolicyNetwork(nn.Module):
 
 
 class DenseNetworkPolicy(BasePyTorchPolicy):
-    """Policy class that uses a dense neural network for constructing the mean and standard deviation of a Gaussian."""
+    """
+    Policy class that uses a dense neural network for constructing the mean and standard deviation of a Gaussian.
+
+    This policy class provides a Gaussian policy in which the mean of the Gaussian is the output of a nonlinear neural
+     network with observation as input. The class supports different forms of policy noise. In particular, it is
+    possible to have either (i) the noise to be state-dependent, by which we mean the output of a neural network with
+    the observation as input or (ii) a global vector, with the number of dimensions equal to the number of action, that
+    is fixed during similation. In the case of (i) the neural network is the same as that used for the mean and the
+    final standard deviation used is log(1 + exp(networ(obs))), in which networ(obs) is the output of the neural
+    network. In the case of (ii) the global vector can be fixed or learnt.
+
+    Args:
+        env_id: The I.D. of the environment in which the policy will sample actions.
+        config: The instance of the policy configuration class, DenseNetworkPolicyConfig, from which to initialise the
+        policy.
+
+    """
 
     def __init__(self, env_id: str, config: DenseNetworkPolicyConfig):
         """Initialise dense network policy."""
