@@ -6,7 +6,7 @@ import gymnasium as gym
 
 from tfrlrl.data_models.reward_models import AverageEpisodicReward, DiscountedReward
 from tfrlrl.features.onehot import OneHotFeatureFunction
-from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
+from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy, DenseNetworkPolicyConfig
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.training_algorithms.tnpg import train_policy_gradient
 
@@ -73,6 +73,27 @@ def parse_args(args=None):
         nargs='+',
         default=[16, 32],
         help='The number of hidden dimensions to use in a dense policy network.',
+    )
+    parser.add_argument(
+        '--std-parameterisation',
+        type=str,
+        default='global',
+        choices=['network', 'global'],
+        help="How the standard deviation of a dense policy is parameterised: 'network' for a standard deviation "
+        "that is a function of the observation, or 'global' for a single state-independent learned vector.",
+    )
+    parser.add_argument(
+        '--init-std',
+        type=float,
+        default=1.0,
+        help='The initial standard deviation of a dense policy when --std-parameterisation=global. Ignored otherwise.',
+    )
+    parser.add_argument(
+        '--learn-std',
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help='Whether the standard deviation of a dense policy is trainable when --std-parameterisation=global. '
+        'Ignored otherwise.',
     )
     parser.add_argument(
         '--reward-model',
@@ -146,9 +167,15 @@ def main(args=None):
         policy = LinearSoftMax(parsed_args.env_id, feature_fn)
     else:
         logger.info('Using a dense policy with hidden dimensions: %s', parsed_args.n_hidden)
+        policy_config = DenseNetworkPolicyConfig(
+            hidden_space_dims=parsed_args.n_hidden,
+            std_parameterisation=parsed_args.std_parameterisation,
+            init_std=parsed_args.init_std,
+            learn_std=parsed_args.learn_std,
+        )
         policy = DenseNetworkPolicy(
             env_id=parsed_args.env_id,
-            hidden_space_dims=parsed_args.n_hidden,
+            config=policy_config,
         )
 
     train_policy_gradient(

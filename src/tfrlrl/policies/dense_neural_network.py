@@ -1,4 +1,6 @@
+import math
 from collections import OrderedDict
+from dataclasses import dataclass
 from typing import Callable, Dict, List, Tuple, Union
 
 import gymnasium as gym
@@ -6,6 +8,7 @@ import numpy as np
 from torch import (
     Tensor,
     exp,
+    full,
     log,
     nn,
     tensor,
@@ -16,6 +19,39 @@ from torch.func import functional_call
 from tfrlrl.policies.base import BasePyTorchPolicy, PolicyException
 
 
+@dataclass
+class DenseNetworkPolicyConfig:
+    """
+    Configuration parameters for DenseNetworkPolicy and its underlying DensePolicyNetwork.
+
+    This class encapsulates the configuration of dense Gaussian policy networks, including the form of noise
+    to use in the Gaussian.
+
+    Args:
+        hidden_space_dims: A list on integers denoting the number of units in each layer.
+        std_parameterisation: The form of parameterisation for the standard deviation of the Gaussian. The options are:
+            - network: the noise to be state-dependent, by which we mean the output of a neural network with the
+            observation as input.
+            - global: a global vector, with the number of dimensions equal to the number of action, that is fixed
+            during similation.
+        init_std: The initialisation of the standard deviation. Only used when std_parameterisation is global.
+        learn_std: Whether the standard deviation is learnable. Only used when std_parameterisation is global.
+
+    """
+
+    hidden_space_dims: List[int]
+    std_parameterisation: str = 'global'
+    init_std: float = 1.0
+    learn_std: bool = True
+
+    def __post_init__(self):
+        """Validate the standard deviation parameterisation."""
+        if self.std_parameterisation not in ('network', 'global'):
+            raise PolicyException(
+                f"std_parameterisation must be one of 'network' or 'global', got '{self.std_parameterisation}'.",
+            )
+
+
 class DensePolicyNetwork(nn.Module):
     """
     A dense neural network for calculating the mean and standard deviation of a Gaussian distribution.
@@ -24,17 +60,21 @@ class DensePolicyNetwork(nn.Module):
     policy. This is then used to sample actions in an environment with continuous actions.
     """
 
-    def __init__(self, obs_space_dims: int, action_space_dims: int, hidden_space_dims: List[int]):
+    def __init__(self, obs_space_dims: int, action_space_dims: int, config: DenseNetworkPolicyConfig):
         """
         Initialise dense neural network for calculating the mean and standard deviation of a Gaussian policy.
 
         Args:
             obs_space_dims: The number of dimensions in the observation space.
             action_space_dims: The number of dimensions in the action space.
-            hidden_space_dims: A list of the number of dimensions for the hidden layers in the network.
+            config: The configuration parameters for the network, including the hidden layer dimensions and the
+                parameterisation of the standard deviation.
 
         """
         super().__init__()
+        self.config = config
+
+        hidden_space_dims = config.hidden_space_dims
 
         # Define the layer dimensions for all the hidden layers.
         layer_dims = [
@@ -57,8 +97,14 @@ class DensePolicyNetwork(nn.Module):
         # Policy Mean specific Linear Layer
         self.policy_mean_net = nn.Sequential(nn.Linear(hidden_space_dims[-1], action_space_dims))
 
-        # Policy Std Dev specific Linear Layer
-        self.policy_stddev_net = nn.Sequential(nn.Linear(hidden_space_dims[-1], action_space_dims))
+        # Policy Std Dev specific parameterisation, either a network or a global, state-independent vector.
+        if config.std_parameterisation == 'network':
+            self.policy_stddev_net = nn.Sequential(nn.Linear(hidden_space_dims[-1], action_space_dims))
+        else:
+            self.log_std = nn.Parameter(
+                full((action_space_dims,), math.log(config.init_std)),
+                requires_grad=config.learn_std,
+            )
 
     def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
         """
@@ -74,15 +120,34 @@ class DensePolicyNetwork(nn.Module):
         shared_features = self.shared_net(x.float())
 
         action_means = self.policy_mean_net(shared_features)
-        action_stddevs = log(1 + exp(self.policy_stddev_net(shared_features)))
+        if self.config.std_parameterisation == 'network':
+            action_stddevs = log(1 + exp(self.policy_stddev_net(shared_features)))
+        else:
+            action_stddevs = exp(self.log_std).expand_as(action_means)
 
         return action_means, action_stddevs
 
 
 class DenseNetworkPolicy(BasePyTorchPolicy):
-    """Policy class that uses a dense neural network for constructing the mean and standard deviation of a Gaussian."""
+    """
+    Policy class that uses a dense neural network for constructing the mean and standard deviation of a Gaussian.
 
-    def __init__(self, env_id: str, hidden_space_dims: List[int]):
+    This policy class provides a Gaussian policy in which the mean of the Gaussian is the output of a nonlinear neural
+     network with observation as input. The class supports different forms of policy noise. In particular, it is
+    possible to have either (i) the noise to be state-dependent, by which we mean the output of a neural network with
+    the observation as input or (ii) a global vector, with the number of dimensions equal to the number of action, that
+    is fixed during similation. In the case of (i) the neural network is the same as that used for the mean and the
+    final standard deviation used is log(1 + exp(networ(obs))), in which networ(obs) is the output of the neural
+    network. In the case of (ii) the global vector can be fixed or learnt.
+
+    Args:
+        env_id: The I.D. of the environment in which the policy will sample actions.
+        config: The instance of the policy configuration class, DenseNetworkPolicyConfig, from which to initialise the
+        policy.
+
+    """
+
+    def __init__(self, env_id: str, config: DenseNetworkPolicyConfig):
         """Initialise dense network policy."""
         self._env = gym.make(env_id)
         if not isinstance(self._env.action_space, gym.spaces.Box):
@@ -93,7 +158,7 @@ class DenseNetworkPolicy(BasePyTorchPolicy):
             network=DensePolicyNetwork(
                 self._env.observation_space.shape[0],
                 self._env.action_space.shape[0],
-                hidden_space_dims,
+                config,
             )
         )
 

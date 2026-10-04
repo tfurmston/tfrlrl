@@ -5,12 +5,13 @@ import numpy as np
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
+from torch import tensor
 
 from tests.conftest import (
     DummyStatisticsCollector,
 )
 from tfrlrl.policies.base import PolicyException
-from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
+from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy, DenseNetworkPolicyConfig
 from tfrlrl.sampling.episodic_sampler import (
     EpisodicSampler,
 )
@@ -29,8 +30,65 @@ def test_dense_network_policy_with_discrete_environment(env_id):
     with pytest.raises(PolicyException):
         DenseNetworkPolicy(
             env_id=env_id,
-            hidden_space_dims=hidden_space_dims,
+            config=DenseNetworkPolicyConfig(hidden_space_dims=hidden_space_dims),
         )
+
+
+def test_dense_network_policy_config_invalid_std_parameterisation():
+    """Test that DenseNetworkPolicyConfig raises PolicyException for an invalid std_parameterisation."""
+    with pytest.raises(PolicyException):
+        DenseNetworkPolicyConfig(hidden_space_dims=[16, 32], std_parameterisation='invalid')
+
+
+@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+@pytest.mark.parametrize('init_std', [0.5, 1.0, 2.0])
+def test_dense_network_policy_global_std_is_state_independent(env_id, init_std):
+    """
+    Test that the global standard deviation parameterisation is independent of the observation.
+
+    Args:
+        env_id: The environment I.D. from which to sample episodes.
+        init_std: The initial standard deviation configured for the global parameterisation.
+
+    """
+    env = gym.make(env_id)
+    policy = DenseNetworkPolicy(
+        env_id=env_id,
+        config=DenseNetworkPolicyConfig(
+            hidden_space_dims=[16, 32],
+            std_parameterisation='global',
+            init_std=init_std,
+        ),
+    )
+
+    observations = np.concatenate(
+        [env.observation_space.sample()[..., np.newaxis] for _ in range(5)],
+        axis=1,
+    )
+    _, action_stddevs = policy.network(tensor(observations).T)
+
+    np.testing.assert_allclose(action_stddevs.detach().numpy(), init_std, rtol=1e-6, atol=1e-6)
+
+
+@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+def test_dense_network_policy_global_std_not_trainable_when_learn_std_false(env_id):
+    """
+    Test that the global standard deviation parameter is frozen when learn_std is False.
+
+    Args:
+        env_id: The environment I.D. from which to sample episodes.
+
+    """
+    policy = DenseNetworkPolicy(
+        env_id=env_id,
+        config=DenseNetworkPolicyConfig(
+            hidden_space_dims=[16, 32],
+            std_parameterisation='global',
+            learn_std=False,
+        ),
+    )
+
+    assert not policy.network.log_std.requires_grad
 
 
 @pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
@@ -47,7 +105,7 @@ def test_sample_single_action_from_dense_network_policy(env_id):
     hidden_space_dims = [16, 32]
     policy = DenseNetworkPolicy(
         env_id=env_id,
-        hidden_space_dims=hidden_space_dims,
+        config=DenseNetworkPolicyConfig(hidden_space_dims=hidden_space_dims),
     )
 
     action = policy.generate_action(env.observation_space.sample())
@@ -77,7 +135,7 @@ def test_sample_episode_with_dense_network_policy(env_id: str, n_episodes: int, 
     hidden_space_dims = [h1_dimensions, h2_dimensions]
     policy = DenseNetworkPolicy(
         env_id=env_id,
-        hidden_space_dims=hidden_space_dims,
+        config=DenseNetworkPolicyConfig(hidden_space_dims=hidden_space_dims),
     )
 
     sampler = EpisodicSampler(
@@ -104,7 +162,7 @@ def test_calculate_log_probabilities_from_dense_network_policy_single_observatio
     hidden_space_dims = [16, 32]
     policy = DenseNetworkPolicy(
         env_id=env_id,
-        hidden_space_dims=hidden_space_dims,
+        config=DenseNetworkPolicyConfig(hidden_space_dims=hidden_space_dims),
     )
 
     log_probability = policy.calculate_log_probabilities(
@@ -148,7 +206,7 @@ def test_calculate_log_probabilities_from_dense_network_policy_multiple_observat
     hidden_space_dims = [16, 32]
     policy = DenseNetworkPolicy(
         env_id=env_id,
-        hidden_space_dims=hidden_space_dims,
+        config=DenseNetworkPolicyConfig(hidden_space_dims=hidden_space_dims),
     )
 
     observations = np.concatenate(
@@ -190,7 +248,7 @@ def test_calculate_log_probabilities_from_functional_single_observation(env_id):
     hidden_space_dims = [16, 32]
     policy = DenseNetworkPolicy(
         env_id=env_id,
-        hidden_space_dims=hidden_space_dims,
+        config=DenseNetworkPolicyConfig(hidden_space_dims=hidden_space_dims),
     )
 
     observation = env.observation_space.sample()[..., np.newaxis]
@@ -248,7 +306,7 @@ def test_calculate_log_probabilities_from_functional_multiple_observations(env_i
     hidden_space_dims = [16, 32]
     policy = DenseNetworkPolicy(
         env_id=env_id,
-        hidden_space_dims=hidden_space_dims,
+        config=DenseNetworkPolicyConfig(hidden_space_dims=hidden_space_dims),
     )
 
     observations = np.concatenate(
@@ -304,7 +362,7 @@ def test_dense_neural_network_calculate_jacobian_single_observation(env_id: str,
     np.random.seed(seed)
 
     hidden_space_dims = [4, 4]
-    policy = DenseNetworkPolicy(env_id=env_id, hidden_space_dims=hidden_space_dims)
+    policy = DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=hidden_space_dims))
 
     observation = env.observation_space.sample()[..., np.newaxis]
     action = env.action_space.sample()
@@ -359,7 +417,7 @@ def test_dense_neural_network_calculate_jacobian_multiple_observations(env_id: s
     np.random.seed(seed)
 
     hidden_space_dims = [4, 4]
-    policy = DenseNetworkPolicy(env_id=env_id, hidden_space_dims=hidden_space_dims)
+    policy = DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=hidden_space_dims))
 
     observations = np.concatenate(
         [env.observation_space.sample()[..., np.newaxis] for _ in range(n_observations)],
@@ -395,6 +453,62 @@ def test_dense_neural_network_calculate_jacobian_multiple_observations(env_id: s
                 log_prob_minus = policy.calculate_log_probabilities(obs_i, act_i).item()
 
                 df_finite_diffs[(i, *idx)] = 0.5 * (log_prob_plus - log_prob_minus) / eps
+
+        np.testing.assert_almost_equal(
+            jacobian[parameter_name].squeeze().detach().numpy(),
+            df_finite_diffs.squeeze(),
+            decimal=2,
+        )
+
+
+@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+@given(
+    seed=st.integers(min_value=0, max_value=10000),
+)
+@settings(deadline=None)
+def test_dense_neural_network_calculate_jacobian_global_std(env_id: str, seed: int):
+    """
+    Test calculate_jacobian correctly includes the global log_std parameter.
+
+    Args:
+        env_id: The Gymnasium environment ID with a continuous action space.
+        seed: Random seed for sampling observations, actions and generating network parameters.
+
+    """
+    env = gym.make(env_id)
+    np.random.seed(seed)
+
+    policy = DenseNetworkPolicy(
+        env_id=env_id,
+        config=DenseNetworkPolicyConfig(hidden_space_dims=[4, 4], std_parameterisation='global'),
+    )
+
+    observation = env.observation_space.sample()[..., np.newaxis]
+    action = env.action_space.sample()
+
+    jacobian = policy.calculate_jacobian(observation, action)
+    assert 'log_std' in jacobian
+
+    eps = 0.001
+    policy_dict = copy.deepcopy(policy.get_state())
+
+    for parameter_name, parameter_value in policy_dict.items():
+        param_shape = tuple(parameter_value.shape)
+        df_finite_diffs = np.zeros(param_shape)
+
+        for idx in np.ndindex(param_shape):
+            new_policy_dict_plus = copy.deepcopy(policy_dict)
+            new_policy_dict_minus = copy.deepcopy(policy_dict)
+
+            new_policy_dict_plus[parameter_name][idx] += eps
+            policy.set_state(new_policy_dict_plus)
+            log_prob_plus = policy.calculate_log_probabilities(observation, action).item()
+
+            new_policy_dict_minus[parameter_name][idx] -= eps
+            policy.set_state(new_policy_dict_minus)
+            log_prob_minus = policy.calculate_log_probabilities(observation, action).item()
+
+            df_finite_diffs[idx] = 0.5 * (log_prob_plus - log_prob_minus) / eps
 
         np.testing.assert_almost_equal(
             jacobian[parameter_name].squeeze().detach().numpy(),
