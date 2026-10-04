@@ -5,7 +5,16 @@ import numpy as np
 
 @dataclass
 class TrustRegionConfig:
-    """Configuration for the trust-region step size used in truncated natural policy gradient ascent."""
+    """
+    Configuration for the trust-region step size used in truncated natural policy gradient ascent.
+
+    Args:
+        delta: The Kullback-Leibler divergence budget (the trust-region radius). Must be strictly positive.
+        reg_coeff: A damping coefficient added to the diagonal of the Fisher Information matrix (i.e. F -> F +
+        reg_coeff * I) when calculating the natural-gradient direction, for numerical stability. Must be
+        non-negative.
+
+    """
 
     delta: float
     reg_coeff: float = 1e-5
