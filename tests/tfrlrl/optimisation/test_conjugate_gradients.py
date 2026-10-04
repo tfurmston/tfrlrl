@@ -33,9 +33,9 @@ def test_exact_solution_with_n_iters_none(seed: int):
     def mat_v_mult_fn(v):
         return np.matmul(A, v)
 
-    x = calculate_conjugate_gradient(mat_v_mult_fn, b)
+    result = calculate_conjugate_gradient(mat_v_mult_fn, b)
 
-    np.testing.assert_allclose(np.matmul(A, x), b, rtol=1e-5, atol=1e-5)
+    np.testing.assert_allclose(np.matmul(A, result.x), b, rtol=1e-5, atol=1e-5)
 
 
 @given(seed=st.integers(min_value=0, max_value=10000))
@@ -58,9 +58,9 @@ def test_exact_solution_with_n_iters_equal_to_dimension(seed: int):
     def mat_v_mult_fn(v):
         return np.matmul(A, v)
 
-    x = calculate_conjugate_gradient(mat_v_mult_fn, b, n_iters=n)
+    result = calculate_conjugate_gradient(mat_v_mult_fn, b, n_iters=n)
 
-    np.testing.assert_allclose(np.matmul(A, x), b, rtol=1e-5, atol=1e-5)
+    np.testing.assert_allclose(np.matmul(A, result.x), b, rtol=1e-5, atol=1e-5)
 
 
 @pytest.mark.parametrize('n_iters', [1, 2, 3])
@@ -88,7 +88,8 @@ def test_approximate_solution_with_n_iters_less_than_dimension(n_iters: int, see
     def mat_v_mult_fn(v):
         return np.matmul(A, v)
 
-    x = calculate_conjugate_gradient(mat_v_mult_fn, b, n_iters=n_iters)
+    result = calculate_conjugate_gradient(mat_v_mult_fn, b, n_iters=n_iters)
+    x = result.x
     x_exact = np.linalg.solve(A, b)
 
     assert x.shape == b.shape
@@ -113,9 +114,41 @@ def test_zero_b_returns_zero_vector_without_nans():
     def mat_v_mult_fn(v):
         return np.matmul(A, v)
 
-    x = calculate_conjugate_gradient(mat_v_mult_fn, b)
+    result = calculate_conjugate_gradient(mat_v_mult_fn, b)
 
-    np.testing.assert_array_equal(x, np.zeros(n))
+    np.testing.assert_array_equal(result.x, np.zeros(n))
+    assert result.quadratic_form == 0.0
+
+
+@pytest.mark.parametrize('n_iters', [1, 2, 5])
+@given(seed=st.integers(min_value=0, max_value=10000))
+@settings(deadline=None)
+def test_quadratic_form_matches_direct_recomputation(n_iters: int, seed: int):
+    """
+    Test that the accumulated quadratic form matches a direct recomputation of x^T A x.
+
+    The quadratic form is accumulated during the conjugate-gradient algorithm itself, using the matrix-vector
+    products already calculated for the conjugate-gradient recursion, rather than by a separate evaluation of
+    mat_v_mult_fn at the returned solution. This test verifies the two approaches agree, including when n_iters
+    is small enough that the algorithm has not fully converged.
+
+    Args:
+        n_iters: The number of conjugate gradient iterations to perform.
+        seed: Random seed for generating the matrix and target vector.
+
+    """
+    np.random.seed(seed)
+    n = 5
+    A = _make_spd_matrix(n)
+    b = np.random.randn(n)
+
+    def mat_v_mult_fn(v):
+        return np.matmul(A, v)
+
+    result = calculate_conjugate_gradient(mat_v_mult_fn, b, n_iters=n_iters)
+
+    direct_quadratic_form = result.x.dot(mat_v_mult_fn(result.x))
+    np.testing.assert_allclose(result.quadratic_form, direct_quadratic_form, rtol=1e-8, atol=1e-8)
 
 
 @pytest.mark.parametrize(

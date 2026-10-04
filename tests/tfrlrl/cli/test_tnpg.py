@@ -91,6 +91,29 @@ class TestParseArgs:
         assert parsed.n_iters_cg == expected['n_iters_cg']
         assert parsed.n_samples_fim == expected['n_samples_fim']
 
+    def test_parse_args_delta_and_fim_reg_coeff_defaults(self):
+        """Test that --delta defaults to None (disabled) and --fim-reg-coeff defaults to 1e-5."""
+        parsed = parse_args(['--env-id', 'FrozenLake-v1', '--policy-class', 'linear'])
+        assert parsed.delta is None
+        assert parsed.fim_reg_coeff == 1e-5
+
+    def test_parse_args_delta_and_fim_reg_coeff(self):
+        """Test that --delta and --fim-reg-coeff are parsed correctly when given."""
+        parsed = parse_args(
+            [
+                '--env-id',
+                'FrozenLake-v1',
+                '--policy-class',
+                'linear',
+                '--delta',
+                '0.02',
+                '--fim-reg-coeff',
+                '1e-4',
+            ]
+        )
+        assert parsed.delta == 0.02
+        assert parsed.fim_reg_coeff == 1e-4
+
     def test_parse_args_missing_required(self):
         """Test that missing required arguments raises SystemExit."""
         with pytest.raises(SystemExit):
@@ -393,6 +416,33 @@ class TestMain:
             '2',
             '--n-samples-fim',
             '30',
+        ]
+
+        exit_code = main(args)
+
+        assert exit_code is None or exit_code == 0
+
+    def test_main_with_delta_and_fim_reg_coeff(self):
+        """Test main function with --delta and --fim-reg-coeff set, i.e. using the trust-region step size."""
+        args = [
+            '--env-id',
+            'FrozenLake-v1',
+            '--policy-class',
+            'linear',
+            '--n-iterations',
+            '2',
+            '--n-episodes',
+            '5',
+            '--alpha',
+            '0.1',
+            '--env-kwargs',
+            '{"is_slippery": false}',
+            '--n-iters-cg',
+            '2',
+            '--delta',
+            '0.01',
+            '--fim-reg-coeff',
+            '1e-3',
         ]
 
         exit_code = main(args)
