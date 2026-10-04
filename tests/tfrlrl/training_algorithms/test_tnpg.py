@@ -18,11 +18,13 @@ from torch.optim import (
 
 from tfrlrl.baselines.linear import LinearBaseline
 from tfrlrl.features.onehot import OneHotFeatureFunction
+from tfrlrl.optimisation.trust_region import TrustRegionConfig
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy, DenseNetworkPolicyConfig
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.sampling.episodic_sampler import EpisodicSampler
 from tfrlrl.sampling.statistics_collection import EpisocidPolicyGradientStatisticsCollector
 from tfrlrl.training_algorithms.tnpg import (
+    TNPGStepSizeConfig,
     calculate_steepest_gradient_direction,
     construct_fim_vector_product_fn,
     train_policy_gradient,
@@ -344,7 +346,7 @@ def test_train_policy_gradient_returns_policy(
         policy=policy,
         n_iterations=n_iterations,
         n_episodes=n_episodes,
-        lr=lr,
+        step_size_config=TNPGStepSizeConfig(lr=lr),
         baseline=baseline,
         n_iters_cg=2,
         n_samples_fim=20,
@@ -390,7 +392,7 @@ def test_train_policy_gradient_updates_policy(env_id: str, n_iterations: int, n_
         policy=policy,
         n_iterations=n_iterations,
         n_episodes=n_episodes,
-        lr=lr,
+        step_size_config=TNPGStepSizeConfig(lr=lr),
         is_slippery=False,
         reward_schedule=(1, 1, 1),
         n_iters_cg=2,
@@ -404,3 +406,67 @@ def test_train_policy_gradient_updates_policy(env_id: str, n_iterations: int, n_
     updated_parameters = list(policy.get_parameters())
     parameter_diff = original_parameters[0].detach().numpy() - updated_parameters[0].detach().numpy()
     assert np.sum(np.abs(parameter_diff)) > 0
+
+
+def test_tnpg_step_size_config_raises_when_both_scheduler_and_trust_region_given():
+    """Test that TNPGStepSizeConfig raises a ValueError when both lr_scheduler_fn and trust_region_config are set."""
+    with pytest.raises(ValueError):
+        TNPGStepSizeConfig(
+            lr=0.1,
+            lr_scheduler_fn=lambda optimizer: None,
+            trust_region_config=TrustRegionConfig(delta=0.01),
+        )
+
+
+def test_train_policy_gradient_uses_trust_region_step_size(monkeypatch):
+    """
+    Test that train_policy_gradient uses the trust-region step size when trust_region_config is given.
+
+    The trust-region step-size calculation itself is verified independently in test_trust_region.py; this test
+    verifies that train_policy_gradient correctly plumbs the calculated value into the optimizer's learning
+    rate at each iteration, by mocking calculate_trust_region_step_size to return a fixed, recognisable value.
+
+    Args:
+        monkeypatch: The PyTest monkeypatch fixture, used to mock calculate_trust_region_step_size and capture
+        the optimizer's learning rate at each step.
+
+    """
+    fixed_step_size = 0.123
+
+    monkeypatch.setattr(
+        'tfrlrl.training_algorithms.tnpg.calculate_trust_region_step_size',
+        lambda quadratic_form, delta: fixed_step_size,
+    )
+
+    created_optimizers = []
+
+    class _RecordingSGD(SGD):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.recorded_lrs = []
+            created_optimizers.append(self)
+
+        def step(self, *args, **kwargs):
+            self.recorded_lrs.append(self.param_groups[0]['lr'])
+            return super().step(*args, **kwargs)
+
+    monkeypatch.setattr('tfrlrl.training_algorithms.tnpg.SGD', _RecordingSGD)
+
+    env_id = 'FrozenLake-v1'
+    env = gym.make(env_id)
+    feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+    policy = LinearSoftMax(env_id, feature_fn)
+
+    n_iterations = 3
+    train_policy_gradient(
+        env_id=env_id,
+        policy=policy,
+        n_iterations=n_iterations,
+        n_episodes=5,
+        step_size_config=TNPGStepSizeConfig(lr=1.0, trust_region_config=TrustRegionConfig(delta=0.01)),
+        is_slippery=False,
+        n_iters_cg=2,
+    )
+
+    assert len(created_optimizers) == 1
+    assert created_optimizers[0].recorded_lrs == [fixed_step_size] * n_iterations

@@ -1,6 +1,7 @@
 """Stochastic Gradient Descent training algorithm."""
 
 import logging
+from dataclasses import dataclass
 from typing import Callable, Optional, Union
 
 import numpy as np
@@ -16,6 +17,7 @@ from tfrlrl import settings
 from tfrlrl.baselines.linear import Baseline
 from tfrlrl.data_models.reward_models import AverageEpisodicReward, DiscountedReward
 from tfrlrl.optimisation.conjugate_gradients import calculate_conjugate_gradient
+from tfrlrl.optimisation.trust_region import TrustRegionConfig, calculate_trust_region_step_size
 from tfrlrl.policies.base import BasePyTorchPolicy
 from tfrlrl.policies.utils import flatten_tensor_dict, unflatten_tensor_dict
 from tfrlrl.sampling.episodic_sampler import (
@@ -28,6 +30,41 @@ from tfrlrl.sampling.statistics_collection import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class TNPGStepSizeConfig:
+    """
+    Configuration for the step size used to update policy parameters in truncated natural policy gradient ascent.
+
+    By default, i.e. when trust_region_config is not given, the update uses a fixed step size, lr. This is optionally
+    controlled over the course of training via lr_scheduler_fn. Alternatively, when trust_region_config is given,
+    the step size is instead calculated at each iteration from the trust-region formula of Schulman et al.
+    (2015), "Trust Region Policy Optimization". In this case lr is only used as a fallback step size should the
+    trust-region calculation yield a degenerate (NaN) value.
+
+    Args:
+        lr: The scalar learning rate to use to update the policy parameters (when trust_region_config is None).
+        lr_scheduler_fn:
+        lr: An optional callable that will construct a learning rate scheduler for managing the learning rate. Only
+        valid when trust-region step sizes is not used.
+        trust_region_config: An optional instance of the TrustRegionConfig dataclass. When given the trust-region step
+        sizes will be used.
+
+    """
+
+    lr: float
+    lr_scheduler_fn: Optional[Callable[[Optimizer], LRScheduler]] = None
+    trust_region_config: Optional[TrustRegionConfig] = None
+
+    def __post_init__(self):
+        """Validate that lr_scheduler_fn and trust_region_config are not both given."""
+        if self.lr_scheduler_fn is not None and self.trust_region_config is not None:
+            raise ValueError(
+                'lr_scheduler_fn and trust_region_config are mutually exclusive: the trust-region step size is '
+                'recalculated every iteration, so any lr_scheduler_fn update to the learning rate would be '
+                'immediately overwritten.'
+            )
 
 
 def calculate_steepest_gradient_direction(
@@ -70,6 +107,7 @@ def construct_fim_vector_product_fn(
     policy: BasePyTorchPolicy,
     statistics: EpisodePolicyGradientStatistics,
     n_samples_fim: Optional[int] = None,
+    reg_coeff: float = 0.0,
 ) -> Callable[[np.ndarray], np.ndarray]:
     """
     Construct function for calculating the product of the Fisher Information matrix with a vector.
@@ -87,6 +125,8 @@ def construct_fim_vector_product_fn(
         statistics for use in the Fisher Information matrix calculation. When not given, or when it is at
         least as large as the number of sampled state-action pairs, all of the state-action pairs in
         statistics will be used.
+        reg_coeff: A damping coefficient added to the diagonal of the Fisher Information matrix (i.e. F -> F +
+        reg_coeff * I), for numerical stability. Defaults to 0.0, i.e. no damping.
 
     Returns:
         A callable that takes an input vector as an argument and returns the product of the Fisher Information
@@ -121,7 +161,7 @@ def construct_fim_vector_product_fn(
         jacobian_matrix = jacobian_matrix.squeeze(axis=0)
 
     def calculate_fim_vector_product(v: np.ndarray):
-        return np.matmul(jacobian_matrix.T, np.matmul(jacobian_matrix, v))
+        return np.matmul(jacobian_matrix.T, np.matmul(jacobian_matrix, v)) + reg_coeff * v
 
     return calculate_fim_vector_product
 
@@ -131,8 +171,7 @@ def train_policy_gradient(
     policy: BasePyTorchPolicy,
     n_iterations: int,
     n_episodes: int,
-    lr: float,
-    lr_scheduler_fn: Optional[Callable[[Optimizer], LRScheduler]] = None,
+    step_size_config: TNPGStepSizeConfig,
     n_samplers: int = 1,
     baseline: Optional[Baseline] = None,
     reward_model: Optional[Union[AverageEpisodicReward, DiscountedReward]] = None,
@@ -149,9 +188,8 @@ def train_policy_gradient(
         policy: The policy to train. Must have get_parameters() and set_parameters() methods.
         n_iterations: The number of policy updates to perform.
         n_episodes: The number of episodes to sample during each policy update.
-        lr: The base learning rate for the SGD optimizer used to apply the natural policy gradient.
-        lr_scheduler_fn: An optional factory that, given the SGD optimizer instantiated internally,
-        returns an LRScheduler wrapping it. When not given, the learning rate stays constant at lr.
+        step_size_config: Configuration for the step size used to update policy parameters. See
+        TNPGStepSizeConfig for details.
         n_samplers: The number of samplers to used to sample from the environment.
         baseline: An instance of a baseline class, if one is given.
         reward_model: The reward model to use when computing total expected rewards. Defaults to
@@ -167,8 +205,9 @@ def train_policy_gradient(
         The trained policy.
 
     """
-    optimizer = SGD(policy.network.parameters(), lr=lr, maximize=True)
-    lr_scheduler = lr_scheduler_fn(optimizer) if lr_scheduler_fn is not None else None
+    optimizer = SGD(policy.network.parameters(), lr=step_size_config.lr, maximize=True)
+    lr_scheduler = step_size_config.lr_scheduler_fn(optimizer) if step_size_config.lr_scheduler_fn is not None else None
+    trust_region_config = step_size_config.trust_region_config
 
     statistics_collector = EpisocidPolicyGradientStatisticsCollector(
         env_id,
@@ -210,18 +249,25 @@ def train_policy_gradient(
             statistics=statistics,
             optimizer=optimizer,
         )
-        tngd = calculate_conjugate_gradient(
+        cg_result = calculate_conjugate_gradient(
             mat_v_mult_fn=construct_fim_vector_product_fn(
                 policy=policy,
                 statistics=statistics,
                 n_samples_fim=n_samples_fim,
+                reg_coeff=trust_region_config.reg_coeff if trust_region_config is not None else 0.0,
             ),
             b=sgd,
             n_iters=n_iters_cg,
         )
+        if trust_region_config is not None:
+            step_size = calculate_trust_region_step_size(
+                quadratic_form=cg_result.quadratic_form,
+                delta=trust_region_config.delta,
+            )
+            optimizer.param_groups[0]['lr'] = step_size if not np.isnan(step_size) else step_size_config.lr
         logger.debug('Update policy parameters.')
         tngd_dict = unflatten_tensor_dict(
-            tensor(tngd),
+            tensor(cg_result.x),
             reference={name: param for name, param in policy.network.named_parameters()},
             dim=0,
         )

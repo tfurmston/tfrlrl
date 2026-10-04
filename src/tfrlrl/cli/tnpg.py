@@ -6,9 +6,10 @@ import gymnasium as gym
 
 from tfrlrl.data_models.reward_models import AverageEpisodicReward, DiscountedReward
 from tfrlrl.features.onehot import OneHotFeatureFunction
+from tfrlrl.optimisation.trust_region import TrustRegionConfig
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy, DenseNetworkPolicyConfig
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
-from tfrlrl.training_algorithms.tnpg import train_policy_gradient
+from tfrlrl.training_algorithms.tnpg import TNPGStepSizeConfig, train_policy_gradient
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +124,22 @@ def parse_args(args=None):
         help='The number of state-action pairs to randomly subsample when calculating the Fisher Information '
         'matrix-vector product. When not given, all sampled state-action pairs are used.',
     )
+    parser.add_argument(
+        '--delta',
+        type=float,
+        default=None,
+        help='The Kullback-Leibler divergence budget for the trust-region step size calculation. When given, '
+        'the step size used to update policy parameters is calculated from this trust-region formula at each '
+        'iteration, with --alpha used only as a fallback value. When not given (the default), --alpha is used '
+        'directly as a fixed step size.',
+    )
+    parser.add_argument(
+        '--fim-reg-coeff',
+        type=float,
+        default=1e-5,
+        help='A damping coefficient added to the diagonal of the Fisher Information matrix for numerical '
+        'stability. Only used when --delta is given.',
+    )
     parsed = parser.parse_args(args)
     if parsed.reward_model == 'discounted' and parsed.gamma is None:
         parser.error('--gamma is required when --reward-model=discounted')
@@ -178,12 +195,19 @@ def main(args=None):
             config=policy_config,
         )
 
+    step_size_config = TNPGStepSizeConfig(
+        lr=parsed_args.alpha,
+        trust_region_config=TrustRegionConfig(delta=parsed_args.delta, reg_coeff=parsed_args.fim_reg_coeff)
+        if parsed_args.delta is not None
+        else None,
+    )
+
     train_policy_gradient(
         env_id=parsed_args.env_id,
         policy=policy,
         n_iterations=parsed_args.n_iterations,
         n_episodes=parsed_args.n_episodes,
-        lr=parsed_args.alpha,
+        step_size_config=step_size_config,
         n_samplers=parsed_args.n_samplers,
         reward_model=reward_model,
         n_iters_cg=parsed_args.n_iters_cg,

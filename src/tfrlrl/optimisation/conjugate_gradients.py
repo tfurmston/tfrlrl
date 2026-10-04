@@ -1,11 +1,27 @@
+from dataclasses import dataclass
 from typing import Callable, Optional
 
 import numpy as np
 
 
+@dataclass
+class ConjugateGradientResult:
+    """
+    The solution of the conjugate-gradient algorithm, together with the resulting quadratic form, x^T A x.
+
+    Args:
+        x: The (approximate) solution of Ax = b.
+        quadratic_form: The quadratic form, x^T A x.
+
+    """
+
+    x: np.ndarray
+    quadratic_form: float
+
+
 def calculate_conjugate_gradient(
     mat_v_mult_fn: Callable[[np.ndarray], np.ndarray], b: np.ndarray, n_iters: Optional[int] = None, tol: float = 1e-10
-):
+) -> ConjugateGradientResult:
     """
     Perform the conjugate-gradient algorithm to find the (approximate) solution, x, of Ax = b.
 
@@ -18,7 +34,10 @@ def calculate_conjugate_gradient(
         tol: The toleration below which the conjugate-gradient algorithm will terminate.
 
     Returns:
-        A NumPy array, x, that forms the approximate solution of the equation, Ax = b.
+        A ConjugateGradientResult containing the approximate solution, x, of Ax = b, together with the quadratic
+        form x^T A x. The quadratic form is accumulated during the algorithm itself (using the matrix-vector
+        products already calculated for the conjugate-gradient recursion), so no additional evaluation of
+        mat_v_mult_fn is required to obtain it.
 
     Raises:
         If the b not a vector, i.e. either a one-dimensional NumPy array or a two dimensional array with a single
@@ -34,24 +53,24 @@ def calculate_conjugate_gradient(
     p = b.copy()
     r = b.copy()
     x = np.zeros_like(b)
+    ax = np.zeros_like(b)
     rdotr = np.inner(r, r)
 
-    if rdotr < tol:
-        return x
+    if rdotr >= tol:
+        for _ in range(n_iters):
+            z = mat_v_mult_fn(p)
 
-    for _ in range(n_iters):
-        z = mat_v_mult_fn(p)
+            v = rdotr / p.T.dot(z)
+            x += v * p
+            ax += v * z
+            r -= v * z
 
-        v = rdotr / p.T.dot(z)
-        x += v * p
-        r -= v * z
+            newrdotr = r.dot(r)
+            mu = newrdotr / rdotr
+            p = r + mu * p
 
-        newrdotr = r.dot(r)
-        mu = newrdotr / rdotr
-        p = r + mu * p
+            rdotr = newrdotr
+            if rdotr < tol:
+                break
 
-        rdotr = newrdotr
-        if rdotr < tol:
-            break
-
-    return x
+    return ConjugateGradientResult(x=x, quadratic_form=float(x.dot(ax)))
