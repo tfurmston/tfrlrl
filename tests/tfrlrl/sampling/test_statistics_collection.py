@@ -8,7 +8,7 @@ from tfrlrl.baselines.linear import LinearBaseline
 from tfrlrl.data_models.reward_models import AverageEpisodicReward, DiscountedReward
 from tfrlrl.data_models.statistics import StatisticsException
 from tfrlrl.features.onehot import OneHotFeatureFunction
-from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
+from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy, DenseNetworkPolicyConfig
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.sampling.episodic_sampler import EpisodicSampler
 from tfrlrl.sampling.statistics_collection import EpisocidPolicyGradientStatisticsCollector
@@ -145,7 +145,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         if env_id == 'InvertedPendulum-v5':
             policy = DenseNetworkPolicy(
                 env_id=env_id,
-                hidden_space_dims=[16, 32],
+                config=DenseNetworkPolicyConfig(hidden_space_dims=[16, 32]),
             )
         else:
             feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
@@ -212,7 +212,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
 
             policy = DenseNetworkPolicy(
                 env_id=env_id,
-                hidden_space_dims=[16, 32],
+                config=DenseNetworkPolicyConfig(hidden_space_dims=[16, 32]),
             )
         else:
             feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
@@ -277,7 +277,7 @@ class TestEpisocidPolicyGradientStatisticsCollector:
             hidden_space_dims = [16, 32]
             policy = DenseNetworkPolicy(
                 env_id=env_id,
-                hidden_space_dims=hidden_space_dims,
+                config=DenseNetworkPolicyConfig(hidden_space_dims=hidden_space_dims),
             )
             env_kwargs = {}
         else:

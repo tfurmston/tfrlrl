@@ -5,7 +5,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from tfrlrl.features.onehot import OneHotFeatureFunction
-from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
+from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy, DenseNetworkPolicyConfig
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.policies.utils import flatten_tensor_dict, unflatten_tensor_dict
 
@@ -30,7 +30,7 @@ def test_flatten_tensor_dict(env_id: str):
     elif env_id == 'InvertedPendulum-v5':
         policy = DenseNetworkPolicy(
             env_id=env_id,
-            hidden_space_dims=[16, 32],
+            config=DenseNetworkPolicyConfig(hidden_space_dims=[16, 32]),
         )
     else:
         raise ValueError('Unexpected environment: %s', env_id)
@@ -69,7 +69,7 @@ def test_unflatten_tensor_dict(env_id: str):
     elif env_id == 'InvertedPendulum-v5':
         policy = DenseNetworkPolicy(
             env_id=env_id,
-            hidden_space_dims=[16, 32],
+            config=DenseNetworkPolicyConfig(hidden_space_dims=[16, 32]),
         )
     else:
         raise ValueError('Unexpected environment: %s', env_id)
@@ -131,7 +131,7 @@ def test_flatten_tensor_dict_jacobian(env_id: str, extend_actions, n_observation
     elif env_id == 'InvertedPendulum-v5':
         policy = DenseNetworkPolicy(
             env_id=env_id,
-            hidden_space_dims=[16, 32],
+            config=DenseNetworkPolicyConfig(hidden_space_dims=[16, 32]),
         )
         observations = np.concatenate(
             [env.observation_space.sample()[..., np.newaxis] for _ in range(n_observations)],
@@ -216,7 +216,7 @@ def test_unflatten_tensor_dict_jacobian(env_id: str, extend_actions, n_observati
     elif env_id == 'InvertedPendulum-v5':
         policy = DenseNetworkPolicy(
             env_id=env_id,
-            hidden_space_dims=[16, 32],
+            config=DenseNetworkPolicyConfig(hidden_space_dims=[16, 32]),
         )
         observations = np.concatenate(
             [env.observation_space.sample()[..., np.newaxis] for _ in range(n_observations)],

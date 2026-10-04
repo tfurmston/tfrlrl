@@ -18,7 +18,7 @@ from torch.optim import (
 
 from tfrlrl.baselines.linear import LinearBaseline
 from tfrlrl.features.onehot import OneHotFeatureFunction
-from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
+from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy, DenseNetworkPolicyConfig
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.sampling.episodic_sampler import EpisodicSampler
 from tfrlrl.sampling.statistics_collection import EpisocidPolicyGradientStatisticsCollector
@@ -69,7 +69,7 @@ def test_calculate_steepest_gradient_direction(env_id: str, expected_shape: Tupl
     elif env_id == 'InvertedPendulum-v5':
         policy = DenseNetworkPolicy(
             env_id=env_id,
-            hidden_space_dims=[16, 32],
+            config=DenseNetworkPolicyConfig(hidden_space_dims=[16, 32]),
         )
         sampler = EpisodicSampler(
             env_id=env_id,
@@ -168,7 +168,7 @@ def test_construct_fim_vector_product_fn(env_id: str, expected_shape: Tuple[int]
     elif env_id == 'InvertedPendulum-v5':
         policy = DenseNetworkPolicy(
             env_id=env_id,
-            hidden_space_dims=[4, 4],
+            config=DenseNetworkPolicyConfig(hidden_space_dims=[4, 4]),
         )
         sampler = EpisodicSampler(
             env_id=env_id,
@@ -328,7 +328,7 @@ def test_train_policy_gradient_returns_policy(
     if env_id == 'InvertedPendulum-v5':
         policy = DenseNetworkPolicy(
             env_id=env_id,
-            hidden_space_dims=[16, 32],
+            config=DenseNetworkPolicyConfig(hidden_space_dims=[16, 32]),
         )
     else:
         feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
