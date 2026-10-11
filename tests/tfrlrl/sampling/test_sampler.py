@@ -1,42 +1,15 @@
 import os
-from unittest.mock import MagicMock, patch
 
-import gymnasium as gym
 import numpy as np
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from tests.conftest import DummyStatisticsCollector
 from tfrlrl.policies.base import UniformActionSamplingPolicy
+from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy, DenseNetworkPolicyConfig
+from tfrlrl.sampling.episodic_sampler import EpisodicSampler
 from tfrlrl.sampling.sampler import Sampler, VideoRecordingConfig
-
-
-def _make_mock_env(n_steps_per_episode: int = 1):
-    """
-    Create a mock gymnasium environment that terminates after n_steps_per_episode steps.
-
-    Args:
-        n_steps_per_episode: The number of steps before the episode terminates.
-
-    Returns:
-        A MagicMock that mimics a gymnasium environment.
-
-    """
-    mock_env = MagicMock()
-    mock_env.reset.return_value = (np.zeros(4), {})
-    mock_env.action_space = gym.spaces.Discrete(2)
-
-    step_state = {'count': 0}
-
-    def step_fn(action):
-        step_state['count'] += 1
-        terminated = step_state['count'] % n_steps_per_episode == 0
-        if terminated:
-            step_state['count'] = 0
-        return (np.zeros(4), 1.0, terminated, False, {})
-
-    mock_env.step.side_effect = step_fn
-    return mock_env
 
 
 class TestSampler:
@@ -158,6 +131,16 @@ class TestSampler:
 class TestSamplerVideoRecording:
     """Class that encapsulates the unit tests for video recording support in the Sampler class."""
 
+    ENV_ID = 'InvertedPendulum-v5'
+
+    def _make_policy(self):
+        """Construct a real policy appropriate for the (Box action space) environment used in these tests."""
+        return DenseNetworkPolicy(env_id=self.ENV_ID, config=DenseNetworkPolicyConfig(hidden_space_dims=[8]))
+
+    def _video_files(self, video_folder: str):
+        """Return the recorded video file names in the given folder."""
+        return [f for f in os.listdir(video_folder) if f.endswith('.mp4')]
+
     def test_video_config_creates_video_folder(self, tmp_path):
         """
         Test that a video_config creates the video folder if it does not exist.
@@ -167,112 +150,108 @@ class TestSamplerVideoRecording:
 
         """
         video_folder = str(tmp_path / 'videos')
-        mock_env = _make_mock_env()
         video_config = VideoRecordingConfig(video_folder=video_folder, name_prefix='test')
 
         assert not os.path.isdir(video_folder)
 
-        with (
-            patch('tfrlrl.sampling.sampler.gym.make', return_value=mock_env),
-            patch('tfrlrl.sampling.sampler.RecordVideo', return_value=mock_env),
-        ):
-            Sampler('CartPole-v1', video_config=video_config)
+        sampler = Sampler(self.ENV_ID, n_steps=3, policy=self._make_policy(), video_config=video_config)
+        for _ in sampler:
+            pass
+        sampler.close()
 
         assert os.path.isdir(video_folder)
 
-    def test_video_config_forces_rgb_array_render_mode(self, tmp_path):
+    @pytest.mark.parametrize('n_episodes', [1, 2, 3])
+    def test_video_config_records_one_video_per_episode(self, n_episodes: int, tmp_path):
         """
-        Test that a video_config forces render_mode='rgb_array' on environment construction.
+        Test that one video file is recorded per completed episode, regardless of episode length.
 
         Args:
+            n_episodes: The number of episodes to sample.
             tmp_path: Pytest temporary directory fixture.
 
         """
         video_folder = str(tmp_path / 'videos')
-        mock_env = _make_mock_env()
         video_config = VideoRecordingConfig(video_folder=video_folder, name_prefix='test')
 
-        with (
-            patch('tfrlrl.sampling.sampler.gym.make', return_value=mock_env) as mock_make,
-            patch('tfrlrl.sampling.sampler.RecordVideo', return_value=mock_env),
-        ):
-            Sampler('CartPole-v1', video_config=video_config)
+        stats_collector = DummyStatisticsCollector()
+        sampler = EpisodicSampler(
+            self.ENV_ID,
+            stats_collector,
+            n_episodes=n_episodes,
+            policy=self._make_policy(),
+            video_config=video_config,
+        )
+        for _ in sampler:
+            pass
+        sampler.close()
 
-        mock_make.assert_any_call('CartPole-v1', render_mode='rgb_array')
+        assert len(self._video_files(video_folder)) == n_episodes
 
-    def test_video_config_wraps_env_with_record_video(self, tmp_path):
+    def test_no_video_config_does_not_create_video_folder(self, tmp_path):
         """
-        Test that a video_config wraps the environment with RecordVideo using the given parameters.
+        Test that no video folder is created when no video_config is given.
 
         Args:
             tmp_path: Pytest temporary directory fixture.
 
         """
         video_folder = str(tmp_path / 'videos')
-        mock_env = _make_mock_env()
-        video_config = VideoRecordingConfig(video_folder=video_folder, name_prefix='test-prefix')
 
-        with (
-            patch('tfrlrl.sampling.sampler.gym.make', return_value=mock_env),
-            patch('tfrlrl.sampling.sampler.RecordVideo', return_value=mock_env) as mock_record_video,
-        ):
-            Sampler('CartPole-v1', video_config=video_config)
+        sampler = Sampler(self.ENV_ID, n_steps=3, policy=self._make_policy())
+        for _ in sampler:
+            pass
+        sampler.close()
 
-        mock_record_video.assert_called_once()
-        _, kwargs = mock_record_video.call_args
-        assert kwargs['video_folder'] == video_folder
-        assert kwargs['name_prefix'] == 'test-prefix'
-        assert kwargs['episode_trigger'](0) is True
-        assert kwargs['episode_trigger'](5) is True
-
-    def test_no_video_config_does_not_wrap_env(self):
-        """Test that the environment is not wrapped with RecordVideo when no video_config is given."""
-        mock_env = _make_mock_env()
-
-        with (
-            patch('tfrlrl.sampling.sampler.gym.make', return_value=mock_env) as mock_make,
-            patch('tfrlrl.sampling.sampler.RecordVideo') as mock_record_video,
-        ):
-            Sampler('CartPole-v1')
-
-        assert all('render_mode' not in call.kwargs for call in mock_make.call_args_list)
-        mock_record_video.assert_not_called()
+        assert not os.path.isdir(video_folder)
 
     def test_video_config_respects_custom_episode_trigger(self, tmp_path):
         """
-        Test that a custom episode_trigger on video_config is passed through to RecordVideo unchanged.
+        Test that a custom episode_trigger on video_config controls which episodes are recorded.
 
         Args:
             tmp_path: Pytest temporary directory fixture.
 
         """
         video_folder = str(tmp_path / 'videos')
-        mock_env = _make_mock_env()
-
-        def episode_trigger(episode_id):
-            return episode_id % 2 == 0
-
         video_config = VideoRecordingConfig(
             video_folder=video_folder,
             name_prefix='test',
-            episode_trigger=episode_trigger,
+            episode_trigger=lambda episode_id: episode_id % 2 == 0,
         )
 
-        with (
-            patch('tfrlrl.sampling.sampler.gym.make', return_value=mock_env),
-            patch('tfrlrl.sampling.sampler.RecordVideo', return_value=mock_env) as mock_record_video,
-        ):
-            Sampler('CartPole-v1', video_config=video_config)
+        stats_collector = DummyStatisticsCollector()
+        sampler = EpisodicSampler(
+            self.ENV_ID,
+            stats_collector,
+            n_episodes=3,
+            policy=self._make_policy(),
+            video_config=video_config,
+        )
+        for _ in sampler:
+            pass
+        sampler.close()
 
-        _, kwargs = mock_record_video.call_args
-        assert kwargs['episode_trigger'] is episode_trigger
+        assert len(self._video_files(video_folder)) == 2  # Episodes 0 and 2 are recorded; episode 1 is skipped.
 
-    def test_close_closes_env(self):
-        """Test that close() closes the underlying environment."""
-        mock_env = _make_mock_env()
+    def test_close_flushes_in_progress_episode_video(self, tmp_path):
+        """
+        Test that close() flushes the video of an episode still in progress when sampling stops.
 
-        with patch('tfrlrl.sampling.sampler.gym.make', return_value=mock_env):
-            sampler = Sampler('CartPole-v1')
-            sampler.close()
+        Args:
+            tmp_path: Pytest temporary directory fixture.
 
-        mock_env.close.assert_called_once()
+        """
+        video_folder = str(tmp_path / 'videos')
+        video_config = VideoRecordingConfig(video_folder=video_folder, name_prefix='test')
+
+        # A single step is sampled, so the first episode is still in progress and has not been flushed.
+        sampler = Sampler(self.ENV_ID, n_steps=1, policy=self._make_policy(), video_config=video_config)
+        for _ in sampler:
+            pass
+
+        assert len(self._video_files(video_folder)) == 0
+
+        sampler.close()
+
+        assert len(self._video_files(video_folder)) == 1

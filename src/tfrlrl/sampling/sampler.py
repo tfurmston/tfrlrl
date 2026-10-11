@@ -1,4 +1,3 @@
-import os
 import uuid
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional
@@ -70,7 +69,6 @@ class Sampler:
             kwargs['render_mode'] = 'rgb_array'
         self._env = gym.make(env_id, **kwargs)
         if video_config is not None:
-            os.makedirs(video_config.video_folder, exist_ok=True)
             self._env = RecordVideo(
                 self._env,
                 video_folder=video_config.video_folder,
