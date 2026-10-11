@@ -128,11 +128,6 @@ class TestSampler:
             assert isinstance(sample.info, dict)
 
 
-def _make_video_policy(env_id: str):
-    """Construct a real policy appropriate for the (Box action space) environment used in video tests."""
-    return DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=[8]))
-
-
 def _video_files(video_folder: str):
     """Return the recorded video file names in the given folder."""
     return [f for f in os.listdir(video_folder) if f.endswith('.mp4')]
@@ -156,7 +151,12 @@ class TestSamplerVideoRecording:
 
         assert not os.path.isdir(video_folder)
 
-        sampler = Sampler(env_id, n_steps=3, policy=_make_video_policy(env_id), video_config=video_config)
+        sampler = Sampler(
+            env_id,
+            n_steps=3,
+            policy=DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=[8])),
+            video_config=video_config,
+        )
         for _ in sampler:
             pass
         sampler.close()
@@ -183,7 +183,7 @@ class TestSamplerVideoRecording:
             env_id,
             stats_collector,
             n_episodes=n_episodes,
-            policy=_make_video_policy(env_id),
+            policy=DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=[8])),
             video_config=video_config,
         )
         for _ in sampler:
@@ -204,7 +204,11 @@ class TestSamplerVideoRecording:
         """
         video_folder = str(tmp_path / 'videos')
 
-        sampler = Sampler(env_id, n_steps=3, policy=_make_video_policy(env_id))
+        sampler = Sampler(
+            env_id,
+            n_steps=3,
+            policy=DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=[8])),
+        )
         for _ in sampler:
             pass
         sampler.close()
@@ -233,7 +237,7 @@ class TestSamplerVideoRecording:
             env_id,
             stats_collector,
             n_episodes=3,
-            policy=_make_video_policy(env_id),
+            policy=DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=[8])),
             video_config=video_config,
         )
         for _ in sampler:
@@ -256,7 +260,12 @@ class TestSamplerVideoRecording:
         video_config = VideoRecordingConfig(video_folder=video_folder, name_prefix='test')
 
         # A single step is sampled, so the first episode is still in progress and has not been flushed.
-        sampler = Sampler(env_id, n_steps=1, policy=_make_video_policy(env_id), video_config=video_config)
+        sampler = Sampler(
+            env_id,
+            n_steps=1,
+            policy=DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=[8])),
+            video_config=video_config,
+        )
         for _ in sampler:
             pass
 

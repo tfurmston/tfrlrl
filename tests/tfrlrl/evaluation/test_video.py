@@ -8,11 +8,6 @@ from tfrlrl.evaluation.video import construct_video_evaluation
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy, DenseNetworkPolicyConfig
 
 
-def _make_policy(env_id: str):
-    """Construct a real policy for the (Box action space) environment used in these tests."""
-    return DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=[8]))
-
-
 class TestConstructVideoEvaluation:
     """Unit tests for the construct_video_evaluation function."""
 
@@ -34,7 +29,7 @@ class TestConstructVideoEvaluation:
 
         construct_video_evaluation(
             env_id=env_id,
-            policy=_make_policy(env_id),
+            policy=DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=[8])),
             n_episodes=n_episodes,
             video_folder=video_folder,
             name_prefix='test',
@@ -58,7 +53,7 @@ class TestConstructVideoEvaluation:
 
         construct_video_evaluation(
             env_id=env_id,
-            policy=_make_policy(env_id),
+            policy=DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=[8])),
             n_episodes=n_episodes,
             video_folder=video_folder,
             name_prefix='test',
@@ -83,7 +78,7 @@ class TestConstructVideoEvaluation:
 
         construct_video_evaluation(
             env_id=env_id,
-            policy=_make_policy(env_id),
+            policy=DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=[8])),
             n_episodes=1,
             video_folder=video_folder,
             name_prefix=name_prefix,
@@ -115,7 +110,7 @@ class TestConstructVideoEvaluation:
         with caplog.at_level(logging.INFO, logger='tfrlrl.evaluation.video'):
             construct_video_evaluation(
                 env_id=env_id,
-                policy=_make_policy(env_id),
+                policy=DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=[8])),
                 n_episodes=n_episodes,
                 video_folder=str(tmp_path / 'videos'),
                 name_prefix='test',
@@ -146,7 +141,7 @@ class TestConstructVideoEvaluation:
         with caplog.at_level(logging.INFO, logger='tfrlrl.evaluation.video'):
             construct_video_evaluation(
                 env_id=env_id,
-                policy=_make_policy(env_id),
+                policy=DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=[8])),
                 n_episodes=3,
                 video_folder=str(tmp_path / 'videos'),
                 name_prefix='test',
