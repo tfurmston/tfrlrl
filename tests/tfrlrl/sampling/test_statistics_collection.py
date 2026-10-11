@@ -11,7 +11,10 @@ from tfrlrl.features.onehot import OneHotFeatureFunction
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy, DenseNetworkPolicyConfig
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.sampling.episodic_sampler import EpisodicSampler
-from tfrlrl.sampling.statistics_collection import EpisocidPolicyGradientStatisticsCollector
+from tfrlrl.sampling.statistics_collection import (
+    EpisocidPolicyGradientStatisticsCollector,
+    EpisodeEvaluationStatisticsCollector,
+)
 
 
 class TestEpisocidPolicyGradientStatisticsCollector:
@@ -356,3 +359,103 @@ class TestEpisocidPolicyGradientStatisticsCollector:
         for statistics in sampler:
             assert isinstance(statistics.total_expected_rewards, np.ndarray)
             assert statistics.total_expected_rewards.shape[-1] == statistics.observations.shape[-1]
+
+
+class TestEpisodeEvaluationStatisticsCollector:
+    """Tests for the EpisodeEvaluationStatisticsCollector class."""
+
+    @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+    @given(n_episodes=st.integers(min_value=1, max_value=5))
+    @settings(deadline=5000)
+    def test_reset_clears_statistics(self, env_id: str, n_episodes: int):
+        """
+        Test that the reset method clears out all collected statistics.
+
+        Args:
+            env_id: The Gym environment ID to be used in testing.
+            n_episodes: The number of episodes to sample before testing reset.
+
+        """
+        env = gym.make(env_id)
+        feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+        policy = LinearSoftMax(env_id, feature_fn)
+
+        stats_collector = EpisodeEvaluationStatisticsCollector(env_id)
+        sampler = EpisodicSampler(
+            env_id,
+            stats_collector,
+            n_episodes=n_episodes,
+            policy=policy,
+            is_slippery=False,
+        )
+
+        for _ in sampler:
+            pass
+
+        assert stats_collector._total_reward != 0.0 or stats_collector._n_steps != 0
+
+        stats_collector.reset()
+
+        assert stats_collector._total_reward == 0.0
+        assert stats_collector._n_steps == 0
+
+    @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+    @given(n_episodes=st.integers(min_value=1, max_value=5))
+    @settings(deadline=5000)
+    def test_aggregate_statistics_return_types(self, env_id: str, n_episodes: int):
+        """
+        Test that aggregate_statistics returns scalar NumPy arrays for reward and step count.
+
+        Args:
+            env_id: The Gym environment ID to be used in testing.
+            n_episodes: The number of episodes to sample.
+
+        """
+        env = gym.make(env_id)
+        feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+        policy = LinearSoftMax(env_id, feature_fn)
+
+        stats_collector = EpisodeEvaluationStatisticsCollector(env_id)
+        sampler = EpisodicSampler(
+            env_id,
+            stats_collector,
+            n_episodes=n_episodes,
+            policy=policy,
+            is_slippery=False,
+        )
+
+        for statistics in sampler:
+            assert isinstance(statistics.total_reward, np.ndarray)
+            assert isinstance(statistics.n_steps, np.ndarray)
+            assert statistics.n_steps > 0
+
+    @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
+    @given(n_episodes=st.integers(min_value=1, max_value=5))
+    @settings(deadline=5000)
+    def test_merge_statistics(self, env_id: str, n_episodes: int):
+        """
+        Test that merge_statistics returns statistics with one entry per episode.
+
+        Args:
+            env_id: The Gym environment ID to be used in testing.
+            n_episodes: The number of episodes to sample.
+
+        """
+        env = gym.make(env_id)
+        feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+        policy = LinearSoftMax(env_id, feature_fn)
+
+        stats_collector = EpisodeEvaluationStatisticsCollector(env_id)
+        sampler = EpisodicSampler(
+            env_id,
+            stats_collector,
+            n_episodes=n_episodes,
+            policy=policy,
+            is_slippery=False,
+        )
+        statistics = sampler.sample()
+
+        assert isinstance(statistics.total_reward, np.ndarray)
+        assert isinstance(statistics.n_steps, np.ndarray)
+        assert len(statistics.total_reward) == n_episodes
+        assert len(statistics.n_steps) == n_episodes

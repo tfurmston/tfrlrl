@@ -1,17 +1,14 @@
 import logging
-import os
 
-import gymnasium as gym
-from gymnasium.wrappers import RecordVideo
-
-from tfrlrl.policies.base import BasePyTorchPolicy
+from tfrlrl.policies.base import BasePolicy
+from tfrlrl.sampling.episodic_sampler import EpisodicSampler
+from tfrlrl.sampling.sampler import VideoRecordingConfig
+from tfrlrl.sampling.statistics_collection import EpisodeEvaluationStatisticsCollector
 
 logger = logging.getLogger(__name__)
 
 
-def construct_video_evaluation(
-    env_id: str, policy: BasePyTorchPolicy, n_episodes: int, video_folder: str, name_prefix: str
-):
+def construct_video_evaluation(env_id: str, policy: BasePolicy, n_episodes: int, video_folder: str, name_prefix: str):
     """
     Construct video evaluations of the policy on the given environment.
 
@@ -26,29 +23,30 @@ def construct_video_evaluation(
         name_prefix: The prefix of the video file names.
 
     """
-    os.makedirs(video_folder, exist_ok=True)
-
-    env = gym.make(env_id, render_mode='rgb_array')
-    env = RecordVideo(
-        env,
-        video_folder=video_folder,
-        name_prefix=name_prefix,
-        episode_trigger=lambda x: True,
+    statistics_collector = EpisodeEvaluationStatisticsCollector(env_id=env_id)
+    sampler = EpisodicSampler(
+        env_id,
+        statistics_collector,
+        n_episodes=n_episodes,
+        policy=policy,
+        video_config=VideoRecordingConfig(video_folder=video_folder, name_prefix=name_prefix),
     )
 
-    for episode_num in range(n_episodes):
-        obs, _ = env.reset()
-        episode_reward: float = 0.0
-        step_count = 0
+    episode_statistics = []
+    for episode_num, statistics in enumerate(sampler):
+        logger.info(
+            'Episode %s: %s steps, reward = %s',
+            episode_num + 1,
+            int(statistics.n_steps),
+            float(statistics.total_reward),
+        )
+        episode_statistics.append(statistics)
 
-        episode_over = False
-        while not episode_over:
-            action = policy.generate_action(obs)
-            obs, reward, terminated, truncated, _ = env.step(action)
-            episode_reward += float(reward)
-            step_count += 1
-            episode_over = terminated or truncated
+    sampler.close()
 
-        logger.info('Episode %s: %s steps, reward = %s', episode_num + 1, step_count, episode_reward)
-
-    env.close()
+    merged_statistics = statistics_collector.merge_statistics(episode_statistics)
+    logger.info(
+        'Evaluation summary: mean reward = %s, std reward = %s',
+        float(merged_statistics.total_reward.mean()),
+        float(merged_statistics.total_reward.std()),
+    )

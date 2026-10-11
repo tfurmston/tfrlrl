@@ -11,7 +11,8 @@ ENV PYTHONBUFFERED=1 \
     POETRY_HOME="/opt/poetry" \
     POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_CREATE=false \
-    PYSETUP_PATH="/opt/pysetup"
+    PYSETUP_PATH="/opt/pysetup" \
+    MUJOCO_GL="osmesa"
 
 ENV PATH="$POETRY_HOME/bin:$PATH"
 
@@ -23,7 +24,8 @@ RUN apt-get update \
     curl \
     build-essential \
     libglfw3 \
-    libglfw3-dev
+    libglfw3-dev \
+    libosmesa6-dev
 
 # Install Poetry - Respects $POETRY_VERSION & $POERTRY_POETRY_HOME
 ENV POETRY_VERSION=2.1.1

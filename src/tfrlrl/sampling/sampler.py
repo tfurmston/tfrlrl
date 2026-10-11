@@ -1,10 +1,35 @@
 import uuid
-from typing import Any, Dict, Optional
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, Optional
 
 import gymnasium as gym
+from gymnasium.wrappers import RecordVideo
 
 from tfrlrl.data_models.step import StepProtocol, construct_step_dataclasses
 from tfrlrl.policies.base import BasePolicy, UniformActionSamplingPolicy
+
+
+@dataclass
+class VideoRecordingConfig:
+    """
+    Configuration for recording video evaluations of the environment during sampling.
+
+    Attributes:
+        video_folder: The directory in which the video evaluations will be saved.
+        name_prefix: The prefix of the video file names.
+        episode_trigger: A function that takes an episode index and returns whether that episode should be
+        recorded. Defaults to recording every episode.
+
+    """
+
+    video_folder: str
+    name_prefix: str
+    episode_trigger: Optional[Callable[[int], bool]] = None
+
+    def __post_init__(self):
+        """Fall back to recording every episode when no trigger is given."""
+        if self.episode_trigger is None:
+            self.episode_trigger = lambda episode_id: True
 
 
 class Sampler:
@@ -15,7 +40,14 @@ class Sampler:
     class provides iterable support, see https://docs.python.org/3/library/stdtypes.html#typeiter.
     """
 
-    def __init__(self, env_id: str, n_steps: Optional[int] = None, policy: Optional[BasePolicy] = None, **kwargs):
+    def __init__(
+        self,
+        env_id: str,
+        n_steps: Optional[int] = None,
+        policy: Optional[BasePolicy] = None,
+        video_config: Optional[VideoRecordingConfig] = None,
+        **kwargs,
+    ):
         """
         Initialise instance of Sampler, which entails initialising the environment and setting member variables.
 
@@ -25,13 +57,24 @@ class Sampler:
             limit on the number of sampled steps.
             policy: Optional policy instance for action selection. If not provided, defaults to
             UniformActionSamplingPolicy.
+            video_config: If given, video evaluations of the environment will be recorded according to the
+            configuration. Defaults to no video recording.
             kwargs: Optional keyword-arguments for the environment.
 
         """
         self.obs_cls, self.step_cls, self.steps_cls = construct_step_dataclasses(
             env_id,
         )
+        if video_config is not None:
+            kwargs['render_mode'] = 'rgb_array'
         self._env = gym.make(env_id, **kwargs)
+        if video_config is not None:
+            self._env = RecordVideo(
+                self._env,
+                video_folder=video_config.video_folder,
+                name_prefix=video_config.name_prefix,
+                episode_trigger=video_config.episode_trigger,
+            )
         self._env_id = str(uuid.uuid4())
         self._n_steps = n_steps
         self._n_steps_taken = 0
@@ -91,3 +134,7 @@ class Sampler:
         self._policy.update(
             state_dict=policy_state_dict,
         )
+
+    def close(self) -> None:
+        """Close the underlying Gym environment, flushing any video recording in progress."""
+        self._env.close()

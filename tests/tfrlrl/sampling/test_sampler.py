@@ -1,10 +1,15 @@
+import os
+
 import numpy as np
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from tests.conftest import DummyStatisticsCollector
 from tfrlrl.policies.base import UniformActionSamplingPolicy
-from tfrlrl.sampling.sampler import Sampler
+from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy, DenseNetworkPolicyConfig
+from tfrlrl.sampling.episodic_sampler import EpisodicSampler
+from tfrlrl.sampling.sampler import Sampler, VideoRecordingConfig
 
 
 class TestSampler:
@@ -121,3 +126,151 @@ class TestSampler:
             assert isinstance(sample.reward, float) or isinstance(sample.reward, int)
             assert isinstance(sample.done, bool)
             assert isinstance(sample.info, dict)
+
+
+def _video_files(video_folder: str):
+    """Return the recorded video file names in the given folder."""
+    return [f for f in os.listdir(video_folder) if f.endswith('.mp4')]
+
+
+class TestSamplerVideoRecording:
+    """Class that encapsulates the unit tests for video recording support in the Sampler class."""
+
+    @pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+    def test_video_config_creates_video_folder(self, env_id: str, tmp_path):
+        """
+        Test that a video_config creates the video folder if it does not exist.
+
+        Args:
+            env_id: The Gym environment ID to be used in the sampling.
+            tmp_path: Pytest temporary directory fixture.
+
+        """
+        video_folder = str(tmp_path / 'videos')
+        video_config = VideoRecordingConfig(video_folder=video_folder, name_prefix='test')
+
+        assert not os.path.isdir(video_folder)
+
+        sampler = Sampler(
+            env_id,
+            n_steps=3,
+            policy=DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=[8])),
+            video_config=video_config,
+        )
+        for _ in sampler:
+            pass
+        sampler.close()
+
+        assert os.path.isdir(video_folder)
+
+    @pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+    @pytest.mark.parametrize('n_episodes', [1, 2, 3])
+    def test_video_config_records_one_video_per_episode(self, env_id: str, n_episodes: int, tmp_path):
+        """
+        Test that one video file is recorded per completed episode, regardless of episode length.
+
+        Args:
+            env_id: The Gym environment ID to be used in the sampling.
+            n_episodes: The number of episodes to sample.
+            tmp_path: Pytest temporary directory fixture.
+
+        """
+        video_folder = str(tmp_path / 'videos')
+        video_config = VideoRecordingConfig(video_folder=video_folder, name_prefix='test')
+
+        stats_collector = DummyStatisticsCollector()
+        sampler = EpisodicSampler(
+            env_id,
+            stats_collector,
+            n_episodes=n_episodes,
+            policy=DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=[8])),
+            video_config=video_config,
+        )
+        for _ in sampler:
+            pass
+        sampler.close()
+
+        assert len(_video_files(video_folder)) == n_episodes
+
+    @pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+    def test_no_video_config_does_not_create_video_folder(self, env_id: str, tmp_path):
+        """
+        Test that no video folder is created when no video_config is given.
+
+        Args:
+            env_id: The Gym environment ID to be used in the sampling.
+            tmp_path: Pytest temporary directory fixture.
+
+        """
+        video_folder = str(tmp_path / 'videos')
+
+        sampler = Sampler(
+            env_id,
+            n_steps=3,
+            policy=DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=[8])),
+        )
+        for _ in sampler:
+            pass
+        sampler.close()
+
+        assert not os.path.isdir(video_folder)
+
+    @pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+    def test_video_config_respects_custom_episode_trigger(self, env_id: str, tmp_path):
+        """
+        Test that a custom episode_trigger on video_config controls which episodes are recorded.
+
+        Args:
+            env_id: The Gym environment ID to be used in the sampling.
+            tmp_path: Pytest temporary directory fixture.
+
+        """
+        video_folder = str(tmp_path / 'videos')
+        video_config = VideoRecordingConfig(
+            video_folder=video_folder,
+            name_prefix='test',
+            episode_trigger=lambda episode_id: episode_id % 2 == 0,
+        )
+
+        stats_collector = DummyStatisticsCollector()
+        sampler = EpisodicSampler(
+            env_id,
+            stats_collector,
+            n_episodes=3,
+            policy=DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=[8])),
+            video_config=video_config,
+        )
+        for _ in sampler:
+            pass
+        sampler.close()
+
+        assert len(_video_files(video_folder)) == 2  # Episodes 0 and 2 are recorded; episode 1 is skipped.
+
+    @pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+    def test_close_flushes_in_progress_episode_video(self, env_id: str, tmp_path):
+        """
+        Test that close() flushes the video of an episode still in progress when sampling stops.
+
+        Args:
+            env_id: The Gym environment ID to be used in the sampling.
+            tmp_path: Pytest temporary directory fixture.
+
+        """
+        video_folder = str(tmp_path / 'videos')
+        video_config = VideoRecordingConfig(video_folder=video_folder, name_prefix='test')
+
+        # A single step is sampled, so the first episode is still in progress and has not been flushed.
+        sampler = Sampler(
+            env_id,
+            n_steps=1,
+            policy=DenseNetworkPolicy(env_id=env_id, config=DenseNetworkPolicyConfig(hidden_space_dims=[8])),
+            video_config=video_config,
+        )
+        for _ in sampler:
+            pass
+
+        assert len(_video_files(video_folder)) == 0
+
+        sampler.close()
+
+        assert len(_video_files(video_folder)) == 1
