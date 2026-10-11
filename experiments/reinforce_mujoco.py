@@ -16,7 +16,10 @@ from torch.optim import (
 )
 
 from tfrlrl.evaluation.video import construct_video_evaluation
-from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy
+from tfrlrl.policies.dense_neural_network import (
+    DenseNetworkPolicy,
+    DenseNetworkPolicyConfig,
+)
 from tfrlrl.training_algorithms.reinforce import train_policy_gradient
 
 logging.basicConfig(format='%(asctime)s %(message)s', force=True)
@@ -72,12 +75,24 @@ def main(args=None):
         random.seed(seed)
         np.random.seed(seed)
 
+        policy_config = DenseNetworkPolicyConfig(
+            hidden_space_dims=hidden_space_dims,
+            std_parameterisation='network',
+        )
         policy = DenseNetworkPolicy(
             env_id=environment_id,
-            hidden_space_dims=hidden_space_dims,
+            config=policy_config,
         )
-        optimizer = AdamW(policy.get_parameters(), lr=alpha)
 
+        construct_video_evaluation(
+            environment_id,
+            policy,
+            n_eval_episodes,
+            '/'.join([parsed_args.video_directory, f'initial_policy_{i}']),
+            parsed_args.video_prefix,
+        )
+
+        optimizer = AdamW(policy.get_parameters(), lr=alpha)
         policy = train_policy_gradient(
             env_id=environment_id,
             policy=policy,
