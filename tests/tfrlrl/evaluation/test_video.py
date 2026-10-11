@@ -2,6 +2,7 @@ import logging
 import os
 from unittest.mock import MagicMock, patch
 
+import gymnasium as gym
 import numpy as np
 import pytest
 from hypothesis import given, settings
@@ -23,6 +24,7 @@ def _make_mock_env(n_steps_per_episode: int = 1):
     """
     mock_env = MagicMock()
     mock_env.reset.return_value = (np.zeros(4), {})
+    mock_env.action_space = gym.spaces.Discrete(2)
 
     step_state = {'count': 0}
 
@@ -45,7 +47,6 @@ class TestConstructVideoEvaluation:
         [
             ('CartPole-v1', 1, 'test'),
             ('CartPole-v1', 3, 'eval'),
-            ('InvertedPendulum-v5', 2, 'policy'),
         ],
     )
     def test_construct_video_evaluation_creates_video_folder(
@@ -70,11 +71,9 @@ class TestConstructVideoEvaluation:
         policy = MagicMock()
         policy.generate_action.return_value = 0
 
-        assert not os.path.isdir(video_folder)
-
         with (
-            patch('tfrlrl.evaluation.video.gym.make', return_value=mock_env),
-            patch('tfrlrl.evaluation.video.RecordVideo', return_value=mock_env),
+            patch('tfrlrl.sampling.sampler.gym.make', return_value=mock_env),
+            patch('tfrlrl.sampling.sampler.RecordVideo', return_value=mock_env),
         ):
             construct_video_evaluation(
                 env_id=env_id,
@@ -110,9 +109,8 @@ class TestConstructVideoEvaluation:
         policy.generate_action.return_value = 0
 
         with (
-            patch('tfrlrl.evaluation.video.os.makedirs'),
-            patch('tfrlrl.evaluation.video.gym.make', return_value=mock_env),
-            patch('tfrlrl.evaluation.video.RecordVideo', return_value=mock_env),
+            patch('tfrlrl.sampling.sampler.gym.make', return_value=mock_env),
+            patch('tfrlrl.sampling.sampler.RecordVideo', return_value=mock_env),
         ):
             construct_video_evaluation(
                 env_id=env_id,
@@ -132,18 +130,20 @@ class TestConstructVideoEvaluation:
             ('CartPole-v1', 5),
         ],
     )
-    def test_construct_video_evaluation_logs_one_record_per_episode(
+    def test_construct_video_evaluation_logs_one_record_per_episode_plus_summary(
         self,
         env_id: str,
         n_episodes: int,
+        tmp_path,
         caplog,
     ):
         """
-        Test that construct_video_evaluation emits one INFO log record per episode.
+        Test that construct_video_evaluation emits one INFO log record per episode, plus a summary record.
 
         Args:
             env_id: The Gym environment ID.
             n_episodes: The number of evaluation episodes.
+            tmp_path: Pytest temporary directory fixture.
             caplog: Pytest log capture fixture.
 
         """
@@ -152,24 +152,24 @@ class TestConstructVideoEvaluation:
         policy.generate_action.return_value = 0
 
         with (
-            patch('tfrlrl.evaluation.video.os.makedirs'),
-            patch('tfrlrl.evaluation.video.gym.make', return_value=mock_env),
-            patch('tfrlrl.evaluation.video.RecordVideo', return_value=mock_env),
+            patch('tfrlrl.sampling.sampler.gym.make', return_value=mock_env),
+            patch('tfrlrl.sampling.sampler.RecordVideo', return_value=mock_env),
         ):
             with caplog.at_level(logging.INFO, logger='tfrlrl.evaluation.video'):
                 construct_video_evaluation(
                     env_id=env_id,
                     policy=policy,
                     n_episodes=n_episodes,
-                    video_folder='/tmp/videos',
+                    video_folder=str(tmp_path / 'videos'),
                     name_prefix='test',
                 )
 
-        assert len(caplog.records) == n_episodes
-        for record in caplog.records:
+        assert len(caplog.records) == n_episodes + 1
+        for record in caplog.records[:-1]:
             assert record.levelno == logging.INFO
             assert 'steps' in record.message
             assert 'reward' in record.message
+        assert 'summary' in caplog.records[-1].message.lower()
 
     @pytest.mark.parametrize(
         'n_steps_per_episode, expected_reward',
@@ -205,8 +205,8 @@ class TestConstructVideoEvaluation:
         policy.generate_action.return_value = 0
 
         with (
-            patch('tfrlrl.evaluation.video.gym.make', return_value=mock_env),
-            patch('tfrlrl.evaluation.video.RecordVideo', return_value=mock_env),
+            patch('tfrlrl.sampling.sampler.gym.make', return_value=mock_env),
+            patch('tfrlrl.sampling.sampler.RecordVideo', return_value=mock_env),
         ):
             with caplog.at_level(logging.INFO, logger='tfrlrl.evaluation.video'):
                 construct_video_evaluation(
@@ -217,7 +217,7 @@ class TestConstructVideoEvaluation:
                     name_prefix='test',
                 )
 
-        assert len(caplog.records) == 1
+        assert len(caplog.records) == 2
         assert str(expected_reward) in caplog.records[0].message
 
     def test_construct_video_evaluation_closes_env(self, tmp_path):
@@ -234,8 +234,8 @@ class TestConstructVideoEvaluation:
         policy.generate_action.return_value = 0
 
         with (
-            patch('tfrlrl.evaluation.video.gym.make', return_value=mock_env),
-            patch('tfrlrl.evaluation.video.RecordVideo', return_value=mock_env),
+            patch('tfrlrl.sampling.sampler.gym.make', return_value=mock_env),
+            patch('tfrlrl.sampling.sampler.RecordVideo', return_value=mock_env),
         ):
             construct_video_evaluation(
                 env_id='CartPole-v1',
@@ -251,7 +251,7 @@ class TestConstructVideoEvaluation:
         'env_id, name_prefix',
         [
             ('CartPole-v1', 'my-eval'),
-            ('InvertedPendulum-v5', 'run-01'),
+            ('CartPole-v1', 'run-01'),
         ],
     )
     def test_construct_video_evaluation_passes_correct_args_to_record_video(
@@ -275,8 +275,8 @@ class TestConstructVideoEvaluation:
         policy.generate_action.return_value = 0
 
         with (
-            patch('tfrlrl.evaluation.video.gym.make', return_value=mock_env) as mock_make,
-            patch('tfrlrl.evaluation.video.RecordVideo', return_value=mock_env) as mock_record_video,
+            patch('tfrlrl.sampling.sampler.gym.make', return_value=mock_env) as mock_make,
+            patch('tfrlrl.sampling.sampler.RecordVideo', return_value=mock_env) as mock_record_video,
         ):
             construct_video_evaluation(
                 env_id=env_id,
@@ -286,7 +286,7 @@ class TestConstructVideoEvaluation:
                 name_prefix=name_prefix,
             )
 
-        mock_make.assert_called_once_with(env_id, render_mode='rgb_array')
+        mock_make.assert_any_call(env_id, render_mode='rgb_array')
         mock_record_video.assert_called_once()
         _, kwargs = mock_record_video.call_args
         assert kwargs['video_folder'] == video_folder

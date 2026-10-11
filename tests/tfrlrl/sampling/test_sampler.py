@@ -1,10 +1,42 @@
+import os
+from unittest.mock import MagicMock, patch
+
+import gymnasium as gym
 import numpy as np
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from tfrlrl.policies.base import UniformActionSamplingPolicy
-from tfrlrl.sampling.sampler import Sampler
+from tfrlrl.sampling.sampler import Sampler, VideoRecordingConfig
+
+
+def _make_mock_env(n_steps_per_episode: int = 1):
+    """
+    Create a mock gymnasium environment that terminates after n_steps_per_episode steps.
+
+    Args:
+        n_steps_per_episode: The number of steps before the episode terminates.
+
+    Returns:
+        A MagicMock that mimics a gymnasium environment.
+
+    """
+    mock_env = MagicMock()
+    mock_env.reset.return_value = (np.zeros(4), {})
+    mock_env.action_space = gym.spaces.Discrete(2)
+
+    step_state = {'count': 0}
+
+    def step_fn(action):
+        step_state['count'] += 1
+        terminated = step_state['count'] % n_steps_per_episode == 0
+        if terminated:
+            step_state['count'] = 0
+        return (np.zeros(4), 1.0, terminated, False, {})
+
+    mock_env.step.side_effect = step_fn
+    return mock_env
 
 
 class TestSampler:
@@ -121,3 +153,126 @@ class TestSampler:
             assert isinstance(sample.reward, float) or isinstance(sample.reward, int)
             assert isinstance(sample.done, bool)
             assert isinstance(sample.info, dict)
+
+
+class TestSamplerVideoRecording:
+    """Class that encapsulates the unit tests for video recording support in the Sampler class."""
+
+    def test_video_config_creates_video_folder(self, tmp_path):
+        """
+        Test that a video_config creates the video folder if it does not exist.
+
+        Args:
+            tmp_path: Pytest temporary directory fixture.
+
+        """
+        video_folder = str(tmp_path / 'videos')
+        mock_env = _make_mock_env()
+        video_config = VideoRecordingConfig(video_folder=video_folder, name_prefix='test')
+
+        assert not os.path.isdir(video_folder)
+
+        with (
+            patch('tfrlrl.sampling.sampler.gym.make', return_value=mock_env),
+            patch('tfrlrl.sampling.sampler.RecordVideo', return_value=mock_env),
+        ):
+            Sampler('CartPole-v1', video_config=video_config)
+
+        assert os.path.isdir(video_folder)
+
+    def test_video_config_forces_rgb_array_render_mode(self, tmp_path):
+        """
+        Test that a video_config forces render_mode='rgb_array' on environment construction.
+
+        Args:
+            tmp_path: Pytest temporary directory fixture.
+
+        """
+        video_folder = str(tmp_path / 'videos')
+        mock_env = _make_mock_env()
+        video_config = VideoRecordingConfig(video_folder=video_folder, name_prefix='test')
+
+        with (
+            patch('tfrlrl.sampling.sampler.gym.make', return_value=mock_env) as mock_make,
+            patch('tfrlrl.sampling.sampler.RecordVideo', return_value=mock_env),
+        ):
+            Sampler('CartPole-v1', video_config=video_config)
+
+        mock_make.assert_any_call('CartPole-v1', render_mode='rgb_array')
+
+    def test_video_config_wraps_env_with_record_video(self, tmp_path):
+        """
+        Test that a video_config wraps the environment with RecordVideo using the given parameters.
+
+        Args:
+            tmp_path: Pytest temporary directory fixture.
+
+        """
+        video_folder = str(tmp_path / 'videos')
+        mock_env = _make_mock_env()
+        video_config = VideoRecordingConfig(video_folder=video_folder, name_prefix='test-prefix')
+
+        with (
+            patch('tfrlrl.sampling.sampler.gym.make', return_value=mock_env),
+            patch('tfrlrl.sampling.sampler.RecordVideo', return_value=mock_env) as mock_record_video,
+        ):
+            Sampler('CartPole-v1', video_config=video_config)
+
+        mock_record_video.assert_called_once()
+        _, kwargs = mock_record_video.call_args
+        assert kwargs['video_folder'] == video_folder
+        assert kwargs['name_prefix'] == 'test-prefix'
+        assert kwargs['episode_trigger'](0) is True
+        assert kwargs['episode_trigger'](5) is True
+
+    def test_no_video_config_does_not_wrap_env(self):
+        """Test that the environment is not wrapped with RecordVideo when no video_config is given."""
+        mock_env = _make_mock_env()
+
+        with (
+            patch('tfrlrl.sampling.sampler.gym.make', return_value=mock_env) as mock_make,
+            patch('tfrlrl.sampling.sampler.RecordVideo') as mock_record_video,
+        ):
+            Sampler('CartPole-v1')
+
+        assert all('render_mode' not in call.kwargs for call in mock_make.call_args_list)
+        mock_record_video.assert_not_called()
+
+    def test_video_config_respects_custom_episode_trigger(self, tmp_path):
+        """
+        Test that a custom episode_trigger on video_config is passed through to RecordVideo unchanged.
+
+        Args:
+            tmp_path: Pytest temporary directory fixture.
+
+        """
+        video_folder = str(tmp_path / 'videos')
+        mock_env = _make_mock_env()
+
+        def episode_trigger(episode_id):
+            return episode_id % 2 == 0
+
+        video_config = VideoRecordingConfig(
+            video_folder=video_folder,
+            name_prefix='test',
+            episode_trigger=episode_trigger,
+        )
+
+        with (
+            patch('tfrlrl.sampling.sampler.gym.make', return_value=mock_env),
+            patch('tfrlrl.sampling.sampler.RecordVideo', return_value=mock_env) as mock_record_video,
+        ):
+            Sampler('CartPole-v1', video_config=video_config)
+
+        _, kwargs = mock_record_video.call_args
+        assert kwargs['episode_trigger'] is episode_trigger
+
+    def test_close_closes_env(self):
+        """Test that close() closes the underlying environment."""
+        mock_env = _make_mock_env()
+
+        with patch('tfrlrl.sampling.sampler.gym.make', return_value=mock_env):
+            sampler = Sampler('CartPole-v1')
+            sampler.close()
+
+        mock_env.close.assert_called_once()

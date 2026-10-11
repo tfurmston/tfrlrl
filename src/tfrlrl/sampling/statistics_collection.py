@@ -212,3 +212,79 @@ class EpisocidPolicyGradientStatisticsCollector(BaseStatisticsCollector[EpisodeP
             baseline_features=merge_optional_statistics(statistics, 'baseline_features', 1),
             baseline_targets=merge_optional_statistics(statistics, 'baseline_targets', 0),
         )
+
+
+@dataclass
+class EpisodeEvaluationStatistics(BaseStatistics):
+    """Dataclass for the lightweight, episode-level statistics collected during policy evaluation."""
+
+    total_reward: np.ndarray
+    n_steps: np.ndarray
+
+
+class EpisodeEvaluationStatisticsCollector(BaseStatisticsCollector[EpisodeEvaluationStatistics]):
+    """
+    Statistics collector for lightweight episode-level evaluation statistics.
+
+    This class collects the total reward and number of steps of each sampled episode, without retaining the
+    individual observations, actions or baseline features. It is intended for evaluation contexts, such as video
+    evaluations of a policy, where only summary statistics are required.
+    """
+
+    def __init__(self, env_id: str):
+        """
+        Initialise the episode evaluation statistics collector.
+
+        Args:
+            env_id: The I.D. of the environment from which to collect statistics.
+
+        """
+        super().__init__(env_id=env_id)
+        self._total_reward = 0.0
+        self._n_steps = 0
+
+    def reset(self) -> None:
+        """Reset the collected statistics to their initial values."""
+        self._total_reward = 0.0
+        self._n_steps = 0
+
+    def collect_step_statistics(self, sample) -> None:
+        """
+        Collect statistics for the given step sample.
+
+        Args:
+            sample: The step sample from which to calculate the statistics.
+
+        """
+        self._total_reward += sample.reward
+        self._n_steps += 1
+
+    def aggregate_statistics(self) -> EpisodeEvaluationStatistics:
+        """
+        Aggregate the statistics collected to date.
+
+        Returns:
+            An instance of the EpisodeEvaluationStatistics dataclass.
+
+        """
+        return EpisodeEvaluationStatistics(
+            total_reward=np.array(self._total_reward),
+            n_steps=np.array(self._n_steps),
+        )
+
+    @classmethod
+    def merge_statistics(cls, statistics: Sequence[EpisodeEvaluationStatistics]) -> EpisodeEvaluationStatistics:
+        """
+        Merge statistics across different episodes.
+
+        Args:
+            statistics: The sequence of per-episode statistics to merge.
+
+        Returns:
+            An instance of the EpisodeEvaluationStatistics dataclass.
+
+        """
+        return EpisodeEvaluationStatistics(
+            total_reward=np.array([x.total_reward for x in statistics]),
+            n_steps=np.array([x.n_steps for x in statistics]),
+        )

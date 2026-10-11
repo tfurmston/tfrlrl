@@ -85,6 +85,10 @@ class EpisodicSampler[T: BaseStatistics]:
         """Sample all episodes from the sampler and merge the statistics."""
         return self._statistics_collector.merge_statistics([x for x in self])
 
+    def close(self) -> None:
+        """Close the underlying sampler's environment, flushing any video recording in progress."""
+        self._sampler.close()
+
 
 RemoteEpisodicSampler = ray.remote(EpisodicSampler)
 
