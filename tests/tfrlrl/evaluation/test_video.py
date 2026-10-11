@@ -47,6 +47,7 @@ class TestConstructVideoEvaluation:
         [
             ('CartPole-v1', 1, 'test'),
             ('CartPole-v1', 3, 'eval'),
+            ('InvertedPendulum-v5', 2, 'policy'),
         ],
     )
     def test_construct_video_evaluation_creates_video_folder(
@@ -251,7 +252,7 @@ class TestConstructVideoEvaluation:
         'env_id, name_prefix',
         [
             ('CartPole-v1', 'my-eval'),
-            ('CartPole-v1', 'run-01'),
+            ('InvertedPendulum-v5', 'run-01'),
         ],
     )
     def test_construct_video_evaluation_passes_correct_args_to_record_video(
