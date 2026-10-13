@@ -204,10 +204,10 @@ def test_construct_fim_vector_product_fn(env_id: str, expected_shape: Tuple[int]
         statistics.actions,
     )
 
+    n_steps = statistics.actions.shape[-1]
     jac_blocks = []
     for _, jac_param in jacobian.items():
-        n_steps = jac_param.shape[1]
-        jac_block = jac_param.detach().numpy()[0].reshape(n_steps, -1)
+        jac_block = jac_param.detach().numpy().reshape(n_steps, -1)
         jac_blocks.append(jac_block)
     J = np.concatenate(jac_blocks, axis=1)
 
