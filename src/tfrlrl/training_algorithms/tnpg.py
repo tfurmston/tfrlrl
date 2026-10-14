@@ -146,10 +146,13 @@ def construct_fim_vector_product_fn(
         observations=observations,
         actions=actions,
     )
+    parameters = dict(policy.network.named_parameters())
+    sample_parameter_name = next(iter(jacobian))
+    n_leading_dims = jacobian[sample_parameter_name].ndim - parameters[sample_parameter_name].ndim
     jacobian_matrix = (
         flatten_tensor_dict(
             jacobian,
-            dim=actions.ndim,
+            dim=n_leading_dims,
         )
         .detach()
         .numpy()

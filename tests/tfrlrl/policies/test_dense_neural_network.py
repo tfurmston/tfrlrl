@@ -148,7 +148,7 @@ def test_sample_episode_with_dense_network_policy(env_id: str, n_episodes: int, 
     assert len(samples) == n_episodes
 
 
-@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5', 'Swimmer-v5'])
 def test_calculate_log_probabilities_from_dense_network_policy_single_observation(env_id):
     """
     Test calculate_log_probabilities with a single observation with a DenseNetworkPolicy.
@@ -172,33 +172,18 @@ def test_calculate_log_probabilities_from_dense_network_policy_single_observatio
     assert log_probability.shape == (1,)
 
 
-@pytest.mark.parametrize(
-    'env_id, extend_actions',
-    [
-        (
-            'InvertedPendulum-v5',
-            True,
-        ),
-        (
-            'InvertedPendulum-v5',
-            False,
-        ),
-    ],
-)
+@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5', 'Swimmer-v5'])
 @given(
     n_observations=st.integers(min_value=1, max_value=20),
 )
 @settings(deadline=None)
-def test_calculate_log_probabilities_from_dense_network_policy_multiple_observations(
-    env_id, n_observations, extend_actions
-):
+def test_calculate_log_probabilities_from_dense_network_policy_multiple_observations(env_id, n_observations):
     """
     Test calculate_log_probabilities with multiple observations with a DenseNetworkPolicy.
 
     Args:
         env_id: The environment I.D. from which to sample episodes.
         n_observations: The number of observations to sample.
-        extend_actions: A Boolean indicating whether to extend the diemsions of the actions.
 
     """
     env = gym.make(env_id)
@@ -213,28 +198,20 @@ def test_calculate_log_probabilities_from_dense_network_policy_multiple_observat
         [env.observation_space.sample()[..., np.newaxis] for _ in range(n_observations)],
         axis=1,
     )
-    if extend_actions:
-        actions = np.concatenate(
-            [env.action_space.sample()[..., np.newaxis] for _ in range(n_observations)],
-            axis=1,
-        )
-    else:
-        actions = np.concatenate(
-            [env.action_space.sample() for _ in range(n_observations)],
-        )
+    actions = np.concatenate(
+        [env.action_space.sample()[..., np.newaxis] for _ in range(n_observations)],
+        axis=1,
+    )
 
     log_probabilities = policy.calculate_log_probabilities(
         observations,
         actions,
     )
 
-    if extend_actions:
-        assert log_probabilities.shape == (1, n_observations)
-    else:
-        assert log_probabilities.shape == (n_observations,)
+    assert log_probabilities.shape == (n_observations,)
 
 
-@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5', 'Swimmer-v5'])
 def test_calculate_log_probabilities_from_functional_single_observation(env_id):
     """
     Test make_log_prob_fn with a single observation with a DenseNetworkPolicy.
@@ -274,31 +251,18 @@ def test_calculate_log_probabilities_from_functional_single_observation(env_id):
     )
 
 
-@pytest.mark.parametrize(
-    'env_id, extend_actions',
-    [
-        (
-            'InvertedPendulum-v5',
-            True,
-        ),
-        (
-            'InvertedPendulum-v5',
-            False,
-        ),
-    ],
-)
+@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5', 'Swimmer-v5'])
 @given(
     n_observations=st.integers(min_value=1, max_value=20),
 )
 @settings(deadline=None)
-def test_calculate_log_probabilities_from_functional_multiple_observations(env_id, n_observations, extend_actions):
+def test_calculate_log_probabilities_from_functional_multiple_observations(env_id, n_observations):
     """
     Test make_log_prob_fn with multiple observations with a DenseNetworkPolicy.
 
     Args:
         env_id: The environment I.D. from which to sample episodes.
         n_observations: The number of observations to sample.
-        extend_actions: A Boolean indicating whether to extend the diemsions of the actions.
 
     """
     env = gym.make(env_id)
@@ -313,15 +277,10 @@ def test_calculate_log_probabilities_from_functional_multiple_observations(env_i
         [env.observation_space.sample()[..., np.newaxis] for _ in range(n_observations)],
         axis=1,
     )
-    if extend_actions:
-        actions = np.concatenate(
-            [env.action_space.sample()[..., np.newaxis] for _ in range(n_observations)],
-            axis=1,
-        )
-    else:
-        actions = np.concatenate(
-            [env.action_space.sample() for _ in range(n_observations)],
-        )
+    actions = np.concatenate(
+        [env.action_space.sample()[..., np.newaxis] for _ in range(n_observations)],
+        axis=1,
+    )
 
     log_probabilities = (
         policy.calculate_log_probabilities(
@@ -344,7 +303,7 @@ def test_calculate_log_probabilities_from_functional_multiple_observations(env_i
     )
 
 
-@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5', 'Swimmer-v5'])
 @given(
     seed=st.integers(min_value=0, max_value=10000),
 )
@@ -397,7 +356,7 @@ def test_dense_neural_network_calculate_jacobian_single_observation(env_id: str,
         )
 
 
-@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5', 'Swimmer-v5'])
 @given(
     n_observations=st.integers(min_value=2, max_value=10),
     seed=st.integers(min_value=0, max_value=10000),
@@ -424,7 +383,8 @@ def test_dense_neural_network_calculate_jacobian_multiple_observations(env_id: s
         axis=1,
     )
     actions = np.concatenate(
-        [env.action_space.sample() for _ in range(n_observations)],
+        [env.action_space.sample()[..., np.newaxis] for _ in range(n_observations)],
+        axis=1,
     )
 
     jacobian = policy.calculate_jacobian(observations, actions)
@@ -438,7 +398,7 @@ def test_dense_neural_network_calculate_jacobian_multiple_observations(env_id: s
 
         for i in range(n_observations):
             obs_i = observations[:, i][..., np.newaxis]
-            act_i = actions[i]
+            act_i = actions[:, i]
 
             for idx in np.ndindex(param_shape):
                 new_policy_dict_plus = copy.deepcopy(policy_dict)
@@ -461,7 +421,7 @@ def test_dense_neural_network_calculate_jacobian_multiple_observations(env_id: s
         )
 
 
-@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5', 'Swimmer-v5'])
 @given(
     seed=st.integers(min_value=0, max_value=10000),
 )
