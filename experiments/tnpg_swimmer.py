@@ -74,7 +74,6 @@ def main(args=None):
     delta = 0.01
     tr_config = TrustRegionConfig(delta=delta)
     step_size_config = TNPGStepSizeConfig(
-        lr=tr_config.delta,
         trust_region_config=tr_config,
     )
 

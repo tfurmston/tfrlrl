@@ -431,10 +431,50 @@ def test_tnpg_step_size_config_raises_when_both_scheduler_and_trust_region_given
     """Test that TNPGStepSizeConfig raises a ValueError when both lr_scheduler_fn and trust_region_config are set."""
     with pytest.raises(ValueError):
         TNPGStepSizeConfig(
-            lr=0.1,
             lr_scheduler_fn=lambda optimizer: None,
             trust_region_config=TrustRegionConfig(delta=0.01),
         )
+
+
+@pytest.mark.parametrize(
+    'lr, trust_region_config',
+    [
+        (0.1, None),
+        (None, TrustRegionConfig(delta=0.01)),
+    ],
+)
+def test_tnpg_step_size_config_valid_combinations(lr, trust_region_config):
+    """
+    Test that TNPGStepSizeConfig accepts lr given alone, or trust_region_config given alone.
+
+    Args:
+        lr: The lr value to construct TNPGStepSizeConfig with.
+        trust_region_config: The trust_region_config value to construct TNPGStepSizeConfig with.
+
+    """
+    config = TNPGStepSizeConfig(lr=lr, trust_region_config=trust_region_config)
+    assert config.lr == lr
+    assert config.trust_region_config == trust_region_config
+
+
+@pytest.mark.parametrize(
+    'lr, trust_region_config',
+    [
+        (None, None),
+        (0.1, TrustRegionConfig(delta=0.01)),
+    ],
+)
+def test_tnpg_step_size_config_raises_for_invalid_lr_trust_region_combinations(lr, trust_region_config):
+    """
+    Test TNPGStepSizeConfig raises a ValueError unless exactly one of lr and trust_region_config is given.
+
+    Args:
+        lr: The lr value to construct TNPGStepSizeConfig with.
+        trust_region_config: The trust_region_config value to construct TNPGStepSizeConfig with.
+
+    """
+    with pytest.raises(ValueError):
+        TNPGStepSizeConfig(lr=lr, trust_region_config=trust_region_config)
 
 
 def test_train_policy_gradient_uses_trust_region_step_size(monkeypatch):
@@ -482,10 +522,63 @@ def test_train_policy_gradient_uses_trust_region_step_size(monkeypatch):
         policy=policy,
         n_iterations=n_iterations,
         n_episodes=5,
-        step_size_config=TNPGStepSizeConfig(lr=1.0, trust_region_config=TrustRegionConfig(delta=0.01)),
+        step_size_config=TNPGStepSizeConfig(trust_region_config=TrustRegionConfig(delta=0.01)),
         is_slippery=False,
         cg_config=TNPGConjugateGradientConfig(n_iters=2),
     )
 
     assert len(created_optimizers) == 1
     assert created_optimizers[0].recorded_lrs == [fixed_step_size] * n_iterations
+
+
+def test_train_policy_gradient_keeps_previous_lr_on_nan_trust_region_step_size(monkeypatch):
+    """
+    Test that train_policy_gradient keeps the previous lr when the trust-region step size is NaN.
+
+    This verifies the documented fallback behaviour of TNPGStepSizeConfig: when trust_region_config is given
+    and calculate_trust_region_step_size yields a degenerate (NaN) value on a given iteration, the previous
+    iteration's step size should be reused rather than the lr being updated to an invalid value.
+
+    Args:
+        monkeypatch: The PyTest monkeypatch fixture, used to mock calculate_trust_region_step_size and capture
+        the optimizer's learning rate at each step.
+
+    """
+    step_sizes = iter([0.1, float('nan'), 0.2])
+
+    monkeypatch.setattr(
+        'tfrlrl.training_algorithms.tnpg.calculate_trust_region_step_size',
+        lambda quadratic_form, delta: next(step_sizes),
+    )
+
+    created_optimizers = []
+
+    class _RecordingSGD(SGD):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.recorded_lrs = []
+            created_optimizers.append(self)
+
+        def step(self, *args, **kwargs):
+            self.recorded_lrs.append(self.param_groups[0]['lr'])
+            return super().step(*args, **kwargs)
+
+    monkeypatch.setattr('tfrlrl.training_algorithms.tnpg.SGD', _RecordingSGD)
+
+    env_id = 'FrozenLake-v1'
+    env = gym.make(env_id)
+    feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+    policy = LinearSoftMax(env_id, feature_fn)
+
+    train_policy_gradient(
+        env_id=env_id,
+        policy=policy,
+        n_iterations=3,
+        n_episodes=5,
+        step_size_config=TNPGStepSizeConfig(trust_region_config=TrustRegionConfig(delta=0.01)),
+        is_slippery=False,
+        cg_config=TNPGConjugateGradientConfig(n_iters=2),
+    )
+
+    assert len(created_optimizers) == 1
+    assert created_optimizers[0].recorded_lrs == [0.1, 0.1, 0.2]

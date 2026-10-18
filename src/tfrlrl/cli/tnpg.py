@@ -47,7 +47,8 @@ def parse_args(args=None):
         '--alpha',
         type=float,
         default=100.0,
-        help='The base learning rate for the SGD optimizer used to apply the natural policy gradient.',
+        help='The base learning rate for the SGD optimizer used to apply the natural policy gradient. Ignored '
+        'when --delta is given.',
     )
     parser.add_argument(
         '--n-samplers',
@@ -130,8 +131,8 @@ def parse_args(args=None):
         default=None,
         help='The Kullback-Leibler divergence budget for the trust-region step size calculation. When given, '
         'the step size used to update policy parameters is calculated from this trust-region formula at each '
-        'iteration, with --alpha used only as a fallback value. When not given (the default), --alpha is used '
-        'directly as a fixed step size.',
+        'iteration (with --alpha ignored). When not given (the default), --alpha is used directly as a fixed '
+        'step size.',
     )
     parser.add_argument(
         '--fim-reg-coeff',
@@ -196,7 +197,7 @@ def main(args=None):
         )
 
     step_size_config = TNPGStepSizeConfig(
-        lr=parsed_args.alpha,
+        lr=parsed_args.alpha if parsed_args.delta is None else None,
         trust_region_config=TrustRegionConfig(delta=parsed_args.delta) if parsed_args.delta is not None else None,
     )
     cg_config = TNPGConjugateGradientConfig(

@@ -40,30 +40,38 @@ class TNPGStepSizeConfig:
     By default, i.e. when trust_region_config is not given, the update uses a fixed step size, lr. This is optionally
     controlled over the course of training via lr_scheduler_fn. Alternatively, when trust_region_config is given,
     the step size is instead calculated at each iteration from the trust-region formula of Schulman et al.
-    (2015), "Trust Region Policy Optimization". In this case lr is only used as a fallback step size should the
-    trust-region calculation yield a degenerate (NaN) value.
+    (2015), "Trust Region Policy Optimization", and lr must not be given: should the trust-region calculation
+    yield a degenerate (NaN) value on a given iteration, the previous iteration's step size is reused instead.
 
     Args:
-        lr: The scalar learning rate to use to update the policy parameters (when trust_region_config is None).
-        lr_scheduler_fn:
-        lr: An optional callable that will construct a learning rate scheduler for managing the learning rate. Only
-        valid when trust-region step sizes is not used.
+        lr: The scalar learning rate to use to update the policy parameters. Required when trust_region_config
+        is None, and must not be given when trust_region_config is given.
+        lr_scheduler_fn: An optional callable that will construct a learning rate scheduler for managing the
+        learning rate. Only valid when trust-region step sizes is not used.
         trust_region_config: An optional instance of the TrustRegionConfig dataclass. When given the trust-region step
         sizes will be used.
 
     """
 
-    lr: float
+    lr: Optional[float] = None
     lr_scheduler_fn: Optional[Callable[[Optimizer], LRScheduler]] = None
     trust_region_config: Optional[TrustRegionConfig] = None
 
     def __post_init__(self):
-        """Validate that lr_scheduler_fn and trust_region_config are not both given."""
+        """Validate lr_scheduler_fn/trust_region_config exclusivity, and that lr is given if and only if needed."""
         if self.lr_scheduler_fn is not None and self.trust_region_config is not None:
             raise ValueError(
                 'lr_scheduler_fn and trust_region_config are mutually exclusive: the trust-region step size is '
                 'recalculated every iteration, so any lr_scheduler_fn update to the learning rate would be '
                 'immediately overwritten.'
+            )
+        if self.trust_region_config is None and self.lr is None:
+            raise ValueError('lr must be given when trust_region_config is not given.')
+        if self.trust_region_config is not None and self.lr is not None:
+            raise ValueError(
+                'lr must not be given when trust_region_config is given: the trust-region step size is '
+                'recalculated every iteration, and the previous iteration step size is reused as the fallback '
+                'should that calculation yield a degenerate (NaN) value.'
             )
 
 
@@ -228,9 +236,11 @@ def train_policy_gradient(
 
     """
     cg_config = cg_config if cg_config is not None else TNPGConjugateGradientConfig()
-    optimizer = SGD(policy.network.parameters(), lr=step_size_config.lr, maximize=True)
-    lr_scheduler = step_size_config.lr_scheduler_fn(optimizer) if step_size_config.lr_scheduler_fn is not None else None
     trust_region_config = step_size_config.trust_region_config
+    # The initial lr is a placeholder when trust_region_config is given, since it is overwritten by the
+    # trust-region step size before every call to optimizer.step().
+    optimizer = SGD(policy.network.parameters(), lr=step_size_config.lr or 0.0, maximize=True)
+    lr_scheduler = step_size_config.lr_scheduler_fn(optimizer) if step_size_config.lr_scheduler_fn is not None else None
 
     statistics_collector = EpisocidPolicyGradientStatisticsCollector(
         env_id,
@@ -288,7 +298,8 @@ def train_policy_gradient(
                 quadratic_form=cg_result.quadratic_form,
                 delta=trust_region_config.delta,
             )
-            optimizer.param_groups[0]['lr'] = step_size if not np.isnan(step_size) else step_size_config.lr
+            if not np.isnan(step_size):
+                optimizer.param_groups[0]['lr'] = step_size
         logger.debug('Update policy parameters.')
         tngd_dict = unflatten_tensor_dict(
             tensor(cg_result.x),
