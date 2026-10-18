@@ -70,11 +70,10 @@ def main(args=None):
         n_iters=10,
         n_samples_fim=1000,
     )
-
-    delta = 0.01
-    tr_config = TrustRegionConfig(delta=delta)
     step_size_config = TNPGStepSizeConfig(
-        trust_region_config=tr_config,
+        trust_region_config=TrustRegionConfig(
+            delta=0.01,
+        ),
     )
 
     for i, seed in enumerate([1]):
