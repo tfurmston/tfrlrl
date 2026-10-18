@@ -237,8 +237,6 @@ def train_policy_gradient(
     """
     cg_config = cg_config if cg_config is not None else TNPGConjugateGradientConfig()
     trust_region_config = step_size_config.trust_region_config
-    # The initial lr is a placeholder when trust_region_config is given, since it is overwritten by the
-    # trust-region step size before every call to optimizer.step().
     optimizer = SGD(policy.network.parameters(), lr=step_size_config.lr or 0.0, maximize=True)
     lr_scheduler = step_size_config.lr_scheduler_fn(optimizer) if step_size_config.lr_scheduler_fn is not None else None
 
@@ -300,6 +298,12 @@ def train_policy_gradient(
             )
             if not np.isnan(step_size):
                 optimizer.param_groups[0]['lr'] = step_size
+            else:
+                logger.warning(
+                    'Trust-region step size is NaN on iteration %s; reusing previous iteration step size %s.',
+                    n,
+                    optimizer.param_groups[0]['lr'],
+                )
         logger.debug('Update policy parameters.')
         tngd_dict = unflatten_tensor_dict(
             tensor(cg_result.x),

@@ -1,5 +1,6 @@
 import copy
 import inspect
+import logging
 from typing import Tuple
 
 import gymnasium as gym
@@ -531,17 +532,19 @@ def test_train_policy_gradient_uses_trust_region_step_size(monkeypatch):
     assert created_optimizers[0].recorded_lrs == [fixed_step_size] * n_iterations
 
 
-def test_train_policy_gradient_keeps_previous_lr_on_nan_trust_region_step_size(monkeypatch):
+def test_train_policy_gradient_keeps_previous_lr_on_nan_trust_region_step_size(monkeypatch, caplog):
     """
     Test that train_policy_gradient keeps the previous lr when the trust-region step size is NaN.
 
     This verifies the documented fallback behaviour of TNPGStepSizeConfig: when trust_region_config is given
     and calculate_trust_region_step_size yields a degenerate (NaN) value on a given iteration, the previous
-    iteration's step size should be reused rather than the lr being updated to an invalid value.
+    iteration's step size should be reused rather than the lr being updated to an invalid value, and a
+    warning should be logged.
 
     Args:
         monkeypatch: The PyTest monkeypatch fixture, used to mock calculate_trust_region_step_size and capture
         the optimizer's learning rate at each step.
+        caplog: The PyTest caplog fixture, used to verify that a warning is logged when the step size is NaN.
 
     """
     step_sizes = iter([0.1, float('nan'), 0.2])
@@ -570,15 +573,17 @@ def test_train_policy_gradient_keeps_previous_lr_on_nan_trust_region_step_size(m
     feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
     policy = LinearSoftMax(env_id, feature_fn)
 
-    train_policy_gradient(
-        env_id=env_id,
-        policy=policy,
-        n_iterations=3,
-        n_episodes=5,
-        step_size_config=TNPGStepSizeConfig(trust_region_config=TrustRegionConfig(delta=0.01)),
-        is_slippery=False,
-        cg_config=TNPGConjugateGradientConfig(n_iters=2),
-    )
+    with caplog.at_level(logging.WARNING, logger='tfrlrl.training_algorithms.tnpg'):
+        train_policy_gradient(
+            env_id=env_id,
+            policy=policy,
+            n_iterations=3,
+            n_episodes=5,
+            step_size_config=TNPGStepSizeConfig(trust_region_config=TrustRegionConfig(delta=0.01)),
+            is_slippery=False,
+            cg_config=TNPGConjugateGradientConfig(n_iters=2),
+        )
 
     assert len(created_optimizers) == 1
     assert created_optimizers[0].recorded_lrs == [0.1, 0.1, 0.2]
+    assert sum('NaN' in record.message for record in caplog.records) == 1
