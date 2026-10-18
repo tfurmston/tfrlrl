@@ -10,15 +10,20 @@ class TrustRegionConfig:
 
     Args:
         delta: The Kullback-Leibler divergence budget (the trust-region radius). Must be strictly positive.
+        eps: A small value added to the denominator of the trust-region step size calculation, to avoid
+        division by zero. Must be strictly positive.
 
     """
 
     delta: float
+    eps: float = 1e-8
 
     def __post_init__(self):
         """Validate the trust-region configuration."""
         if self.delta <= 0:
             raise ValueError(f'delta must be strictly positive, got {self.delta}.')
+        if self.eps <= 0:
+            raise ValueError(f'eps must be strictly positive, got {self.eps}.')
 
 
 def calculate_trust_region_step_size(quadratic_form: float, delta: float, eps: float = 1e-8) -> float:

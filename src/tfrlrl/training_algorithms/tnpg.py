@@ -295,6 +295,7 @@ def train_policy_gradient(
             step_size = calculate_trust_region_step_size(
                 quadratic_form=cg_result.quadratic_form,
                 delta=trust_region_config.delta,
+                eps=trust_region_config.eps,
             )
             if not np.isnan(step_size):
                 optimizer.param_groups[0]['lr'] = step_size

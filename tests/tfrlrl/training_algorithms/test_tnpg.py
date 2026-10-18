@@ -495,7 +495,7 @@ def test_train_policy_gradient_uses_trust_region_step_size(monkeypatch):
 
     monkeypatch.setattr(
         'tfrlrl.training_algorithms.tnpg.calculate_trust_region_step_size',
-        lambda quadratic_form, delta: fixed_step_size,
+        lambda quadratic_form, delta, eps: fixed_step_size,
     )
 
     created_optimizers = []
@@ -532,6 +532,46 @@ def test_train_policy_gradient_uses_trust_region_step_size(monkeypatch):
     assert created_optimizers[0].recorded_lrs == [fixed_step_size] * n_iterations
 
 
+def test_train_policy_gradient_plumbs_trust_region_eps(monkeypatch):
+    """
+    Test that train_policy_gradient passes trust_region_config.eps through to calculate_trust_region_step_size.
+
+    Args:
+        monkeypatch: The PyTest monkeypatch fixture, used to mock calculate_trust_region_step_size and capture
+        the eps value it is called with.
+
+    """
+    custom_eps = 0.1
+    recorded_eps = []
+
+    def _fake_calculate_trust_region_step_size(quadratic_form, delta, eps):
+        recorded_eps.append(eps)
+        return 0.123
+
+    monkeypatch.setattr(
+        'tfrlrl.training_algorithms.tnpg.calculate_trust_region_step_size',
+        _fake_calculate_trust_region_step_size,
+    )
+
+    env_id = 'FrozenLake-v1'
+    env = gym.make(env_id)
+    feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+    policy = LinearSoftMax(env_id, feature_fn)
+
+    n_iterations = 3
+    train_policy_gradient(
+        env_id=env_id,
+        policy=policy,
+        n_iterations=n_iterations,
+        n_episodes=5,
+        step_size_config=TNPGStepSizeConfig(trust_region_config=TrustRegionConfig(delta=0.01, eps=custom_eps)),
+        is_slippery=False,
+        cg_config=TNPGConjugateGradientConfig(n_iters=2),
+    )
+
+    assert recorded_eps == [custom_eps] * n_iterations
+
+
 def test_train_policy_gradient_keeps_previous_lr_on_nan_trust_region_step_size(monkeypatch, caplog):
     """
     Test that train_policy_gradient keeps the previous lr when the trust-region step size is NaN.
@@ -551,7 +591,7 @@ def test_train_policy_gradient_keeps_previous_lr_on_nan_trust_region_step_size(m
 
     monkeypatch.setattr(
         'tfrlrl.training_algorithms.tnpg.calculate_trust_region_step_size',
-        lambda quadratic_form, delta: next(step_sizes),
+        lambda quadratic_form, delta, eps: next(step_sizes),
     )
 
     created_optimizers = []
