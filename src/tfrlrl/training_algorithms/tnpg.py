@@ -81,14 +81,14 @@ class TNPGConjugateGradientConfig:
         Information matrix-vector product. When not given, all sampled state-action pairs are used. Defaults
         to the default of construct_fim_vector_product_fn.
         reg_coeff: A damping coefficient added to the diagonal of the Fisher Information matrix, for
-        numerical stability. Defaults to the default of construct_fim_vector_product_fn, i.e. no damping.
+        numerical stability. Defaults to the default of construct_fim_vector_product_fn.
 
     """
 
     n_iters: Optional[int] = None
     tol: float = 1e-10
     n_samples_fim: Optional[int] = None
-    reg_coeff: float = 0.0
+    reg_coeff: float = 1e-5
 
 
 def calculate_steepest_gradient_direction(
@@ -131,7 +131,7 @@ def construct_fim_vector_product_fn(
     policy: BasePyTorchPolicy,
     statistics: EpisodePolicyGradientStatistics,
     n_samples_fim: Optional[int] = None,
-    reg_coeff: float = 0.0,
+    reg_coeff: float = 1e-5,
 ) -> Callable[[np.ndarray], np.ndarray]:
     """
     Construct function for calculating the product of the Fisher Information matrix with a vector.
@@ -150,7 +150,7 @@ def construct_fim_vector_product_fn(
         least as large as the number of sampled state-action pairs, all of the state-action pairs in
         statistics will be used.
         reg_coeff: A damping coefficient added to the diagonal of the Fisher Information matrix (i.e. F -> F +
-        reg_coeff * I), for numerical stability. Defaults to 0.0, i.e. no damping.
+        reg_coeff * I), for numerical stability. Defaults to 1e-5.
 
     Returns:
         A callable that takes an input vector as an argument and returns the product of the Fisher Information

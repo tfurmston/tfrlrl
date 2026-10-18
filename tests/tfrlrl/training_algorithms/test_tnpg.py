@@ -198,6 +198,7 @@ def test_construct_fim_vector_product_fn(env_id: str, expected_shape: Tuple[int]
     calculate_fim_vector_product = construct_fim_vector_product_fn(
         policy=policy,
         statistics=statistics,
+        reg_coeff=0.0,
     )
 
     v = calculate_fim_vector_product(sgd)
@@ -268,6 +269,7 @@ def test_construct_fim_vector_product_fn_subsamples_state_action_pairs(monkeypat
         policy=policy,
         statistics=statistics,
         n_samples_fim=n_samples_fim,
+        reg_coeff=0.0,
     )
     v = calculate_fim_vector_product(sgd)
 

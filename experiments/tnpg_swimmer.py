@@ -66,8 +66,11 @@ def main(args=None):
     n_episodes = 100
     n_samplers = 1
     n_eval_episodes = 4
-    n_iters_cg = 10
-    n_samples_fim = 1000
+    cg_config = TNPGConjugateGradientConfig(
+        n_iters=10,
+        n_samples_fim=1000,
+    )
+
     delta = 0.01
     tr_config = TrustRegionConfig(delta=delta)
     step_size_config = TNPGStepSizeConfig(
@@ -108,8 +111,8 @@ def main(args=None):
             step_size_config=step_size_config,
             reward_model=reward_model,
             n_samplers=n_samplers,
+            cg_config=cg_config,
             n_iteration_logging=10,
-            cg_config=TNPGConjugateGradientConfig(n_iters=n_iters_cg, n_samples_fim=n_samples_fim),
         )
 
         construct_video_evaluation(
