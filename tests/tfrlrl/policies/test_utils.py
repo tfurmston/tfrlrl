@@ -1,13 +1,44 @@
 import gymnasium as gym
 import numpy as np
 import pytest
+import torch
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from tfrlrl.features.onehot import OneHotFeatureFunction
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy, DenseNetworkPolicyConfig
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
-from tfrlrl.policies.utils import flatten_tensor_dict, unflatten_tensor_dict
+from tfrlrl.policies.utils import calculate_jacobian_batch_ndim, flatten_tensor_dict, unflatten_tensor_dict
+
+
+@pytest.mark.parametrize(
+    'batch_shape, parameter_shape',
+    [
+        ((5,), (4,)),
+        ((5,), (4, 4)),
+        ((1, 5), (4,)),
+        ((1, 5), (4, 4)),
+        ((2, 5), (4, 4)),
+    ],
+)
+def test_calculate_jacobian_batch_ndim(batch_shape, parameter_shape):
+    """
+    Test calculate_jacobian_batch_ndim recovers the number of leading batch dimensions.
+
+    The Jacobian tensors are synthesised directly (rather than via a policy) with shape
+    batch_shape + parameter_shape, to isolate the function from any particular policy implementation.
+
+    Args:
+        batch_shape: The (synthetic) shape of the batch of state-action pairs over which the Jacobian was
+        calculated.
+        parameter_shape: The shape of the (synthetic) network parameter the Jacobian was taken with respect
+        to.
+
+    """
+    parameters = {'param': torch.zeros(parameter_shape)}
+    jacobian = {'param': torch.zeros(batch_shape + parameter_shape)}
+
+    assert calculate_jacobian_batch_ndim(jacobian, parameters) == len(batch_shape)
 
 
 @pytest.mark.parametrize('env_id', ['FrozenLake-v1', 'InvertedPendulum-v5'])
@@ -127,8 +158,7 @@ def test_flatten_tensor_dict_jacobian(env_id: str, n_observations: int):
 
     parameters = dict(policy.network.named_parameters())
     jacobian = policy.calculate_jacobian(observations, actions)
-    sample_name = next(iter(jacobian))
-    dim = jacobian[sample_name].ndim - parameters[sample_name].ndim
+    dim = calculate_jacobian_batch_ndim(jacobian, parameters)
     flattend_jacobian = flatten_tensor_dict(
         jacobian,
         dim=dim,
@@ -191,8 +221,7 @@ def test_unflatten_tensor_dict_jacobian(env_id: str, n_observations: int):
 
     parameters = dict(policy.network.named_parameters())
     jacobian = policy.calculate_jacobian(observations, actions)
-    sample_name = next(iter(jacobian))
-    dim = jacobian[sample_name].ndim - parameters[sample_name].ndim
+    dim = calculate_jacobian_batch_ndim(jacobian, parameters)
     flattend_jacobian = flatten_tensor_dict(
         jacobian,
         dim=dim,

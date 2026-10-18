@@ -19,7 +19,7 @@ from tfrlrl.data_models.reward_models import AverageEpisodicReward, DiscountedRe
 from tfrlrl.optimisation.conjugate_gradients import calculate_conjugate_gradient
 from tfrlrl.optimisation.trust_region import TrustRegionConfig, calculate_trust_region_step_size
 from tfrlrl.policies.base import BasePyTorchPolicy
-from tfrlrl.policies.utils import flatten_tensor_dict, unflatten_tensor_dict
+from tfrlrl.policies.utils import calculate_jacobian_batch_ndim, flatten_tensor_dict, unflatten_tensor_dict
 from tfrlrl.sampling.episodic_sampler import (
     EpisodicSampler,
     RayEpisodicSampler,
@@ -146,9 +146,7 @@ def construct_fim_vector_product_fn(
         observations=observations,
         actions=actions,
     )
-    parameters = dict(policy.network.named_parameters())
-    sample_parameter_name = next(iter(jacobian))
-    n_leading_dims = jacobian[sample_parameter_name].ndim - parameters[sample_parameter_name].ndim
+    n_leading_dims = calculate_jacobian_batch_ndim(jacobian, dict(policy.network.named_parameters()))
     jacobian_matrix = (
         flatten_tensor_dict(
             jacobian,

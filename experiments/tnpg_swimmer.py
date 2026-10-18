@@ -56,16 +56,18 @@ def main(args=None):
     parsed_args = parse_args(args)
 
     environment_id = 'Swimmer-v5'
-    reward_model = DiscountedReward(gamma=0.99)
+    reward_model = DiscountedReward(gamma=0.999999)
     hidden_space_dims = [100, 50, 25]
 
-    n_iterations = 500
+    n_iterations = 200
     n_episodes = 100
     n_samplers = 1
     n_eval_episodes = 4
+    n_iters_cg = 10
+    n_samples_fim = 1000
 
     step_size_config = TNPGStepSizeConfig(
-        lr=0.01,
+        lr=0.005,
     )
 
     for i, seed in enumerate([1]):
@@ -102,8 +104,8 @@ def main(args=None):
             reward_model=reward_model,
             n_samplers=n_samplers,
             n_iteration_logging=10,
-            n_iters_cg=10,
-            n_samples_fim=100,
+            n_iters_cg=n_iters_cg,
+            n_samples_fim=n_samples_fim,
         )
 
         construct_video_evaluation(

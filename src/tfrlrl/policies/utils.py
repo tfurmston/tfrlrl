@@ -31,6 +31,35 @@ def flatten_tensor_dict(x: Dict[str, Tensor], dim: int = 0) -> Tensor:
     return cat([j.flatten(start_dim=dim) for j in x.values()], dim=dim)
 
 
+def calculate_jacobian_batch_ndim(jacobian: Dict[str, Tensor], parameters: Dict[str, Tensor]) -> int:
+    """
+    Calculate the number of leading batch dimensions shared by the tensors in a Jacobian dictionary.
+
+    When the Jacobian of a policy's log-probabilities is calculated (e.g. via torch.func.jacfwd), each
+    tensor in the resulting dictionary has shape (*batch_shape, *parameter_shape): the shape of the
+    log-probabilities that were differentiated (batch_shape) is prepended to the shape of the parameter the
+    Jacobian was taken with respect to (parameter_shape). The number of dimensions in batch_shape varies by
+    policy implementation, e.g. whether the state-action pairs are represented with a single leading
+    dimension or an additional dummy dimension, so it cannot be inferred from the shape of the actions used
+    to calculate the Jacobian. This function instead calculates it directly, by comparing the number of
+    dimensions of a Jacobian tensor to the number of dimensions of the (undifferentiated) parameter it
+    corresponds to. This is the number of dimensions on which flatten_tensor_dict and unflatten_tensor_dict
+    should operate in order to flatten (only) the parameter-shaped part of each tensor in jacobian.
+
+    Args:
+        jacobian: A dictionary mapping parameter names to their corresponding Jacobian tensors, as returned
+        by BasePyTorchPolicy.calculate_jacobian.
+        parameters: A dictionary mapping parameter names to the corresponding (undifferentiated) network
+        parameters, e.g. dict(policy.network.named_parameters()).
+
+    Returns:
+        The number of leading batch dimensions shared by all of the tensors in jacobian.
+
+    """
+    sample_parameter_name = next(iter(jacobian))
+    return jacobian[sample_parameter_name].ndim - parameters[sample_parameter_name].ndim
+
+
 def unflatten_tensor_dict(x: Tensor, reference: Dict[str, Tensor], dim: int = 0) -> Dict[str, Tensor]:
     """
     Unflatten the given PyTorch tensor into a dictionary of PyTorch tensors.
