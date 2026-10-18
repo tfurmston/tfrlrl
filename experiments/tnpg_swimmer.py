@@ -5,13 +5,16 @@ import random
 import numpy as np
 import torch
 
+from tfrlrl.baselines.linear import LinearBaseline
 from tfrlrl.data_models.reward_models import DiscountedReward
 from tfrlrl.evaluation.video import construct_video_evaluation
+from tfrlrl.optimisation.trust_region import TrustRegionConfig
 from tfrlrl.policies.dense_neural_network import (
     DenseNetworkPolicy,
     DenseNetworkPolicyConfig,
 )
 from tfrlrl.training_algorithms.tnpg import (
+    TNPGConjugateGradientConfig,
     TNPGStepSizeConfig,
     train_policy_gradient,
 )
@@ -59,15 +62,17 @@ def main(args=None):
     reward_model = DiscountedReward(gamma=0.999999)
     hidden_space_dims = [100, 50, 25]
 
-    n_iterations = 200
+    n_iterations = 500
     n_episodes = 100
     n_samplers = 1
     n_eval_episodes = 4
     n_iters_cg = 10
     n_samples_fim = 1000
-
+    delta = 0.01
+    tr_config = TrustRegionConfig(delta=delta)
     step_size_config = TNPGStepSizeConfig(
-        lr=0.005,
+        lr=tr_config.delta,
+        trust_region_config=tr_config,
     )
 
     for i, seed in enumerate([1]):
@@ -84,7 +89,7 @@ def main(args=None):
             config=policy_config,
         )
 
-        baseline = None  # LinearBaseline(environment_id)
+        baseline = LinearBaseline(environment_id)
 
         construct_video_evaluation(
             environment_id,
@@ -104,8 +109,7 @@ def main(args=None):
             reward_model=reward_model,
             n_samplers=n_samplers,
             n_iteration_logging=10,
-            n_iters_cg=n_iters_cg,
-            n_samples_fim=n_samples_fim,
+            cg_config=TNPGConjugateGradientConfig(n_iters=n_iters_cg, n_samples_fim=n_samples_fim),
         )
 
         construct_video_evaluation(

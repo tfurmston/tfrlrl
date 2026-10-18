@@ -1,4 +1,5 @@
 import copy
+import inspect
 from typing import Tuple
 
 import gymnasium as gym
@@ -18,12 +19,14 @@ from torch.optim import (
 
 from tfrlrl.baselines.linear import LinearBaseline
 from tfrlrl.features.onehot import OneHotFeatureFunction
+from tfrlrl.optimisation.conjugate_gradients import calculate_conjugate_gradient
 from tfrlrl.optimisation.trust_region import TrustRegionConfig
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy, DenseNetworkPolicyConfig
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.sampling.episodic_sampler import EpisodicSampler
 from tfrlrl.sampling.statistics_collection import EpisocidPolicyGradientStatisticsCollector
 from tfrlrl.training_algorithms.tnpg import (
+    TNPGConjugateGradientConfig,
     TNPGStepSizeConfig,
     calculate_steepest_gradient_direction,
     construct_fim_vector_product_fn,
@@ -348,8 +351,7 @@ def test_train_policy_gradient_returns_policy(
         n_episodes=n_episodes,
         step_size_config=TNPGStepSizeConfig(lr=lr),
         baseline=baseline,
-        n_iters_cg=2,
-        n_samples_fim=20,
+        cg_config=TNPGConjugateGradientConfig(n_iters=2, n_samples_fim=20),
     )
 
     assert trained_policy is not None
@@ -395,8 +397,7 @@ def test_train_policy_gradient_updates_policy(env_id: str, n_iterations: int, n_
         step_size_config=TNPGStepSizeConfig(lr=lr),
         is_slippery=False,
         reward_schedule=(1, 1, 1),
-        n_iters_cg=2,
-        n_samples_fim=20,
+        cg_config=TNPGConjugateGradientConfig(n_iters=2, n_samples_fim=20),
     )
 
     assert trained_policy is not None
@@ -406,6 +407,22 @@ def test_train_policy_gradient_updates_policy(env_id: str, n_iterations: int, n_
     updated_parameters = list(policy.get_parameters())
     parameter_diff = original_parameters[0].detach().numpy() - updated_parameters[0].detach().numpy()
     assert np.sum(np.abs(parameter_diff)) > 0
+
+
+def test_tnpg_conjugate_gradient_config_defaults_match_calculate_conjugate_gradient():
+    """Test that TNPGConjugateGradientConfig's n_iters and tol defaults match calculate_conjugate_gradient's."""
+    cg_config = TNPGConjugateGradientConfig()
+    cg_signature = inspect.signature(calculate_conjugate_gradient)
+    assert cg_config.n_iters == cg_signature.parameters['n_iters'].default
+    assert cg_config.tol == cg_signature.parameters['tol'].default
+
+
+def test_tnpg_conjugate_gradient_config_defaults_match_construct_fim_vector_product_fn():
+    """Test TNPGConjugateGradientConfig's n_samples_fim and reg_coeff defaults match construct_fim_vector_product_fn."""
+    cg_config = TNPGConjugateGradientConfig()
+    fim_signature = inspect.signature(construct_fim_vector_product_fn)
+    assert cg_config.n_samples_fim == fim_signature.parameters['n_samples_fim'].default
+    assert cg_config.reg_coeff == fim_signature.parameters['reg_coeff'].default
 
 
 def test_tnpg_step_size_config_raises_when_both_scheduler_and_trust_region_given():
@@ -465,7 +482,7 @@ def test_train_policy_gradient_uses_trust_region_step_size(monkeypatch):
         n_episodes=5,
         step_size_config=TNPGStepSizeConfig(lr=1.0, trust_region_config=TrustRegionConfig(delta=0.01)),
         is_slippery=False,
-        n_iters_cg=2,
+        cg_config=TNPGConjugateGradientConfig(n_iters=2),
     )
 
     assert len(created_optimizers) == 1

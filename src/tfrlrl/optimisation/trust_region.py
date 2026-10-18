@@ -10,21 +10,15 @@ class TrustRegionConfig:
 
     Args:
         delta: The Kullback-Leibler divergence budget (the trust-region radius). Must be strictly positive.
-        reg_coeff: A damping coefficient added to the diagonal of the Fisher Information matrix (i.e. F -> F +
-        reg_coeff * I) when calculating the natural-gradient direction, for numerical stability. Must be
-        non-negative.
 
     """
 
     delta: float
-    reg_coeff: float = 1e-5
 
     def __post_init__(self):
         """Validate the trust-region configuration."""
         if self.delta <= 0:
             raise ValueError(f'delta must be strictly positive, got {self.delta}.')
-        if self.reg_coeff < 0:
-            raise ValueError(f'reg_coeff must be non-negative, got {self.reg_coeff}.')
 
 
 def calculate_trust_region_step_size(quadratic_form: float, delta: float, eps: float = 1e-8) -> float:

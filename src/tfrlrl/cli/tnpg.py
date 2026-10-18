@@ -9,7 +9,7 @@ from tfrlrl.features.onehot import OneHotFeatureFunction
 from tfrlrl.optimisation.trust_region import TrustRegionConfig
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy, DenseNetworkPolicyConfig
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
-from tfrlrl.training_algorithms.tnpg import TNPGStepSizeConfig, train_policy_gradient
+from tfrlrl.training_algorithms.tnpg import TNPGConjugateGradientConfig, TNPGStepSizeConfig, train_policy_gradient
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +138,7 @@ def parse_args(args=None):
         type=float,
         default=1e-5,
         help='A damping coefficient added to the diagonal of the Fisher Information matrix for numerical '
-        'stability. Only used when --delta is given.',
+        'stability, used when calculating the truncated natural policy gradient direction.',
     )
     parsed = parser.parse_args(args)
     if parsed.reward_model == 'discounted' and parsed.gamma is None:
@@ -197,9 +197,12 @@ def main(args=None):
 
     step_size_config = TNPGStepSizeConfig(
         lr=parsed_args.alpha,
-        trust_region_config=TrustRegionConfig(delta=parsed_args.delta, reg_coeff=parsed_args.fim_reg_coeff)
-        if parsed_args.delta is not None
-        else None,
+        trust_region_config=TrustRegionConfig(delta=parsed_args.delta) if parsed_args.delta is not None else None,
+    )
+    cg_config = TNPGConjugateGradientConfig(
+        n_iters=parsed_args.n_iters_cg,
+        n_samples_fim=parsed_args.n_samples_fim,
+        reg_coeff=parsed_args.fim_reg_coeff,
     )
 
     train_policy_gradient(
@@ -210,7 +213,6 @@ def main(args=None):
         step_size_config=step_size_config,
         n_samplers=parsed_args.n_samplers,
         reward_model=reward_model,
-        n_iters_cg=parsed_args.n_iters_cg,
-        n_samples_fim=parsed_args.n_samples_fim,
+        cg_config=cg_config,
         **env_kwargs,
     )

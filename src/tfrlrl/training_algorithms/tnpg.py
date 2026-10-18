@@ -67,6 +67,30 @@ class TNPGStepSizeConfig:
             )
 
 
+@dataclass
+class TNPGConjugateGradientConfig:
+    """
+    Configuration for the conjugate-gradient and Fisher Information matrix calculations in TNPG.
+
+    Args:
+        n_iters: The maximum number of conjugate-gradient iterations to perform when calculating the
+        truncated natural policy gradient direction. Defaults to the default of calculate_conjugate_gradient.
+        tol: The toleration below which the conjugate-gradient algorithm will terminate. Defaults to the
+        default of calculate_conjugate_gradient.
+        n_samples_fim: The number of state-action pairs to randomly subsample when calculating the Fisher
+        Information matrix-vector product. When not given, all sampled state-action pairs are used. Defaults
+        to the default of construct_fim_vector_product_fn.
+        reg_coeff: A damping coefficient added to the diagonal of the Fisher Information matrix, for
+        numerical stability. Defaults to the default of construct_fim_vector_product_fn, i.e. no damping.
+
+    """
+
+    n_iters: Optional[int] = None
+    tol: float = 1e-10
+    n_samples_fim: Optional[int] = None
+    reg_coeff: float = 0.0
+
+
 def calculate_steepest_gradient_direction(
     policy: BasePyTorchPolicy, statistics: EpisodePolicyGradientStatistics, optimizer: Optimizer
 ) -> np.ndarray:
@@ -177,8 +201,7 @@ def train_policy_gradient(
     baseline: Optional[Baseline] = None,
     reward_model: Optional[Union[AverageEpisodicReward, DiscountedReward]] = None,
     n_iteration_logging: int = 10,
-    n_iters_cg: Optional[int] = None,
-    n_samples_fim: Optional[int] = None,
+    cg_config: Optional[TNPGConjugateGradientConfig] = None,
     **kwargs,
 ) -> BasePyTorchPolicy:
     """
@@ -196,16 +219,15 @@ def train_policy_gradient(
         reward_model: The reward model to use when computing total expected rewards. Defaults to
         AverageEpisodicReward if not specified.
         n_iteration_logging: The number of algorithm iterations between logging algorithm performance.
-        n_iters_cg: The maximum number of conjugate-gradient iterations to perform when calculating the
-        truncated natural policy gradient direction. Defaults to the default of calculate_conjugate_gradient.
-        n_samples_fim: The number of state-action pairs to randomly subsample when calculating the Fisher
-        Information matrix-vector product. When not given, all sampled state-action pairs are used.
+        cg_config: Configuration for the conjugate-gradient and Fisher Information matrix calculations. See
+        TNPGConjugateGradientConfig for details. Defaults to TNPGConjugateGradientConfig() when not given.
         kwargs: Additional keyword arguments to pass to the EpisodicSampler (e.g., is_slippery).
 
     Returns:
         The trained policy.
 
     """
+    cg_config = cg_config if cg_config is not None else TNPGConjugateGradientConfig()
     optimizer = SGD(policy.network.parameters(), lr=step_size_config.lr, maximize=True)
     lr_scheduler = step_size_config.lr_scheduler_fn(optimizer) if step_size_config.lr_scheduler_fn is not None else None
     trust_region_config = step_size_config.trust_region_config
@@ -254,11 +276,12 @@ def train_policy_gradient(
             mat_v_mult_fn=construct_fim_vector_product_fn(
                 policy=policy,
                 statistics=statistics,
-                n_samples_fim=n_samples_fim,
-                reg_coeff=trust_region_config.reg_coeff if trust_region_config is not None else 0.0,
+                n_samples_fim=cg_config.n_samples_fim,
+                reg_coeff=cg_config.reg_coeff,
             ),
             b=sgd,
-            n_iters=n_iters_cg,
+            n_iters=cg_config.n_iters,
+            tol=cg_config.tol,
         )
         if trust_region_config is not None:
             step_size = calculate_trust_region_step_size(

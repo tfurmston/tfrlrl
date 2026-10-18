@@ -17,19 +17,6 @@ def test_trust_region_config_raises_for_non_positive_delta(delta: float):
         TrustRegionConfig(delta=delta)
 
 
-def test_trust_region_config_raises_for_negative_reg_coeff():
-    """Test that TrustRegionConfig raises a ValueError for a negative reg_coeff."""
-    with pytest.raises(ValueError):
-        TrustRegionConfig(delta=0.01, reg_coeff=-1e-5)
-
-
-def test_trust_region_config_defaults():
-    """Test that TrustRegionConfig has the expected default reg_coeff."""
-    config = TrustRegionConfig(delta=0.01)
-    assert config.delta == 0.01
-    assert config.reg_coeff == 1e-5
-
-
 @pytest.mark.parametrize(
     'quadratic_form, delta',
     [
