@@ -17,6 +17,7 @@ from torch.optim import (
 from tfrlrl import settings
 from tfrlrl.baselines.linear import Baseline
 from tfrlrl.data_models.reward_models import AverageEpisodicReward, DiscountedReward
+from tfrlrl.data_models.training_results import PolicyGradientTrainingResult
 from tfrlrl.policies.base import BasePyTorchPolicy
 from tfrlrl.sampling.episodic_sampler import (
     EpisodicSampler,
@@ -38,7 +39,7 @@ def train_policy_gradient(
     reward_model: Optional[Union[AverageEpisodicReward, DiscountedReward]] = None,
     n_iteration_logging: int = 10,
     **kwargs,
-) -> BasePyTorchPolicy:
+) -> PolicyGradientTrainingResult:
     """
     Train a policy using stochastic gradient ascent on the policy gradient.
 
@@ -56,9 +57,11 @@ def train_policy_gradient(
         kwargs: Additional keyword arguments to pass to the EpisodicSampler (e.g., is_slippery).
 
     Returns:
-        The trained policy.
+        A PolicyGradientTrainingResult containing the trained policy and the mean total episodic reward
+        observed at each training iteration.
 
     """
+    total_rewards = np.zeros(n_iterations)
     statistics_collector = EpisocidPolicyGradientStatisticsCollector(
         env_id,
         baseline=baseline,
@@ -102,9 +105,10 @@ def train_policy_gradient(
         loss.backward()
         optimizer.step()
 
+        total_rewards[n] = np.average(statistics.total_reward)
         if n % n_iteration_logging == 0:
             logger.info('Policy update: %s', n)
-            logger.info('Average total episodic reward: %s', np.average(statistics.total_reward))
+            logger.info('Average total episodic reward: %s', total_rewards[n])
 
         if baseline:
             baseline.fit(statistics.baseline_features, statistics.baseline_targets)
@@ -115,4 +119,4 @@ def train_policy_gradient(
             baseline_state_dict=baseline.get_state() if baseline else None,
         )
 
-    return policy
+    return PolicyGradientTrainingResult(policy=policy, total_rewards=total_rewards)

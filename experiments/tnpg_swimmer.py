@@ -7,6 +7,7 @@ import torch
 
 from tfrlrl.baselines.linear import LinearBaseline
 from tfrlrl.data_models.reward_models import DiscountedReward
+from tfrlrl.evaluation.plotting import plot_training_rewards
 from tfrlrl.evaluation.video import construct_video_evaluation
 from tfrlrl.optimisation.trust_region import TrustRegionConfig
 from tfrlrl.policies.dense_neural_network import (
@@ -100,7 +101,7 @@ def main(args=None):
             parsed_args.video_prefix,
         )
 
-        policy = train_policy_gradient(
+        result = train_policy_gradient(
             env_id=environment_id,
             policy=policy,
             n_iterations=n_iterations,
@@ -111,6 +112,13 @@ def main(args=None):
             n_samplers=n_samplers,
             cg_config=cg_config,
             n_iteration_logging=10,
+        )
+        policy = result.policy
+
+        plot_training_rewards(
+            result.total_rewards,
+            '/'.join([parsed_args.video_directory, f'training_rewards_{i}.png']),
+            title=f'TNPG on {environment_id} (seed {seed})',
         )
 
         construct_video_evaluation(

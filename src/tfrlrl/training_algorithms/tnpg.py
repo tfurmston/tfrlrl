@@ -16,6 +16,7 @@ from torch.optim.lr_scheduler import LRScheduler
 from tfrlrl import settings
 from tfrlrl.baselines.linear import Baseline
 from tfrlrl.data_models.reward_models import AverageEpisodicReward, DiscountedReward
+from tfrlrl.data_models.training_results import PolicyGradientTrainingResult
 from tfrlrl.optimisation.conjugate_gradients import calculate_conjugate_gradient
 from tfrlrl.optimisation.trust_region import TrustRegionConfig, calculate_trust_region_step_size
 from tfrlrl.policies.base import BasePyTorchPolicy
@@ -211,7 +212,7 @@ def train_policy_gradient(
     n_iteration_logging: int = 10,
     cg_config: Optional[TNPGConjugateGradientConfig] = None,
     **kwargs,
-) -> BasePyTorchPolicy:
+) -> PolicyGradientTrainingResult:
     """
     Train a policy using truncated natural policy gradient ascent.
 
@@ -232,10 +233,12 @@ def train_policy_gradient(
         kwargs: Additional keyword arguments to pass to the EpisodicSampler (e.g., is_slippery).
 
     Returns:
-        The trained policy.
+        A PolicyGradientTrainingResult containing the trained policy and the mean total episodic reward
+        observed at each training iteration.
 
     """
     cg_config = cg_config if cg_config is not None else TNPGConjugateGradientConfig()
+    total_rewards = np.zeros(n_iterations)
     trust_region_config = step_size_config.trust_region_config
     optimizer = SGD(policy.network.parameters(), lr=step_size_config.lr or 0.0, maximize=True)
     lr_scheduler = step_size_config.lr_scheduler_fn(optimizer) if step_size_config.lr_scheduler_fn is not None else None
@@ -317,9 +320,10 @@ def train_policy_gradient(
         if lr_scheduler is not None:
             lr_scheduler.step()
 
+        total_rewards[n] = np.average(statistics.total_reward)
         if n % n_iteration_logging == 0:
             logger.info('Policy update: %s', n)
-            logger.info('Average total episodic reward: %s', np.average(statistics.total_reward))
+            logger.info('Average total episodic reward: %s', total_rewards[n])
 
         if baseline:
             baseline.fit(statistics.baseline_features, statistics.baseline_targets)
@@ -330,4 +334,4 @@ def train_policy_gradient(
             baseline_state_dict=baseline.get_state() if baseline else None,
         )
 
-    return policy
+    return PolicyGradientTrainingResult(policy=policy, total_rewards=total_rewards)

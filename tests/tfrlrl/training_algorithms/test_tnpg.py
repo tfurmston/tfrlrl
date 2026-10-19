@@ -347,7 +347,7 @@ def test_train_policy_gradient_returns_policy(
     else:
         baseline = None
 
-    trained_policy = train_policy_gradient(
+    result = train_policy_gradient(
         env_id=env_id,
         policy=policy,
         n_iterations=n_iterations,
@@ -357,13 +357,14 @@ def test_train_policy_gradient_returns_policy(
         cg_config=TNPGConjugateGradientConfig(n_iters=2, n_samples_fim=20),
     )
 
-    assert trained_policy is not None
+    assert result.policy is not None
     if env_id == 'InvertedPendulum-v5':
-        assert isinstance(trained_policy, DenseNetworkPolicy)
+        assert isinstance(result.policy, DenseNetworkPolicy)
     else:
-        assert isinstance(trained_policy, LinearSoftMax)
+        assert isinstance(result.policy, LinearSoftMax)
 
-    assert trained_policy is policy
+    assert result.policy is policy
+    assert result.total_rewards.shape == (n_iterations,)
 
 
 @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
@@ -392,7 +393,7 @@ def test_train_policy_gradient_updates_policy(env_id: str, n_iterations: int, n_
     original_parameters = copy.deepcopy(list(policy.get_parameters()))
 
     # Train the policy - We set reward_schedule to ensure the policy is updated.
-    trained_policy = train_policy_gradient(
+    result = train_policy_gradient(
         env_id=env_id,
         policy=policy,
         n_iterations=n_iterations,
@@ -403,9 +404,10 @@ def test_train_policy_gradient_updates_policy(env_id: str, n_iterations: int, n_
         cg_config=TNPGConjugateGradientConfig(n_iters=2, n_samples_fim=20),
     )
 
-    assert trained_policy is not None
-    assert isinstance(trained_policy, LinearSoftMax)
-    assert trained_policy is policy
+    assert result.policy is not None
+    assert isinstance(result.policy, LinearSoftMax)
+    assert result.policy is policy
+    assert result.total_rewards.shape == (n_iterations,)
 
     updated_parameters = list(policy.get_parameters())
     parameter_diff = original_parameters[0].detach().numpy() - updated_parameters[0].detach().numpy()

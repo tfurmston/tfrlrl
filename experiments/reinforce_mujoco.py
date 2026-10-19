@@ -15,6 +15,7 @@ from torch.optim import (
     AdamW,
 )
 
+from tfrlrl.evaluation.plotting import plot_training_rewards
 from tfrlrl.evaluation.video import construct_video_evaluation
 from tfrlrl.policies.dense_neural_network import (
     DenseNetworkPolicy,
@@ -93,7 +94,7 @@ def main(args=None):
         )
 
         optimizer = AdamW(policy.get_parameters(), lr=alpha)
-        policy = train_policy_gradient(
+        result = train_policy_gradient(
             env_id=environment_id,
             policy=policy,
             n_iterations=n_iterations,
@@ -101,6 +102,13 @@ def main(args=None):
             optimizer=optimizer,
             n_samplers=n_samplers,
             n_iteration_logging=1000,
+        )
+        policy = result.policy
+
+        plot_training_rewards(
+            result.total_rewards,
+            '/'.join([parsed_args.video_directory, f'training_rewards_{i}.png']),
+            title=f'REINFORCE on {environment_id} (seed {seed})',
         )
 
         construct_video_evaluation(
