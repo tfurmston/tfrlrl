@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 import numpy as np
@@ -8,6 +9,8 @@ def plot_training_rewards(total_rewards: np.ndarray, output_path: str, title: Op
     """
     Plot the mean total episodic reward observed at each training iteration, and save it to file.
 
+    The parent directory of output_path will be created if it does not already exist.
+
     Args:
         total_rewards: A 1-D array of length n_iterations, in which entry n is the mean total episodic
         reward observed during the n-th iteration of training.
@@ -15,6 +18,10 @@ def plot_training_rewards(total_rewards: np.ndarray, output_path: str, title: Op
         title: An optional title for the plot.
 
     """
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+
     figure = Figure()
     axes = figure.add_subplot(111)
     axes.plot(np.arange(total_rewards.shape[0]), total_rewards)

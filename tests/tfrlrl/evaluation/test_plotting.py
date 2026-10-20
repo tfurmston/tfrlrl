@@ -28,6 +28,24 @@ class TestPlotTrainingRewards:
 
         assert os.path.isfile(output_path)
 
+    def test_plot_training_rewards_creates_missing_output_directory(self, tmp_path):
+        """
+        Test that plot_training_rewards creates the parent directory of output_path if it does not exist.
+
+        Args:
+            tmp_path: Pytest temporary directory fixture.
+
+        """
+        plots_dir = tmp_path / 'plots'
+        output_path = str(plots_dir / 'training_rewards.png')
+        total_rewards = np.arange(5, dtype=float)
+
+        assert not os.path.isdir(plots_dir)
+
+        plot_training_rewards(total_rewards, output_path)
+
+        assert os.path.isfile(output_path)
+
     def test_plot_training_rewards_accepts_title(self, tmp_path):
         """
         Test that plot_training_rewards does not raise when a title is given.

@@ -39,10 +39,11 @@ def parse_args(args=None):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        '--video-directory',
+        '--experiment-directory',
         type=str,
         required=True,
-        help='The directory to which evaluation videos should be saved.',
+        help='The directory to which experiment outputs should be saved. Evaluation videos are saved to a '
+        "'videos' subdirectory, and training reward plots to a 'plots' subdirectory.",
     )
     parser.add_argument(
         '--video-prefix',
@@ -89,7 +90,7 @@ def main(args=None):
             environment_id,
             policy,
             n_eval_episodes,
-            '/'.join([parsed_args.video_directory, f'initial_policy_{i}']),
+            '/'.join([parsed_args.experiment_directory, 'videos', f'initial_policy_{i}']),
             parsed_args.video_prefix,
         )
 
@@ -107,7 +108,7 @@ def main(args=None):
 
         plot_training_rewards(
             result.total_rewards,
-            '/'.join([parsed_args.video_directory, f'training_rewards_{i}.png']),
+            '/'.join([parsed_args.experiment_directory, 'plots', f'training_rewards_{i}.png']),
             title=f'REINFORCE on {environment_id} (seed {seed})',
         )
 
@@ -115,7 +116,7 @@ def main(args=None):
             environment_id,
             policy,
             n_eval_episodes,
-            '/'.join([parsed_args.video_directory, f'training_run_{i}']),
+            '/'.join([parsed_args.experiment_directory, 'videos', f'training_run_{i}']),
             parsed_args.video_prefix,
         )
 
