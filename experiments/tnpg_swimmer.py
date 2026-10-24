@@ -64,7 +64,7 @@ def main(args=None):
     reward_model = DiscountedReward(gamma=0.999999)
     hidden_space_dims = [100, 50, 25]
 
-    n_iterations = 500
+    n_iterations = 3000
     n_episodes = 100
     n_samplers = 1
     n_eval_episodes = 4
@@ -86,6 +86,7 @@ def main(args=None):
         policy_config = DenseNetworkPolicyConfig(
             hidden_space_dims=hidden_space_dims,
             std_parameterisation='global',
+            weight_init='orthogonal',
         )
         policy = DenseNetworkPolicy(
             env_id=environment_id,

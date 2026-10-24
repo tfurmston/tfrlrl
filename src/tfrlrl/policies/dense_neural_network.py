@@ -16,6 +16,7 @@ from torch import (
 from torch.distributions.normal import Normal
 from torch.func import functional_call
 
+from tfrlrl.nn.initialisation import WEIGHT_INIT_REGISTRY, validate_weight_init_name
 from tfrlrl.policies.base import BasePyTorchPolicy, PolicyException
 
 
@@ -36,6 +37,8 @@ class DenseNetworkPolicyConfig:
             during similation.
         init_std: The initialisation of the standard deviation. Only used when std_parameterisation is global.
         learn_std: Whether the standard deviation is learnable. Only used when std_parameterisation is global.
+        weight_init: The name of the weight-initialisation scheme to apply to the network's linear layers. See
+        tfrlrl.nn.initialisation.WEIGHT_INIT_REGISTRY for the available schemes.
 
     """
 
@@ -43,13 +46,15 @@ class DenseNetworkPolicyConfig:
     std_parameterisation: str = 'global'
     init_std: float = 1.0
     learn_std: bool = True
+    weight_init: str = 'pytorch_default'
 
     def __post_init__(self):
-        """Validate the standard deviation parameterisation."""
+        """Validate the standard deviation parameterisation and weight-initialisation scheme."""
         if self.std_parameterisation not in ('network', 'global'):
             raise PolicyException(
                 f"std_parameterisation must be one of 'network' or 'global', got '{self.std_parameterisation}'.",
             )
+        validate_weight_init_name(self.weight_init)
 
 
 class DensePolicyNetwork(nn.Module):
@@ -105,6 +110,14 @@ class DensePolicyNetwork(nn.Module):
                 full((action_space_dims,), math.log(config.init_std)),
                 requires_grad=config.learn_std,
             )
+
+        role_init_fns = WEIGHT_INIT_REGISTRY[config.weight_init]
+        for layer in self.shared_net:
+            if isinstance(layer, nn.Linear):
+                role_init_fns['hidden'](layer)
+        role_init_fns['output'](self.policy_mean_net[0])
+        if config.std_parameterisation == 'network':
+            role_init_fns['output'](self.policy_stddev_net[0])
 
     def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
         """

@@ -3,6 +3,7 @@ import copy
 import gymnasium as gym
 import numpy as np
 import pytest
+import torch
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from torch import tensor
@@ -38,6 +39,83 @@ def test_dense_network_policy_config_invalid_std_parameterisation():
     """Test that DenseNetworkPolicyConfig raises PolicyException for an invalid std_parameterisation."""
     with pytest.raises(PolicyException):
         DenseNetworkPolicyConfig(hidden_space_dims=[16, 32], std_parameterisation='invalid')
+
+
+def test_dense_network_policy_config_invalid_weight_init():
+    """Test that DenseNetworkPolicyConfig raises a ValueError for an invalid weight_init."""
+    with pytest.raises(ValueError):
+        DenseNetworkPolicyConfig(hidden_space_dims=[16, 32], weight_init='invalid')
+
+
+@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+@pytest.mark.parametrize('std_parameterisation', ['global', 'network'])
+@pytest.mark.parametrize('weight_init', ['xavier_uniform_zero_bias', 'orthogonal'])
+def test_dense_network_policy_weight_init_zeros_biases(env_id, std_parameterisation, weight_init):
+    """
+    Test that a zero-bias weight_init scheme zeros every linear layer's bias, including the output layers.
+
+    Args:
+        env_id: The environment I.D. from which to sample episodes.
+        std_parameterisation: The standard deviation parameterisation to construct the policy with.
+        weight_init: The weight-initialisation scheme to construct the policy with.
+
+    """
+    policy = DenseNetworkPolicy(
+        env_id=env_id,
+        config=DenseNetworkPolicyConfig(
+            hidden_space_dims=[8, 8],
+            std_parameterisation=std_parameterisation,
+            weight_init=weight_init,
+        ),
+    )
+
+    for layer in policy.network.shared_net:
+        if isinstance(layer, torch.nn.Linear):
+            assert torch.equal(layer.bias, torch.zeros_like(layer.bias))
+
+    assert torch.equal(policy.network.policy_mean_net[0].bias, torch.zeros_like(policy.network.policy_mean_net[0].bias))
+    if std_parameterisation == 'network':
+        stddev_bias = policy.network.policy_stddev_net[0].bias
+        assert torch.equal(stddev_bias, torch.zeros_like(stddev_bias))
+
+
+@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+def test_dense_network_policy_pytorch_default_weight_init_has_nonzero_bias(env_id):
+    """
+    Test that the pytorch_default weight_init scheme leaves PyTorch's own (nonzero) bias initialisation in place.
+
+    Args:
+        env_id: The environment I.D. from which to sample episodes.
+
+    """
+    torch.manual_seed(0)
+    policy = DenseNetworkPolicy(
+        env_id=env_id,
+        config=DenseNetworkPolicyConfig(hidden_space_dims=[8, 8], weight_init='pytorch_default'),
+    )
+
+    assert torch.any(policy.network.policy_mean_net[0].bias != 0.0)
+
+
+@pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
+def test_dense_network_policy_orthogonal_weight_init_has_small_output_weight_norm(env_id):
+    """
+    Test that the orthogonal weight_init scheme gives the mean-output layer a small weight norm.
+
+    The orthogonal scheme uses gain=0.01 for the output role, so the output layer's weight rows should each
+    have norm 0.01 (since nn.init.orthogonal_ produces orthonormal rows before scaling by gain).
+
+    Args:
+        env_id: The environment I.D. from which to sample episodes.
+
+    """
+    policy = DenseNetworkPolicy(
+        env_id=env_id,
+        config=DenseNetworkPolicyConfig(hidden_space_dims=[8, 8], weight_init='orthogonal'),
+    )
+
+    row_norms = policy.network.policy_mean_net[0].weight.norm(dim=1)
+    np.testing.assert_allclose(row_norms.detach().numpy(), 0.01, atol=1e-5)
 
 
 @pytest.mark.parametrize('env_id', ['InvertedPendulum-v5'])
