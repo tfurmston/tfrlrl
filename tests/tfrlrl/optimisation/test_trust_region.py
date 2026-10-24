@@ -1,3 +1,5 @@
+import inspect
+
 import numpy as np
 import pytest
 
@@ -17,17 +19,24 @@ def test_trust_region_config_raises_for_non_positive_delta(delta: float):
         TrustRegionConfig(delta=delta)
 
 
-def test_trust_region_config_raises_for_negative_reg_coeff():
-    """Test that TrustRegionConfig raises a ValueError for a negative reg_coeff."""
+@pytest.mark.parametrize('eps', [0.0, -0.01])
+def test_trust_region_config_raises_for_non_positive_eps(eps: float):
+    """
+    Test that TrustRegionConfig raises a ValueError for a non-positive eps.
+
+    Args:
+        eps: A non-positive value for eps.
+
+    """
     with pytest.raises(ValueError):
-        TrustRegionConfig(delta=0.01, reg_coeff=-1e-5)
+        TrustRegionConfig(delta=0.01, eps=eps)
 
 
-def test_trust_region_config_defaults():
-    """Test that TrustRegionConfig has the expected default reg_coeff."""
+def test_trust_region_config_eps_default_matches_calculate_trust_region_step_size():
+    """Test that TrustRegionConfig's eps default matches calculate_trust_region_step_size's."""
     config = TrustRegionConfig(delta=0.01)
-    assert config.delta == 0.01
-    assert config.reg_coeff == 1e-5
+    signature = inspect.signature(calculate_trust_region_step_size)
+    assert config.eps == signature.parameters['eps'].default
 
 
 @pytest.mark.parametrize(

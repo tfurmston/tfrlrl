@@ -1,13 +1,44 @@
 import gymnasium as gym
 import numpy as np
 import pytest
+import torch
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from tfrlrl.features.onehot import OneHotFeatureFunction
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy, DenseNetworkPolicyConfig
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
-from tfrlrl.policies.utils import flatten_tensor_dict, unflatten_tensor_dict
+from tfrlrl.policies.utils import calculate_jacobian_batch_ndim, flatten_tensor_dict, unflatten_tensor_dict
+
+
+@pytest.mark.parametrize(
+    'batch_shape, parameter_shape',
+    [
+        ((5,), (4,)),
+        ((5,), (4, 4)),
+        ((1, 5), (4,)),
+        ((1, 5), (4, 4)),
+        ((2, 5), (4, 4)),
+    ],
+)
+def test_calculate_jacobian_batch_ndim(batch_shape, parameter_shape):
+    """
+    Test calculate_jacobian_batch_ndim recovers the number of leading batch dimensions.
+
+    The Jacobian tensors are synthesised directly (rather than via a policy) with shape
+    batch_shape + parameter_shape, to isolate the function from any particular policy implementation.
+
+    Args:
+        batch_shape: The (synthetic) shape of the batch of state-action pairs over which the Jacobian was
+        calculated.
+        parameter_shape: The shape of the (synthetic) network parameter the Jacobian was taken with respect
+        to.
+
+    """
+    parameters = {'param': torch.zeros(parameter_shape)}
+    jacobian = {'param': torch.zeros(batch_shape + parameter_shape)}
+
+    assert calculate_jacobian_batch_ndim(jacobian, parameters) == len(batch_shape)
 
 
 @pytest.mark.parametrize('env_id', ['FrozenLake-v1', 'InvertedPendulum-v5'])
@@ -84,28 +115,12 @@ def test_unflatten_tensor_dict(env_id: str):
         assert (unflattened[name] == param).all()
 
 
-@pytest.mark.parametrize(
-    'env_id, extend_actions',
-    [
-        (
-            'CliffWalking-v1',
-            False,
-        ),
-        (
-            'InvertedPendulum-v5',
-            True,
-        ),
-        (
-            'InvertedPendulum-v5',
-            False,
-        ),
-    ],
-)
+@pytest.mark.parametrize('env_id', ['CliffWalking-v1', 'InvertedPendulum-v5'])
 @given(
     n_observations=st.integers(min_value=5, max_value=10),
 )
 @settings(deadline=None)
-def test_flatten_tensor_dict_jacobian(env_id: str, extend_actions, n_observations: int):
+def test_flatten_tensor_dict_jacobian(env_id: str, n_observations: int):
     """
     Test flatten_tensor_dict function on the policy Jacobian.
 
@@ -115,9 +130,6 @@ def test_flatten_tensor_dict_jacobian(env_id: str, extend_actions, n_observation
     Args:
         env_id: The environment I.D. on which to run the test. This is used to determine the policy on which
         to perform the test.
-        extend_actions: A Boolean indicating whether to extend the action dimensions. This is used to capture
-        the case of a 1-dimensional conintuous action space, in which the actions could be stored as either
-        a (n_observations) or an (1, n_observations) array.
         n_observations: The number of observations.
 
     """
@@ -137,59 +149,40 @@ def test_flatten_tensor_dict_jacobian(env_id: str, extend_actions, n_observation
             [env.observation_space.sample()[..., np.newaxis] for _ in range(n_observations)],
             axis=1,
         )
-        if extend_actions:
-            actions = np.concatenate(
-                [env.action_space.sample()[..., np.newaxis] for _ in range(n_observations)],
-                axis=1,
-            )
-        else:
-            actions = np.concatenate(
-                [env.action_space.sample() for _ in range(n_observations)],
-            )
+        actions = np.concatenate(
+            [env.action_space.sample()[..., np.newaxis] for _ in range(n_observations)],
+            axis=1,
+        )
     else:
         raise ValueError('Unexpected environment: %s', env_id)
 
+    parameters = dict(policy.network.named_parameters())
     jacobian = policy.calculate_jacobian(observations, actions)
+    dim = calculate_jacobian_batch_ndim(jacobian, parameters)
     flattend_jacobian = flatten_tensor_dict(
         jacobian,
-        dim=actions.ndim,
+        dim=dim,
     )
 
     indx = 0
     for _, jac_param in jacobian.items():
-        param_shape = tuple(jac_param.shape[actions.ndim :])
+        param_shape = tuple(jac_param.shape[dim:])
         for p_indx in np.ndindex(param_shape):
             for i in range(n_observations):
-                if actions.ndim == 1:
+                if dim == 1:
                     assert jac_param[(i,) + p_indx] == flattend_jacobian[i, indx]
                 else:
                     assert jac_param[(0, i) + p_indx] == flattend_jacobian[0, i, indx]
             indx += 1
-    assert indx == flattend_jacobian.shape[actions.ndim]
+    assert indx == flattend_jacobian.shape[dim]
 
 
-@pytest.mark.parametrize(
-    'env_id, extend_actions',
-    [
-        (
-            'CliffWalking-v1',
-            False,
-        ),
-        (
-            'InvertedPendulum-v5',
-            True,
-        ),
-        (
-            'InvertedPendulum-v5',
-            False,
-        ),
-    ],
-)
+@pytest.mark.parametrize('env_id', ['CliffWalking-v1', 'InvertedPendulum-v5'])
 @given(
     n_observations=st.integers(min_value=5, max_value=10),
 )
 @settings(deadline=None)
-def test_unflatten_tensor_dict_jacobian(env_id: str, extend_actions, n_observations: int):
+def test_unflatten_tensor_dict_jacobian(env_id: str, n_observations: int):
     """
     Test unflatten_tensor_dict function on the policy Jacobian.
 
@@ -200,9 +193,6 @@ def test_unflatten_tensor_dict_jacobian(env_id: str, extend_actions, n_observati
     Args:
         env_id: The environment I.D. on which to run the test. This is used to determine the policy on which
         to perform the test.
-        extend_actions: A Boolean indicating whether to extend the action dimensions. This is used to capture
-        the case of a 1-dimensional conintuous action space, in which the actions could be stored as either
-        a (n_observations) or an (1, n_observations) array.
         n_observations: The number of observations.
 
     """
@@ -222,27 +212,24 @@ def test_unflatten_tensor_dict_jacobian(env_id: str, extend_actions, n_observati
             [env.observation_space.sample()[..., np.newaxis] for _ in range(n_observations)],
             axis=1,
         )
-        if extend_actions:
-            actions = np.concatenate(
-                [env.action_space.sample()[..., np.newaxis] for _ in range(n_observations)],
-                axis=1,
-            )
-        else:
-            actions = np.concatenate(
-                [env.action_space.sample() for _ in range(n_observations)],
-            )
+        actions = np.concatenate(
+            [env.action_space.sample()[..., np.newaxis] for _ in range(n_observations)],
+            axis=1,
+        )
     else:
         raise ValueError('Unexpected environment: %s', env_id)
 
+    parameters = dict(policy.network.named_parameters())
     jacobian = policy.calculate_jacobian(observations, actions)
+    dim = calculate_jacobian_batch_ndim(jacobian, parameters)
     flattend_jacobian = flatten_tensor_dict(
         jacobian,
-        dim=actions.ndim,
+        dim=dim,
     )
     unflattened_jacobian = unflatten_tensor_dict(
         flattend_jacobian,
         jacobian,
-        dim=actions.ndim,
+        dim=dim,
     )
 
     assert list(unflattened_jacobian.keys()) == list(jacobian.keys())

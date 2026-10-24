@@ -1,4 +1,6 @@
 import copy
+import inspect
+import logging
 from typing import Tuple
 
 import gymnasium as gym
@@ -18,12 +20,14 @@ from torch.optim import (
 
 from tfrlrl.baselines.linear import LinearBaseline
 from tfrlrl.features.onehot import OneHotFeatureFunction
+from tfrlrl.optimisation.conjugate_gradients import calculate_conjugate_gradient
 from tfrlrl.optimisation.trust_region import TrustRegionConfig
 from tfrlrl.policies.dense_neural_network import DenseNetworkPolicy, DenseNetworkPolicyConfig
 from tfrlrl.policies.linear_soft_max import LinearSoftMax
 from tfrlrl.sampling.episodic_sampler import EpisodicSampler
 from tfrlrl.sampling.statistics_collection import EpisocidPolicyGradientStatisticsCollector
 from tfrlrl.training_algorithms.tnpg import (
+    TNPGConjugateGradientConfig,
     TNPGStepSizeConfig,
     calculate_steepest_gradient_direction,
     construct_fim_vector_product_fn,
@@ -195,6 +199,7 @@ def test_construct_fim_vector_product_fn(env_id: str, expected_shape: Tuple[int]
     calculate_fim_vector_product = construct_fim_vector_product_fn(
         policy=policy,
         statistics=statistics,
+        reg_coeff=0.0,
     )
 
     v = calculate_fim_vector_product(sgd)
@@ -204,10 +209,10 @@ def test_construct_fim_vector_product_fn(env_id: str, expected_shape: Tuple[int]
         statistics.actions,
     )
 
+    n_steps = statistics.actions.shape[-1]
     jac_blocks = []
     for _, jac_param in jacobian.items():
-        n_steps = jac_param.shape[1]
-        jac_block = jac_param.detach().numpy()[0].reshape(n_steps, -1)
+        jac_block = jac_param.detach().numpy().reshape(n_steps, -1)
         jac_blocks.append(jac_block)
     J = np.concatenate(jac_blocks, axis=1)
 
@@ -265,6 +270,7 @@ def test_construct_fim_vector_product_fn_subsamples_state_action_pairs(monkeypat
         policy=policy,
         statistics=statistics,
         n_samples_fim=n_samples_fim,
+        reg_coeff=0.0,
     )
     v = calculate_fim_vector_product(sgd)
 
@@ -341,24 +347,24 @@ def test_train_policy_gradient_returns_policy(
     else:
         baseline = None
 
-    trained_policy = train_policy_gradient(
+    result = train_policy_gradient(
         env_id=env_id,
         policy=policy,
         n_iterations=n_iterations,
         n_episodes=n_episodes,
         step_size_config=TNPGStepSizeConfig(lr=lr),
         baseline=baseline,
-        n_iters_cg=2,
-        n_samples_fim=20,
+        cg_config=TNPGConjugateGradientConfig(n_iters=2, n_samples_fim=20),
     )
 
-    assert trained_policy is not None
+    assert result.policy is not None
     if env_id == 'InvertedPendulum-v5':
-        assert isinstance(trained_policy, DenseNetworkPolicy)
+        assert isinstance(result.policy, DenseNetworkPolicy)
     else:
-        assert isinstance(trained_policy, LinearSoftMax)
+        assert isinstance(result.policy, LinearSoftMax)
 
-    assert trained_policy is policy
+    assert result.policy is policy
+    assert result.total_rewards.shape == (n_iterations,)
 
 
 @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
@@ -387,7 +393,7 @@ def test_train_policy_gradient_updates_policy(env_id: str, n_iterations: int, n_
     original_parameters = copy.deepcopy(list(policy.get_parameters()))
 
     # Train the policy - We set reward_schedule to ensure the policy is updated.
-    trained_policy = train_policy_gradient(
+    result = train_policy_gradient(
         env_id=env_id,
         policy=policy,
         n_iterations=n_iterations,
@@ -395,27 +401,83 @@ def test_train_policy_gradient_updates_policy(env_id: str, n_iterations: int, n_
         step_size_config=TNPGStepSizeConfig(lr=lr),
         is_slippery=False,
         reward_schedule=(1, 1, 1),
-        n_iters_cg=2,
-        n_samples_fim=20,
+        cg_config=TNPGConjugateGradientConfig(n_iters=2, n_samples_fim=20),
     )
 
-    assert trained_policy is not None
-    assert isinstance(trained_policy, LinearSoftMax)
-    assert trained_policy is policy
+    assert result.policy is not None
+    assert isinstance(result.policy, LinearSoftMax)
+    assert result.policy is policy
+    assert result.total_rewards.shape == (n_iterations,)
 
     updated_parameters = list(policy.get_parameters())
     parameter_diff = original_parameters[0].detach().numpy() - updated_parameters[0].detach().numpy()
     assert np.sum(np.abs(parameter_diff)) > 0
 
 
+def test_tnpg_conjugate_gradient_config_defaults_match_calculate_conjugate_gradient():
+    """Test that TNPGConjugateGradientConfig's n_iters and tol defaults match calculate_conjugate_gradient's."""
+    cg_config = TNPGConjugateGradientConfig()
+    cg_signature = inspect.signature(calculate_conjugate_gradient)
+    assert cg_config.n_iters == cg_signature.parameters['n_iters'].default
+    assert cg_config.tol == cg_signature.parameters['tol'].default
+
+
+def test_tnpg_conjugate_gradient_config_defaults_match_construct_fim_vector_product_fn():
+    """Test TNPGConjugateGradientConfig's n_samples_fim and reg_coeff defaults match construct_fim_vector_product_fn."""
+    cg_config = TNPGConjugateGradientConfig()
+    fim_signature = inspect.signature(construct_fim_vector_product_fn)
+    assert cg_config.n_samples_fim == fim_signature.parameters['n_samples_fim'].default
+    assert cg_config.reg_coeff == fim_signature.parameters['reg_coeff'].default
+
+
 def test_tnpg_step_size_config_raises_when_both_scheduler_and_trust_region_given():
     """Test that TNPGStepSizeConfig raises a ValueError when both lr_scheduler_fn and trust_region_config are set."""
     with pytest.raises(ValueError):
         TNPGStepSizeConfig(
-            lr=0.1,
             lr_scheduler_fn=lambda optimizer: None,
             trust_region_config=TrustRegionConfig(delta=0.01),
         )
+
+
+@pytest.mark.parametrize(
+    'lr, trust_region_config',
+    [
+        (0.1, None),
+        (None, TrustRegionConfig(delta=0.01)),
+    ],
+)
+def test_tnpg_step_size_config_valid_combinations(lr, trust_region_config):
+    """
+    Test that TNPGStepSizeConfig accepts lr given alone, or trust_region_config given alone.
+
+    Args:
+        lr: The lr value to construct TNPGStepSizeConfig with.
+        trust_region_config: The trust_region_config value to construct TNPGStepSizeConfig with.
+
+    """
+    config = TNPGStepSizeConfig(lr=lr, trust_region_config=trust_region_config)
+    assert config.lr == lr
+    assert config.trust_region_config == trust_region_config
+
+
+@pytest.mark.parametrize(
+    'lr, trust_region_config',
+    [
+        (None, None),
+        (0.1, TrustRegionConfig(delta=0.01)),
+    ],
+)
+def test_tnpg_step_size_config_raises_for_invalid_lr_trust_region_combinations(lr, trust_region_config):
+    """
+    Test TNPGStepSizeConfig raises a ValueError unless exactly one of lr and trust_region_config is given.
+
+    Args:
+        lr: The lr value to construct TNPGStepSizeConfig with.
+        trust_region_config: The trust_region_config value to construct TNPGStepSizeConfig with.
+
+    """
+    with pytest.raises(ValueError):
+        TNPGStepSizeConfig(lr=lr, trust_region_config=trust_region_config)
 
 
 def test_train_policy_gradient_uses_trust_region_step_size(monkeypatch):
@@ -435,7 +497,7 @@ def test_train_policy_gradient_uses_trust_region_step_size(monkeypatch):
 
     monkeypatch.setattr(
         'tfrlrl.training_algorithms.tnpg.calculate_trust_region_step_size',
-        lambda quadratic_form, delta: fixed_step_size,
+        lambda quadratic_form, delta, eps: fixed_step_size,
     )
 
     created_optimizers = []
@@ -463,10 +525,107 @@ def test_train_policy_gradient_uses_trust_region_step_size(monkeypatch):
         policy=policy,
         n_iterations=n_iterations,
         n_episodes=5,
-        step_size_config=TNPGStepSizeConfig(lr=1.0, trust_region_config=TrustRegionConfig(delta=0.01)),
+        step_size_config=TNPGStepSizeConfig(trust_region_config=TrustRegionConfig(delta=0.01)),
         is_slippery=False,
-        n_iters_cg=2,
+        cg_config=TNPGConjugateGradientConfig(n_iters=2),
     )
 
     assert len(created_optimizers) == 1
     assert created_optimizers[0].recorded_lrs == [fixed_step_size] * n_iterations
+
+
+def test_train_policy_gradient_plumbs_trust_region_eps(monkeypatch):
+    """
+    Test that train_policy_gradient passes trust_region_config.eps through to calculate_trust_region_step_size.
+
+    Args:
+        monkeypatch: The PyTest monkeypatch fixture, used to mock calculate_trust_region_step_size and capture
+        the eps value it is called with.
+
+    """
+    custom_eps = 0.1
+    recorded_eps = []
+
+    def _fake_calculate_trust_region_step_size(quadratic_form, delta, eps):
+        recorded_eps.append(eps)
+        return 0.123
+
+    monkeypatch.setattr(
+        'tfrlrl.training_algorithms.tnpg.calculate_trust_region_step_size',
+        _fake_calculate_trust_region_step_size,
+    )
+
+    env_id = 'FrozenLake-v1'
+    env = gym.make(env_id)
+    feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+    policy = LinearSoftMax(env_id, feature_fn)
+
+    n_iterations = 3
+    train_policy_gradient(
+        env_id=env_id,
+        policy=policy,
+        n_iterations=n_iterations,
+        n_episodes=5,
+        step_size_config=TNPGStepSizeConfig(trust_region_config=TrustRegionConfig(delta=0.01, eps=custom_eps)),
+        is_slippery=False,
+        cg_config=TNPGConjugateGradientConfig(n_iters=2),
+    )
+
+    assert recorded_eps == [custom_eps] * n_iterations
+
+
+def test_train_policy_gradient_keeps_previous_lr_on_nan_trust_region_step_size(monkeypatch, caplog):
+    """
+    Test that train_policy_gradient keeps the previous lr when the trust-region step size is NaN.
+
+    This verifies the documented fallback behaviour of TNPGStepSizeConfig: when trust_region_config is given
+    and calculate_trust_region_step_size yields a degenerate (NaN) value on a given iteration, the previous
+    iteration's step size should be reused rather than the lr being updated to an invalid value, and a
+    warning should be logged.
+
+    Args:
+        monkeypatch: The PyTest monkeypatch fixture, used to mock calculate_trust_region_step_size and capture
+        the optimizer's learning rate at each step.
+        caplog: The PyTest caplog fixture, used to verify that a warning is logged when the step size is NaN.
+
+    """
+    step_sizes = iter([0.1, float('nan'), 0.2])
+
+    monkeypatch.setattr(
+        'tfrlrl.training_algorithms.tnpg.calculate_trust_region_step_size',
+        lambda quadratic_form, delta, eps: next(step_sizes),
+    )
+
+    created_optimizers = []
+
+    class _RecordingSGD(SGD):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.recorded_lrs = []
+            created_optimizers.append(self)
+
+        def step(self, *args, **kwargs):
+            self.recorded_lrs.append(self.param_groups[0]['lr'])
+            return super().step(*args, **kwargs)
+
+    monkeypatch.setattr('tfrlrl.training_algorithms.tnpg.SGD', _RecordingSGD)
+
+    env_id = 'FrozenLake-v1'
+    env = gym.make(env_id)
+    feature_fn = OneHotFeatureFunction(env.observation_space.n, env.action_space.n)
+    policy = LinearSoftMax(env_id, feature_fn)
+
+    with caplog.at_level(logging.WARNING, logger='tfrlrl.training_algorithms.tnpg'):
+        train_policy_gradient(
+            env_id=env_id,
+            policy=policy,
+            n_iterations=3,
+            n_episodes=5,
+            step_size_config=TNPGStepSizeConfig(trust_region_config=TrustRegionConfig(delta=0.01)),
+            is_slippery=False,
+            cg_config=TNPGConjugateGradientConfig(n_iters=2),
+        )
+
+    assert len(created_optimizers) == 1
+    assert created_optimizers[0].recorded_lrs == [0.1, 0.1, 0.2]
+    assert sum('NaN' in record.message for record in caplog.records) == 1

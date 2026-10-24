@@ -82,7 +82,7 @@ class TestTrainPolicyGradient:
         optimizer = SGD(policy.get_parameters(), lr=alpha)
 
         # Train the policy
-        trained_policy = train_policy_gradient(
+        result = train_policy_gradient(
             env_id=env_id,
             policy=policy,
             n_iterations=n_iterations,
@@ -92,14 +92,15 @@ class TestTrainPolicyGradient:
         )
 
         # Verify that a policy is returned
-        assert trained_policy is not None
+        assert result.policy is not None
         if env_id == 'InvertedPendulum-v5':
-            assert isinstance(trained_policy, DenseNetworkPolicy)
+            assert isinstance(result.policy, DenseNetworkPolicy)
         else:
-            assert isinstance(trained_policy, LinearSoftMax)
+            assert isinstance(result.policy, LinearSoftMax)
 
         # Verify that the returned policy is the same object that was passed in
-        assert trained_policy is policy
+        assert result.policy is policy
+        assert result.total_rewards.shape == (n_iterations,)
 
     @pytest.mark.parametrize('env_id', ['FrozenLake-v1'])
     @given(
@@ -135,7 +136,7 @@ class TestTrainPolicyGradient:
         optimizer = SGD(policy.get_parameters(), lr=alpha)
 
         # Train the policy - We set reward_schedule to ensure the policy is updated.
-        trained_policy = train_policy_gradient(
+        result = train_policy_gradient(
             env_id=env_id,
             policy=policy,
             n_iterations=n_iterations,
@@ -146,11 +147,12 @@ class TestTrainPolicyGradient:
         )
 
         # Verify that a policy is returned
-        assert trained_policy is not None
-        assert isinstance(trained_policy, LinearSoftMax)
+        assert result.policy is not None
+        assert isinstance(result.policy, LinearSoftMax)
 
         # Verify that the returned policy is the same object that was passed in
-        assert trained_policy is policy
+        assert result.policy is policy
+        assert result.total_rewards.shape == (n_iterations,)
 
         updated_parameters = list(policy.get_parameters())
         parameter_diff = original_paramters[0].detach().numpy() - updated_parameters[0].detach().numpy()
@@ -170,7 +172,7 @@ class TestTrainPolicyGradient:
 
         optimizer = SGD(policy.get_parameters(), lr=alpha)
 
-        trained_policy = train_policy_gradient(
+        result = train_policy_gradient(
             env_id=env_id,
             policy=policy,
             n_iterations=n_iterations,
@@ -178,12 +180,13 @@ class TestTrainPolicyGradient:
             optimizer=optimizer,
             is_slippery=False,
         )
+        assert result.total_rewards.shape == (n_iterations,)
 
         statistics_collector = EpisocidPolicyGradientStatisticsCollector(env_id)
         sampler = EpisodicSampler(
             env_id=env_id,
             n_episodes=n_episodes,
-            policy=trained_policy,
+            policy=result.policy,
             statistics_collector=statistics_collector,
             is_slippery=False,
         )
@@ -255,7 +258,7 @@ class TestTrainPolicyGradient:
         optimizer = SGD(policy.get_parameters(), lr=alpha)
 
         # Train the policy
-        trained_policy = train_policy_gradient(
+        result = train_policy_gradient(
             env_id=env_id,
             policy=policy,
             n_iterations=n_iterations,
@@ -266,11 +269,12 @@ class TestTrainPolicyGradient:
         )
 
         # Verify that a policy is returned
-        assert trained_policy is not None
+        assert result.policy is not None
         if env_id == 'InvertedPendulum-v5':
-            assert isinstance(trained_policy, DenseNetworkPolicy)
+            assert isinstance(result.policy, DenseNetworkPolicy)
         else:
-            assert isinstance(trained_policy, LinearSoftMax)
+            assert isinstance(result.policy, LinearSoftMax)
 
         # Verify that the returned policy is the same object that was passed in
-        assert trained_policy is policy
+        assert result.policy is policy
+        assert result.total_rewards.shape == (n_iterations,)

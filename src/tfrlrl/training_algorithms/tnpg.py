@@ -16,10 +16,11 @@ from torch.optim.lr_scheduler import LRScheduler
 from tfrlrl import settings
 from tfrlrl.baselines.linear import Baseline
 from tfrlrl.data_models.reward_models import AverageEpisodicReward, DiscountedReward
+from tfrlrl.data_models.training_results import PolicyGradientTrainingResult
 from tfrlrl.optimisation.conjugate_gradients import calculate_conjugate_gradient
 from tfrlrl.optimisation.trust_region import TrustRegionConfig, calculate_trust_region_step_size
 from tfrlrl.policies.base import BasePyTorchPolicy
-from tfrlrl.policies.utils import flatten_tensor_dict, unflatten_tensor_dict
+from tfrlrl.policies.utils import calculate_jacobian_batch_ndim, flatten_tensor_dict, unflatten_tensor_dict
 from tfrlrl.sampling.episodic_sampler import (
     EpisodicSampler,
     RayEpisodicSampler,
@@ -40,31 +41,63 @@ class TNPGStepSizeConfig:
     By default, i.e. when trust_region_config is not given, the update uses a fixed step size, lr. This is optionally
     controlled over the course of training via lr_scheduler_fn. Alternatively, when trust_region_config is given,
     the step size is instead calculated at each iteration from the trust-region formula of Schulman et al.
-    (2015), "Trust Region Policy Optimization". In this case lr is only used as a fallback step size should the
-    trust-region calculation yield a degenerate (NaN) value.
+    (2015), "Trust Region Policy Optimization", and lr must not be given: should the trust-region calculation
+    yield a degenerate (NaN) value on a given iteration, the previous iteration's step size is reused instead.
 
     Args:
-        lr: The scalar learning rate to use to update the policy parameters (when trust_region_config is None).
-        lr_scheduler_fn:
-        lr: An optional callable that will construct a learning rate scheduler for managing the learning rate. Only
-        valid when trust-region step sizes is not used.
+        lr: The scalar learning rate to use to update the policy parameters. Required when trust_region_config
+        is None, and must not be given when trust_region_config is given.
+        lr_scheduler_fn: An optional callable that will construct a learning rate scheduler for managing the
+        learning rate. Only valid when trust-region step sizes is not used.
         trust_region_config: An optional instance of the TrustRegionConfig dataclass. When given the trust-region step
         sizes will be used.
 
     """
 
-    lr: float
+    lr: Optional[float] = None
     lr_scheduler_fn: Optional[Callable[[Optimizer], LRScheduler]] = None
     trust_region_config: Optional[TrustRegionConfig] = None
 
     def __post_init__(self):
-        """Validate that lr_scheduler_fn and trust_region_config are not both given."""
+        """Validate lr_scheduler_fn/trust_region_config exclusivity, and that lr is given if and only if needed."""
         if self.lr_scheduler_fn is not None and self.trust_region_config is not None:
             raise ValueError(
                 'lr_scheduler_fn and trust_region_config are mutually exclusive: the trust-region step size is '
                 'recalculated every iteration, so any lr_scheduler_fn update to the learning rate would be '
                 'immediately overwritten.'
             )
+        if self.trust_region_config is None and self.lr is None:
+            raise ValueError('lr must be given when trust_region_config is not given.')
+        if self.trust_region_config is not None and self.lr is not None:
+            raise ValueError(
+                'lr must not be given when trust_region_config is given: the trust-region step size is '
+                'recalculated every iteration, and the previous iteration step size is reused as the fallback '
+                'should that calculation yield a degenerate (NaN) value.'
+            )
+
+
+@dataclass
+class TNPGConjugateGradientConfig:
+    """
+    Configuration for the conjugate-gradient and Fisher Information matrix calculations in TNPG.
+
+    Args:
+        n_iters: The maximum number of conjugate-gradient iterations to perform when calculating the
+        truncated natural policy gradient direction. Defaults to the default of calculate_conjugate_gradient.
+        tol: The toleration below which the conjugate-gradient algorithm will terminate. Defaults to the
+        default of calculate_conjugate_gradient.
+        n_samples_fim: The number of state-action pairs to randomly subsample when calculating the Fisher
+        Information matrix-vector product. When not given, all sampled state-action pairs are used. Defaults
+        to the default of construct_fim_vector_product_fn.
+        reg_coeff: A damping coefficient added to the diagonal of the Fisher Information matrix, for
+        numerical stability. Defaults to the default of construct_fim_vector_product_fn.
+
+    """
+
+    n_iters: Optional[int] = None
+    tol: float = 1e-10
+    n_samples_fim: Optional[int] = None
+    reg_coeff: float = 1e-5
 
 
 def calculate_steepest_gradient_direction(
@@ -107,7 +140,7 @@ def construct_fim_vector_product_fn(
     policy: BasePyTorchPolicy,
     statistics: EpisodePolicyGradientStatistics,
     n_samples_fim: Optional[int] = None,
-    reg_coeff: float = 0.0,
+    reg_coeff: float = 1e-5,
 ) -> Callable[[np.ndarray], np.ndarray]:
     """
     Construct function for calculating the product of the Fisher Information matrix with a vector.
@@ -126,7 +159,7 @@ def construct_fim_vector_product_fn(
         least as large as the number of sampled state-action pairs, all of the state-action pairs in
         statistics will be used.
         reg_coeff: A damping coefficient added to the diagonal of the Fisher Information matrix (i.e. F -> F +
-        reg_coeff * I), for numerical stability. Defaults to 0.0, i.e. no damping.
+        reg_coeff * I), for numerical stability. Defaults to 1e-5.
 
     Returns:
         A callable that takes an input vector as an argument and returns the product of the Fisher Information
@@ -146,10 +179,11 @@ def construct_fim_vector_product_fn(
         observations=observations,
         actions=actions,
     )
+    n_leading_dims = calculate_jacobian_batch_ndim(jacobian, dict(policy.network.named_parameters()))
     jacobian_matrix = (
         flatten_tensor_dict(
             jacobian,
-            dim=actions.ndim,
+            dim=n_leading_dims,
         )
         .detach()
         .numpy()
@@ -176,10 +210,9 @@ def train_policy_gradient(
     baseline: Optional[Baseline] = None,
     reward_model: Optional[Union[AverageEpisodicReward, DiscountedReward]] = None,
     n_iteration_logging: int = 10,
-    n_iters_cg: Optional[int] = None,
-    n_samples_fim: Optional[int] = None,
+    cg_config: Optional[TNPGConjugateGradientConfig] = None,
     **kwargs,
-) -> BasePyTorchPolicy:
+) -> PolicyGradientTrainingResult:
     """
     Train a policy using truncated natural policy gradient ascent.
 
@@ -195,19 +228,20 @@ def train_policy_gradient(
         reward_model: The reward model to use when computing total expected rewards. Defaults to
         AverageEpisodicReward if not specified.
         n_iteration_logging: The number of algorithm iterations between logging algorithm performance.
-        n_iters_cg: The maximum number of conjugate-gradient iterations to perform when calculating the
-        truncated natural policy gradient direction. Defaults to the default of calculate_conjugate_gradient.
-        n_samples_fim: The number of state-action pairs to randomly subsample when calculating the Fisher
-        Information matrix-vector product. When not given, all sampled state-action pairs are used.
+        cg_config: Configuration for the conjugate-gradient and Fisher Information matrix calculations. See
+        TNPGConjugateGradientConfig for details. Defaults to TNPGConjugateGradientConfig() when not given.
         kwargs: Additional keyword arguments to pass to the EpisodicSampler (e.g., is_slippery).
 
     Returns:
-        The trained policy.
+        A PolicyGradientTrainingResult containing the trained policy and the mean total episodic reward
+        observed at each training iteration.
 
     """
-    optimizer = SGD(policy.network.parameters(), lr=step_size_config.lr, maximize=True)
-    lr_scheduler = step_size_config.lr_scheduler_fn(optimizer) if step_size_config.lr_scheduler_fn is not None else None
+    cg_config = cg_config if cg_config is not None else TNPGConjugateGradientConfig()
+    total_rewards = np.zeros(n_iterations)
     trust_region_config = step_size_config.trust_region_config
+    optimizer = SGD(policy.network.parameters(), lr=step_size_config.lr or 0.0, maximize=True)
+    lr_scheduler = step_size_config.lr_scheduler_fn(optimizer) if step_size_config.lr_scheduler_fn is not None else None
 
     statistics_collector = EpisocidPolicyGradientStatisticsCollector(
         env_id,
@@ -253,18 +287,27 @@ def train_policy_gradient(
             mat_v_mult_fn=construct_fim_vector_product_fn(
                 policy=policy,
                 statistics=statistics,
-                n_samples_fim=n_samples_fim,
-                reg_coeff=trust_region_config.reg_coeff if trust_region_config is not None else 0.0,
+                n_samples_fim=cg_config.n_samples_fim,
+                reg_coeff=cg_config.reg_coeff,
             ),
             b=sgd,
-            n_iters=n_iters_cg,
+            n_iters=cg_config.n_iters,
+            tol=cg_config.tol,
         )
         if trust_region_config is not None:
             step_size = calculate_trust_region_step_size(
                 quadratic_form=cg_result.quadratic_form,
                 delta=trust_region_config.delta,
+                eps=trust_region_config.eps,
             )
-            optimizer.param_groups[0]['lr'] = step_size if not np.isnan(step_size) else step_size_config.lr
+            if not np.isnan(step_size):
+                optimizer.param_groups[0]['lr'] = step_size
+            else:
+                logger.warning(
+                    'Trust-region step size is NaN on iteration %s; reusing previous iteration step size %s.',
+                    n,
+                    optimizer.param_groups[0]['lr'],
+                )
         logger.debug('Update policy parameters.')
         tngd_dict = unflatten_tensor_dict(
             tensor(cg_result.x),
@@ -277,9 +320,10 @@ def train_policy_gradient(
         if lr_scheduler is not None:
             lr_scheduler.step()
 
+        total_rewards[n] = np.average(statistics.total_reward)
         if n % n_iteration_logging == 0:
             logger.info('Policy update: %s', n)
-            logger.info('Average total episodic reward: %s', np.average(statistics.total_reward))
+            logger.info('Average total episodic reward: %s', total_rewards[n])
 
         if baseline:
             baseline.fit(statistics.baseline_features, statistics.baseline_targets)
@@ -290,4 +334,4 @@ def train_policy_gradient(
             baseline_state_dict=baseline.get_state() if baseline else None,
         )
 
-    return policy
+    return PolicyGradientTrainingResult(policy=policy, total_rewards=total_rewards)

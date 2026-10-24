@@ -16,6 +16,7 @@ from torch import (
 from torch.distributions.normal import Normal
 from torch.func import functional_call
 
+from tfrlrl.nn.initialisation import WEIGHT_INIT_REGISTRY, validate_weight_init_name
 from tfrlrl.policies.base import BasePyTorchPolicy, PolicyException
 
 
@@ -36,6 +37,8 @@ class DenseNetworkPolicyConfig:
             during similation.
         init_std: The initialisation of the standard deviation. Only used when std_parameterisation is global.
         learn_std: Whether the standard deviation is learnable. Only used when std_parameterisation is global.
+        weight_init: The name of the weight-initialisation scheme to apply to the network's linear layers. See
+        tfrlrl.nn.initialisation.WEIGHT_INIT_REGISTRY for the available schemes.
 
     """
 
@@ -43,13 +46,15 @@ class DenseNetworkPolicyConfig:
     std_parameterisation: str = 'global'
     init_std: float = 1.0
     learn_std: bool = True
+    weight_init: str = 'pytorch_default'
 
     def __post_init__(self):
-        """Validate the standard deviation parameterisation."""
+        """Validate the standard deviation parameterisation and weight-initialisation scheme."""
         if self.std_parameterisation not in ('network', 'global'):
             raise PolicyException(
                 f"std_parameterisation must be one of 'network' or 'global', got '{self.std_parameterisation}'.",
             )
+        validate_weight_init_name(self.weight_init)
 
 
 class DensePolicyNetwork(nn.Module):
@@ -95,16 +100,26 @@ class DensePolicyNetwork(nn.Module):
         )
 
         # Policy Mean specific Linear Layer
-        self.policy_mean_net = nn.Sequential(nn.Linear(hidden_space_dims[-1], action_space_dims))
+        policy_mean_layer = nn.Linear(hidden_space_dims[-1], action_space_dims)
+        self.policy_mean_net = nn.Sequential(policy_mean_layer)
 
         # Policy Std Dev specific parameterisation, either a network or a global, state-independent vector.
         if config.std_parameterisation == 'network':
-            self.policy_stddev_net = nn.Sequential(nn.Linear(hidden_space_dims[-1], action_space_dims))
+            policy_stddev_layer = nn.Linear(hidden_space_dims[-1], action_space_dims)
+            self.policy_stddev_net = nn.Sequential(policy_stddev_layer)
         else:
             self.log_std = nn.Parameter(
                 full((action_space_dims,), math.log(config.init_std)),
                 requires_grad=config.learn_std,
             )
+
+        role_init_fns = WEIGHT_INIT_REGISTRY[config.weight_init]
+        for layer in self.shared_net:
+            if isinstance(layer, nn.Linear):
+                role_init_fns['hidden'](layer)
+        role_init_fns['output'](policy_mean_layer)
+        if config.std_parameterisation == 'network':
+            role_init_fns['output'](policy_stddev_layer)
 
     def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
         """
@@ -192,15 +207,20 @@ class DenseNetworkPolicy(BasePyTorchPolicy):
             actions: The actions taken in the given observation state.
 
         Returns:
-            A Tensor containing the log-probabilities of the policy for the given observation-action pairs. The shape
-            of the output is expected to be either (n_observation) or (1, n_observations).
+            A Tensor containing the log-probabilities of the policy for the given observation-action pairs, summed
+            over the action dimensions (treating them as independent, i.e. a diagonal covariance Gaussian). The
+            shape of the output is (n_observations,).
 
         """
         action_means, action_stddevs = self.network(tensor(observations).T)
-        return Normal(
-            action_means[:, 0] + self.eps,
-            action_stddevs[:, 0] + self.eps,
-        ).log_prob(tensor(actions))
+        return (
+            Normal(
+                action_means + self.eps,
+                action_stddevs + self.eps,
+            )
+            .log_prob(tensor(actions).T)
+            .sum(dim=-1)
+        )
 
     def make_log_prob_fn(self, observations: np.ndarray, actions: np.ndarray) -> Tuple[Callable[[Dict], Tensor], Dict]:
         """
@@ -225,9 +245,13 @@ class DenseNetworkPolicy(BasePyTorchPolicy):
         def log_prob_fn(params):
             action_means, action_stddevs = functional_call(self.network, params, (tensor(observations).T,))
 
-            return Normal(
-                action_means[:, 0] + self.eps,
-                action_stddevs[:, 0] + self.eps,
-            ).log_prob(tensor(actions))
+            return (
+                Normal(
+                    action_means + self.eps,
+                    action_stddevs + self.eps,
+                )
+                .log_prob(tensor(actions).T)
+                .sum(dim=-1)
+            )
 
         return log_prob_fn, params

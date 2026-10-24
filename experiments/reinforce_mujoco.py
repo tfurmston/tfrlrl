@@ -15,6 +15,7 @@ from torch.optim import (
     AdamW,
 )
 
+from tfrlrl.evaluation.plotting import plot_training_rewards
 from tfrlrl.evaluation.video import construct_video_evaluation
 from tfrlrl.policies.dense_neural_network import (
     DenseNetworkPolicy,
@@ -38,10 +39,11 @@ def parse_args(args=None):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        '--video-directory',
+        '--experiment-directory',
         type=str,
         required=True,
-        help='The directory to which evaluation videos should be saved.',
+        help='The directory to which experiment outputs should be saved. Evaluation videos are saved to a '
+        "'videos' subdirectory, and training reward plots to a 'plots' subdirectory.",
     )
     parser.add_argument(
         '--video-prefix',
@@ -88,12 +90,12 @@ def main(args=None):
             environment_id,
             policy,
             n_eval_episodes,
-            '/'.join([parsed_args.video_directory, f'initial_policy_{i}']),
+            '/'.join([parsed_args.experiment_directory, 'videos', f'initial_policy_{i}']),
             parsed_args.video_prefix,
         )
 
         optimizer = AdamW(policy.get_parameters(), lr=alpha)
-        policy = train_policy_gradient(
+        result = train_policy_gradient(
             env_id=environment_id,
             policy=policy,
             n_iterations=n_iterations,
@@ -102,12 +104,19 @@ def main(args=None):
             n_samplers=n_samplers,
             n_iteration_logging=1000,
         )
+        policy = result.policy
+
+        plot_training_rewards(
+            result.total_rewards,
+            '/'.join([parsed_args.experiment_directory, 'plots', f'training_rewards_{i}.png']),
+            title=f'REINFORCE on {environment_id} (seed {seed})',
+        )
 
         construct_video_evaluation(
             environment_id,
             policy,
             n_eval_episodes,
-            '/'.join([parsed_args.video_directory, f'training_run_{i}']),
+            '/'.join([parsed_args.experiment_directory, 'videos', f'training_run_{i}']),
             parsed_args.video_prefix,
         )
 
