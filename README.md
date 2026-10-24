@@ -138,7 +138,10 @@ The library uses Dynaconf for configuration management. Settings can be controll
 
 ## Experiments
 
-The `experiments` folder contains a range of experiments using this library. At present, it consists of a single simple example using the REINFORCE algorithm to train the inverted pendulum environment. In due course, it is intended to be a growing set of experiments of algorithms on different environments. 
+The `experiments` folder contains a range of experiments using this library. It consists of the following:
+
+- A simple example using the REINFORCE algorithm to train the inverted pendulum environment. 
+- An application of truncated natural policy gradients to the Swimmer environment. 
 
 ## Development Guidelines
 
