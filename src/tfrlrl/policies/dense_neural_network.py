@@ -100,11 +100,13 @@ class DensePolicyNetwork(nn.Module):
         )
 
         # Policy Mean specific Linear Layer
-        self.policy_mean_net = nn.Sequential(nn.Linear(hidden_space_dims[-1], action_space_dims))
+        policy_mean_layer = nn.Linear(hidden_space_dims[-1], action_space_dims)
+        self.policy_mean_net = nn.Sequential(policy_mean_layer)
 
         # Policy Std Dev specific parameterisation, either a network or a global, state-independent vector.
         if config.std_parameterisation == 'network':
-            self.policy_stddev_net = nn.Sequential(nn.Linear(hidden_space_dims[-1], action_space_dims))
+            policy_stddev_layer = nn.Linear(hidden_space_dims[-1], action_space_dims)
+            self.policy_stddev_net = nn.Sequential(policy_stddev_layer)
         else:
             self.log_std = nn.Parameter(
                 full((action_space_dims,), math.log(config.init_std)),
@@ -115,9 +117,9 @@ class DensePolicyNetwork(nn.Module):
         for layer in self.shared_net:
             if isinstance(layer, nn.Linear):
                 role_init_fns['hidden'](layer)
-        role_init_fns['output'](self.policy_mean_net[0])
+        role_init_fns['output'](policy_mean_layer)
         if config.std_parameterisation == 'network':
-            role_init_fns['output'](self.policy_stddev_net[0])
+            role_init_fns['output'](policy_stddev_layer)
 
     def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
         """
