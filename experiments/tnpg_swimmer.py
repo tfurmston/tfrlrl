@@ -1,3 +1,14 @@
+"""
+Script provides a recreation of the results of truncated natural policy-gradients on the Swimmer environment, https://arxiv.org/abs/1604.06778.
+
+This is not a direct replication of the results in that paper. In particular, we have the following differences:
+- It is a different instance of the Swimmer environment, with this script using version 5 of the Mujoco Swimmer
+environment, whereas the benchmarking paper uses its own vendored version of the environment (pinned to
+git+https://github.com/inksci/mujoco-py-v0.5.7.git). See the RLLab codebase for more details.
+- Following the paper, https://arxiv.org/abs/2208.07587, we set the discount factor to 0.999999
+- While most hyperparameters are the same, the number of training iterations is increased to 3000.
+"""
+
 import argparse
 import logging
 import random
